@@ -2,6 +2,8 @@
 
 A professional Go CLI chat client supporting multiple AI platforms with web search integration.
 
+**Cha-Go** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains 95%+ of the core features of Cha with significantly improved performance - delivering **6.84x faster** execution compared to the original Python version.
+
 ## Features
 
 - **Multi-platform support**: OpenAI, Groq, DeepSeek, Anthropic, XAI
