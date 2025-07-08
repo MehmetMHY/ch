@@ -3,28 +3,18 @@
 import os
 import sys
 import subprocess
+import yaml
+import time
 from pathlib import Path
 
-# Try to import yaml, handle missing dependency gracefully
-try:
-    import yaml
-
-    YAML_AVAILABLE = True
-except ImportError:
-    YAML_AVAILABLE = False
-    print("Warning: PyYAML is not installed.")
-    print("To install PyYAML, run: pip3 install PyYAML")
-    print("JSON format will not be automatically enabled in settings.yml")
-    print()
-
-# Default values
+# default values
 DEFAULT_PORT = "8080"
 DEFAULT_NAME = "searxng-search"
 DEFAULT_URL = "http://localhost"
 
 
 def check_docker():
-    """Check if Docker is running"""
+    """check if docker is running"""
     try:
         subprocess.run(["docker", "info"], capture_output=True, check=True)
         return True
@@ -34,13 +24,13 @@ def check_docker():
 
 
 def get_user_input(prompt, default_value):
-    """Get user input with default value"""
+    """get user input with default value"""
     user_input = input(f"{prompt} (default {default_value}): ").strip()
     return user_input if user_input else default_value
 
 
 def check_running_container(port):
-    """Check if a container is already running on the specified port"""
+    """check if a container is already running on the specified port"""
     try:
         result = subprocess.run(
             ["docker", "ps", "--filter", f"publish={port}", "--format", "{{.ID}}"],
@@ -54,7 +44,7 @@ def check_running_container(port):
 
 
 def stop_container(container_id):
-    """Stop a running container"""
+    """stop a running container"""
     try:
         subprocess.run(["docker", "stop", container_id], check=True)
         return True
@@ -63,7 +53,7 @@ def stop_container(container_id):
 
 
 def update_searxng_image():
-    """Pull the latest SearXNG image"""
+    """pull the latest searxng image"""
     try:
         print("Pulling latest searxng image...")
         subprocess.run(["docker", "pull", "searxng/searxng"], check=True)
@@ -73,15 +63,65 @@ def update_searxng_image():
         return False
 
 
-def enable_json_format():
-    """Check and enable JSON format in settings.yml if needed"""
-    if not YAML_AVAILABLE:
-        print("PyYAML not available - skipping JSON format configuration")
-        print(
-            "You may need to manually add 'json' to the formats section in settings.yml"
+def create_initial_config(port, name, base_url):
+    """create initial searxng configuration by running container briefly"""
+    try:
+        print("Creating initial SearXNG configuration...")
+
+        # get current directory for volume mount
+        current_dir = os.getcwd()
+
+        # run container to create initial config
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-d",
+                "-p",
+                f"{port}:8080",
+                "-v",
+                f"{current_dir}/searxng:/etc/searxng",
+                "-e",
+                f"BASE_URL={base_url}:{port}/",
+                "-e",
+                f"INSTANCE_NAME={name}",
+                "--name",
+                f"{name}-init",
+                "searxng/searxng",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
         )
+
+        container_id = result.stdout.strip()
+
+        # wait a few seconds for config to be created
+        print("Waiting for configuration to be created...")
+        time.sleep(5)
+
+        # stop the container
+        subprocess.run(["docker", "stop", container_id], check=True)
+
+        # verify that settings.yml was created
+        settings_file = Path("searxng/settings.yml")
+        if settings_file.exists():
+            print("Initial configuration created successfully")
+            return True
+        else:
+            print("Error: Configuration file was not created")
+            return False
+
+    except subprocess.CalledProcessError as e:
+        print("Error: Failed to create initial configuration")
+        if e.stderr:
+            print(f"Error details: {e.stderr}")
         return False
 
+
+def enable_json_format():
+    """check and enable json format in settings.yml if needed"""
     settings_file = Path("searxng/settings.yml")
 
     if not settings_file.exists():
@@ -92,33 +132,33 @@ def enable_json_format():
     print("Checking SearXNG settings for JSON format support...")
 
     try:
-        # Load the YAML file
+        # load the yaml file
         with open(settings_file, "r") as file:
             settings = yaml.safe_load(file)
 
-        # Check if search section and formats exist
+        # check if search section and formats exist
         if "search" not in settings:
             settings["search"] = {}
 
         if "formats" not in settings["search"]:
             settings["search"]["formats"] = ["html"]
 
-        # Check if json format is already enabled
+        # check if json format is already enabled
         formats = settings["search"]["formats"]
         if "json" in formats:
             print("JSON format already enabled in settings.yml")
             return True
 
-        # Add json format
+        # add json format
         print("Enabling JSON format in settings.yml...")
         formats.append("json")
 
-        # Create backup
+        # create backup
         backup_file = settings_file.with_suffix(".yml.bak")
         if settings_file.exists():
             subprocess.run(["cp", str(settings_file), str(backup_file)], check=True)
 
-        # Write updated settings
+        # write updated settings
         with open(settings_file, "w") as file:
             yaml.dump(settings, file, default_flow_style=False, sort_keys=False)
 
@@ -134,11 +174,11 @@ def enable_json_format():
 
 
 def start_searxng_container(port, name, base_url):
-    """Start the SearXNG container"""
+    """start the searxng container"""
     try:
         print("Starting SearXNG container...")
 
-        # Get current directory for volume mount
+        # get current directory for volume mount
         current_dir = os.getcwd()
 
         result = subprocess.run(
@@ -178,17 +218,17 @@ def start_searxng_container(port, name, base_url):
 
 
 def main():
-    """Main function"""
-    # Check if Docker is running
+    """main function"""
+    # check if docker is running
     if not check_docker():
         sys.exit(1)
 
-    # Get user inputs
+    # get user inputs
     port = get_user_input("Enter port", DEFAULT_PORT)
     name = get_user_input("Enter instance name", DEFAULT_NAME)
     base_url = get_user_input("Enter base URL", DEFAULT_URL)
 
-    # Check for running container on the same port
+    # check for running container on the same port
     running_container = check_running_container(port)
     if running_container:
         stop_choice = (
@@ -204,17 +244,27 @@ def main():
             print("Exiting without changes.")
             sys.exit(0)
 
-    # Ask about updating the image
+    # ask about updating the image
     update_choice = (
         input("Do you want to update the searxng image? (y/n): ").strip().lower()
     )
     if update_choice == "y":
         update_searxng_image()
 
-    # Enable JSON format in settings
+    # check if searxng configuration directory exists
+    searxng_dir = Path("searxng")
+    settings_file = Path("searxng/settings.yml")
+
+    if not searxng_dir.exists() or not settings_file.exists():
+        print("SearXNG configuration not found. Creating initial configuration...")
+        if not create_initial_config(port, name, base_url):
+            print("Error: Failed to create initial configuration. Exiting.")
+            sys.exit(1)
+
+    # enable json format in settings
     enable_json_format()
 
-    # Start the container
+    # start the container
     if start_searxng_container(port, name, base_url):
         sys.exit(0)
     else:
