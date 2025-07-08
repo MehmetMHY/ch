@@ -7,6 +7,7 @@ A professional Go CLI chat client supporting multiple AI platforms with web sear
 - **Multi-platform support**: OpenAI, Groq, DeepSeek, Anthropic, XAI
 - **Interactive & Direct modes**: Chat interactively or run single queries
 - **Web search integration**: SearXNG with IEEE citation format
+- **File/directory loading**: Load text files into chat context with multi-select
 - **Chat history export**: Export conversations to files
 - **Terminal input mode**: Use your preferred editor for complex prompts
 - **Model switching**: Easily switch between different AI models
@@ -101,6 +102,7 @@ When running in interactive mode, you can use these commands:
 - `!t` - Terminal input mode (opens your editor)
 - `!e` - Export chat history to file
 - `!w [query]` - Web search with AI analysis
+- `!l` - Load files/directories into chat context
 
 ## Web Search Setup
 
@@ -172,6 +174,7 @@ Commands:
   • !e - Export chat
   • !h - Help
   • !w [query] - Web search
+  • !l - Load files/directories
 
 User: !p groq
 # Fuzzy finder opens with available platforms
