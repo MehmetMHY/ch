@@ -1,4 +1,4 @@
-module cha-go
+module github.com/MehmetMHY/cha-go
 
 go 1.21
 
