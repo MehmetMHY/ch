@@ -71,7 +71,7 @@ that spans multiple lines
 and can contain complex formatting
 ^D
 > This is a longer message
-> that spans multiple lines  
+> that spans multiple lines
 > and can contain complex formatting
 [AI response appears here]
 ```

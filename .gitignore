@@ -32,3 +32,5 @@ go.work.sum
 # Custom
 .DS_Store
 cha-go
+sxng/searxng/
+cha_*.txt
