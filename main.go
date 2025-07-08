@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -154,7 +155,7 @@ func main() {
 	if *platformFlag != "" {
 		result, err := autoSelectPlatform(*platformFlag, *modelFlag)
 		if err != nil {
-			fmt.Printf("\033[91mError: %v\033[0m\n", err)
+			fmt.Printf("\033[91m%v\033[0m\n", err)
 			return
 		}
 		if result != nil {
@@ -180,7 +181,7 @@ func main() {
 		query := strings.Join(remainingArgs, " ")
 		err := processDirectQuery(query)
 		if err != nil {
-			fmt.Printf("\033[91mError: %v\033[0m\n", err)
+			fmt.Printf("\033[91m%v\033[0m\n", err)
 		}
 		return
 	}
@@ -189,12 +190,26 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	
 	for {
-		fmt.Print("\033[94mUser: \033[0m")
-		if !scanner.Scan() {
+		// Check if stdin is from a pipe/redirect and we've processed everything
+		if !isTerminal() && !scanner.Scan() {
 			break
 		}
 		
-		input := strings.TrimSpace(scanner.Text())
+		// Only print prompt if we're in an actual terminal
+		if isTerminal() {
+			fmt.Print("\033[94mUser: \033[0m")
+		}
+		
+		// Read input if we haven't already
+		var input string
+		if isTerminal() {
+			if !scanner.Scan() {
+				break
+			}
+			input = strings.TrimSpace(scanner.Text())
+		} else {
+			input = strings.TrimSpace(scanner.Text())
+		}
 		
 		if input == "" {
 			continue
@@ -202,6 +217,10 @@ func main() {
 		
 		// Handle special commands
 		if handleSpecialCommands(input) {
+			// If not in terminal (piped input), exit after handling special commands
+			if !isTerminal() {
+				break
+			}
 			continue
 		}
 		
@@ -218,7 +237,7 @@ func main() {
 		// Send to current platform
 		response, err := sendChatRequest(input)
 		if err != nil {
-			fmt.Printf("\033[91mError: %v\033[0m\n", err)
+			fmt.Printf("\033[91m%v\033[0m\n", err)
 			continue
 		}
 		
@@ -256,6 +275,7 @@ func showHelp() {
 	fmt.Printf("  %s - Show help\n", config.HelpKey)
 	fmt.Println("  !p - Switch platforms (interactive)")
 	fmt.Println("  !p [platform] - Switch to specific platform")
+	fmt.Println("  !w [query] - Web search using SearXNG (requires SearXNG running on localhost:8080)")
 }
 
 func printTitle() {
@@ -268,6 +288,7 @@ func printTitle() {
 	fmt.Printf("\033[93m  • %s - Clear history\033[0m\n", config.ClearHistory)
 	fmt.Printf("\033[93m  • %s - Export chat\033[0m\n", config.ExportChat)
 	fmt.Printf("\033[93m  • %s - Help\033[0m\n", config.HelpKey)
+	fmt.Printf("\033[93m  • !w [query] - Web search\033[0m\n")
 }
 
 func initializeClient() error {
@@ -298,6 +319,11 @@ func initializeClient() error {
 
 
 func processDirectQuery(query string) error {
+	// Handle special commands first
+	if handleSpecialCommands(query) {
+		return nil // Exit cleanly after handling special commands
+	}
+	
 	// Add user message to history
 	messages = append(messages, ChatMessage{Role: "user", Content: query})
 	
@@ -347,7 +373,7 @@ func handleSpecialCommands(input string) bool {
 	case input == "!p":
 		result, err := autoSelectPlatform("", "")
 		if err != nil {
-			fmt.Printf("\033[91mError: %v\033[0m\n", err)
+			fmt.Printf("\033[91m%v\033[0m\n", err)
 		} else if result != nil {
 			config.CurrentPlatform = result["platform_name"].(string)
 			config.CurrentModel = result["picked_model"].(string)
@@ -362,7 +388,7 @@ func handleSpecialCommands(input string) bool {
 		platformName := strings.TrimPrefix(input, "!p ")
 		result, err := autoSelectPlatform(platformName, "")
 		if err != nil {
-			fmt.Printf("\033[91mError: %v\033[0m\n", err)
+			fmt.Printf("\033[91m%v\033[0m\n", err)
 		} else if result != nil {
 			config.CurrentPlatform = result["platform_name"].(string)
 			config.CurrentModel = result["picked_model"].(string)
@@ -371,6 +397,51 @@ func handleSpecialCommands(input string) bool {
 				fmt.Printf("\033[91mError initializing client: %v\033[0m\n", err)
 			}
 		}
+		return true
+		
+	case strings.HasPrefix(input, "!w "):
+		searchQuery := strings.TrimPrefix(input, "!w ")
+		if strings.TrimSpace(searchQuery) == "" {
+			fmt.Printf("\033[91mPlease provide a search query after !w\033[0m\n")
+			return true
+		}
+		
+		// Perform SearXNG search
+		searchResults, err := performSearXNGSearch(searchQuery)
+		if err != nil {
+			fmt.Printf("\033[91m%v\033[0m\n", err)
+			return true
+		}
+		
+		// Create context for the AI model with search results
+		searchContext := formatSearchResults(searchResults, searchQuery)
+		
+		// Add search context to messages
+		messages = append(messages, ChatMessage{Role: "user", Content: searchContext})
+		
+		// Create chat history entry
+		historyEntry := ChatHistory{
+			Time: time.Now().Unix(),
+			User: fmt.Sprintf("!w %s", searchQuery),
+			Bot:  "",
+		}
+		
+		// Send to AI model
+		response, err := sendChatRequest(searchContext)
+		if err != nil {
+			fmt.Printf("\033[91mError generating response: %v\033[0m\n", err)
+			return true
+		}
+		
+		// Add response to messages and history
+		messages = append(messages, ChatMessage{Role: "assistant", Content: response})
+		historyEntry.Bot = response
+		chatHistory = append(chatHistory, historyEntry)
+		
+		return true
+		
+	case input == "!w":
+		fmt.Printf("\033[91mPlease provide a search query after !w\033[0m\n")
 		return true
 		
 	case input == config.TerminalInput:
@@ -732,7 +803,7 @@ func terminalInput() {
 	
 	response, err := sendChatRequest(input)
 	if err != nil {
-		fmt.Printf("\033[91mError: %v\033[0m\n", err)
+		fmt.Printf("\033[91m%v\033[0m\n", err)
 		return
 	}
 	
@@ -819,4 +890,114 @@ func sendChatRequest(userInput string) (string, error) {
 		fmt.Println() // New line after streaming
 		return response.String(), nil
 	}
+}
+
+// SearXNG API response structures
+type SearXNGResponse struct {
+	Query         string            `json:"query"`
+	NumberOfResults int             `json:"number_of_results"`
+	Results       []SearXNGResult   `json:"results"`
+	Infoboxes     []interface{}     `json:"infoboxes"`
+	Suggestions   []string          `json:"suggestions"`
+	Answers       []interface{}     `json:"answers"`
+	Corrections   []interface{}     `json:"corrections"`
+	Unresponsive  []interface{}     `json:"unresponsive_engines"`
+}
+
+type SearXNGResult struct {
+	URL         string `json:"url"`
+	Title       string `json:"title"`
+	Content     string `json:"content"`
+	Engine      string `json:"engine"`
+	ParsedURL   []string `json:"parsed_url"`
+	Template    string `json:"template"`
+	Engines     []string `json:"engines"`
+	Positions   []int    `json:"positions"`
+	Score       float64  `json:"score"`
+	Category    string   `json:"category"`
+}
+
+func performSearXNGSearch(query string) ([]SearXNGResult, error) {
+	// Use localhost:8080 as the default SearXNG instance
+	apiURL := "http://localhost:8080/search"
+	
+	// Create HTTP client with timeout
+	client := &http.Client{Timeout: 10 * time.Second}
+	
+	// Build parameters for the search
+	params := url.Values{}
+	params.Add("q", query)
+	params.Add("format", "json")
+	
+	fullURL := fmt.Sprintf("%s?%s", apiURL, params.Encode())
+	
+	// Create request with proper headers
+	req, err := http.NewRequest("GET", fullURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+	
+	// Add headers that SearXNG expects
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	
+	// Make the search request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("SearXNG is not running or not accessible at localhost:8080")
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode == 403 {
+		return nil, fmt.Errorf("SearXNG is blocking API requests. Please check your SearXNG configuration")
+	}
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("SearXNG search failed with status: %d", resp.StatusCode)
+	}
+	
+	var searchResponse SearXNGResponse
+	err = json.NewDecoder(resp.Body).Decode(&searchResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SearXNG response: %v", err)
+	}
+	
+	return searchResponse.Results, nil
+}
+
+func formatSearchResults(results []SearXNGResult, query string) string {
+	if len(results) == 0 {
+		return fmt.Sprintf("I searched for '%s' but didn't find any results. Please try a different query.", query)
+	}
+	
+	var context strings.Builder
+	context.WriteString(fmt.Sprintf("I searched for '%s' and found the following results. Please provide a comprehensive answer based on these sources using IEEE citation format:\n\n", query))
+	
+	// Include up to 8 results to avoid token limits
+	maxResults := 8
+	if len(results) > maxResults {
+		results = results[:maxResults]
+	}
+	
+	for i, result := range results {
+		context.WriteString(fmt.Sprintf("[%d] %s\n", i+1, result.Title))
+		context.WriteString(fmt.Sprintf("URL: %s\n", result.URL))
+		
+		// Clean and truncate content to avoid token limits
+		content := strings.TrimSpace(result.Content)
+		if len(content) > 300 {
+			content = content[:300] + "..."
+		}
+		context.WriteString(fmt.Sprintf("Content: %s\n\n", content))
+	}
+	
+	context.WriteString("Please provide a comprehensive answer based on these search results. Use IEEE citation format with citations like [1], [2], etc., and include a References section at the end listing all sources with their URLs in the format:\n\nReferences:\n[1] Title, URL\n[2] Title, URL\netc.")
+	
+	return context.String()
+}
+
+func isTerminal() bool {
+	fileInfo, _ := os.Stdin.Stat()
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }

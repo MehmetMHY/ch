@@ -8,7 +8,9 @@ SearXNG is an open-source search engine. The catch with it is that you have to h
 
 1. Make sure to install and setup [Docker](https://www.docker.com/)
 
-2. Run the setup script and follow each instruction: `bash ./setup.sh`
+2. Run the setup script and follow each instruction: `bash ./run.sh`
+
+**Note**: The `run.sh` script will automatically enable JSON format in your `settings.yml` file if it's not already enabled. This is required for the `!w` web search feature in Cha to work properly.
 
 ## How To Query the SearXNG API
 

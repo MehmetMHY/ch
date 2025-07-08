@@ -40,6 +40,32 @@ if [[ $UPDATE == "y" ]]; then
 	docker pull searxng/searxng
 fi
 
+# check and modify settings.yml to enable JSON format if needed
+if [ -f "searxng/settings.yml" ]; then
+	echo "Checking SearXNG settings for JSON format support..."
+	
+	# Check if json format is already enabled (exclude comments)
+	if grep -A 10 "formats:" searxng/settings.yml | grep -E "^[[:space:]]*- json" >/dev/null; then
+		echo "JSON format already enabled in settings.yml"
+	else
+		echo "Enabling JSON format in settings.yml..."
+		# Use sed to add json format after the html format line
+		sed -i.bak '/formats:/,/^[[:space:]]*- html/ {
+			/^[[:space:]]*- html/ a\
+    - json
+		}' searxng/settings.yml
+		
+		if [ $? -eq 0 ]; then
+			echo "Successfully enabled JSON format in settings.yml"
+		else
+			echo "Warning: Could not automatically enable JSON format. You may need to manually add 'json' to the formats section in settings.yml"
+		fi
+	fi
+else
+	echo "Note: settings.yml not found. SearXNG will use default settings."
+	echo "JSON format may not be available until you configure settings.yml"
+fi
+
 # run the container
 echo "Starting SearXNG container..."
 docker run --rm \
