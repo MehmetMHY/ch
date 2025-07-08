@@ -1,62 +1,46 @@
-# Cha Uses SearXNG Search Engine
+# SearXNG Search Engine for Cha
 
-## About
+SearXNG is an open-source search engine you host yourself. It's recommended for Cha to enable the `!w` web search feature, avoiding API limits and key management found in other search APIs.
 
-SearXNG is an open-source search engine. The catch with it is that you have to host it. This is easy to do with Docker and the scripts located in this directory but it's not as convenient as using DuckDuckGo's free API. But, DuckDuckGo's free API is limited and you can run into rate limit issues with enough use. Also, using search API(s) can be difficult to setup and you have to manage another API key. Due to this, setting up SearXNG is not required to use Cha but it is heavily recommended you utilize SearXNG. For more information, visit the [SearXNG documentation](https://docs.searxng.org/).
+## Setup
 
-## How To Setup
-
-1. Make sure to install and setup [Docker](https://www.docker.com/)
-
-2. Install Python dependencies (optional, for automatic JSON format configuration):
+1. Install [Docker](https://www.docker.com/).
+2. (Optional) Install Python dependencies:
    ```bash
    pip3 install -r requirements.txt
    ```
-3. Run the setup script and follow each instruction:
+3. Run the setup script:
    ```bash
    python3 run.py
    ```
+   This configures JSON response format in `settings.yml` automatically if PyYAML is installed. Otherwise, add JSON format manually.
 
-**Note**: The `run.py` script will automatically enable JSON format in your `settings.yml` file if PyYAML is installed and JSON format is not already enabled. This is required for the `!w` web search feature in Cha to work properly. If PyYAML is not installed, the script will still work but you'll need to manually add JSON format to your settings.yml.
+## Running
 
-## How To Query the SearXNG API
+Start SearXNG (usually at `http://localhost:8080`) to enable Cha's web search.
 
-After starting your SearXNG instance (by default at `http://localhost:8080`), you can make search queries directly to the API. Use an HTTP `GET` request to the `/search` endpoint with the following parameters:
+## Querying SearXNG API
 
-- `q`: Your search query (required)
-- `format`: Response format, should be `"json"` (required)
-- `time_range`: Filter results by time (optional, values: `"day"`, `"month"`, `"year"`)
-- Additional filters or parameters as supported by SearXNG
+Use HTTP GET `/search` with parameters:
 
-#### Example Request (using `curl`):
+- `q`: search query (required)
+- `format`: must be `"json"` (required)
+- `time_range`: optional filter (`"day"`, `"month"`, `"year"`)
 
-```bash
-curl -G "http://localhost:8080/search" \
-     --data-urlencode "q=your search query" \
-     --data-urlencode "format=json"
-```
-
-#### With a Time Filter:
+Example curl request:
 
 ```bash
-curl -G "http://localhost:8080/search" \
-     --data-urlencode "q=your search query" \
-     --data-urlencode "format=json" \
-     --data-urlencode "time_range=month"
+curl -G "http://localhost:8080/search" --data-urlencode "q=your query" --data-urlencode "format=json"
 ```
 
-#### Example Python (using `requests`):
+Example Python:
 
 ```python
 import requests
 
-base_url = "http://localhost:8080"
-params = {"q": "your search query", "format": "json", "time_range": "month"}
-headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
-
-response = requests.get(f"{base_url}/search", params=params, headers=headers)
-data = response.json()
-print(data)
+params = {"q": "your query", "format": "json"}
+response = requests.get("http://localhost:8080/search", params=params, headers={"User-Agent": "Mozilla/5.0"})
+print(response.json())
 ```
 
-The API will return a JSON object containing your search results.
+This provides JSON results for Cha to use in web-enhanced chat responses.
