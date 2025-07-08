@@ -15,11 +15,11 @@ type ChatHistory struct {
 
 // Platform represents an AI platform configuration
 type Platform struct {
-	Name      string            `json:"name"`
-	BaseURL   string            `json:"base_url"`
-	EnvName   string            `json:"env_name"`
-	Models    PlatformModels    `json:"models"`
-	Headers   map[string]string `json:"headers"`
+	Name    string            `json:"name"`
+	BaseURL string            `json:"base_url"`
+	EnvName string            `json:"env_name"`
+	Models  PlatformModels    `json:"models"`
+	Headers map[string]string `json:"headers"`
 }
 
 // PlatformModels contains model endpoint configuration
@@ -31,31 +31,31 @@ type PlatformModels struct {
 
 // Config holds application configuration
 type Config struct {
-	OpenAIAPIKey      string
-	DefaultModel      string
-	CurrentModel      string
-	SystemPrompt      string
-	ExitKey           string
-	ModelSwitch       string
-	TerminalInput     string
-	ClearHistory      string
-	HelpKey           string
-	ExportChat        string
-	PreferredEditor   string
-	CurrentPlatform   string
-	Platforms         map[string]Platform
+	OpenAIAPIKey    string
+	DefaultModel    string
+	CurrentModel    string
+	SystemPrompt    string
+	ExitKey         string
+	ModelSwitch     string
+	TerminalInput   string
+	ClearHistory    string
+	HelpKey         string
+	ExportChat      string
+	PreferredEditor string
+	CurrentPlatform string
+	Platforms       map[string]Platform
 }
 
 // SearXNGResponse represents the JSON response from SearXNG API
 type SearXNGResponse struct {
-	Query           string            `json:"query"`
-	NumberOfResults int               `json:"number_of_results"`
-	Results         []SearXNGResult   `json:"results"`
-	Infoboxes       []interface{}     `json:"infoboxes"`
-	Suggestions     []string          `json:"suggestions"`
-	Answers         []interface{}     `json:"answers"`
-	Corrections     []interface{}     `json:"corrections"`
-	Unresponsive    []interface{}     `json:"unresponsive_engines"`
+	Query           string          `json:"query"`
+	NumberOfResults int             `json:"number_of_results"`
+	Results         []SearXNGResult `json:"results"`
+	Infoboxes       []interface{}   `json:"infoboxes"`
+	Suggestions     []string        `json:"suggestions"`
+	Answers         []interface{}   `json:"answers"`
+	Corrections     []interface{}   `json:"corrections"`
+	Unresponsive    []interface{}   `json:"unresponsive_engines"`
 }
 
 // SearXNGResult represents a single search result

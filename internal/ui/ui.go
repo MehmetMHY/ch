@@ -94,12 +94,12 @@ func (t *Terminal) ShowLoadingAnimation(message string, done chan bool) {
 func (t *Terminal) FzfSelect(items []string, prompt string) (string, error) {
 	cmd := exec.Command("fzf", "--reverse", "--height=40%", "--border", "--prompt="+prompt)
 	cmd.Stdin = strings.NewReader(strings.Join(items, "\n"))
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	
+
 	return strings.TrimSpace(string(output)), nil
 }
 

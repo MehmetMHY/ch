@@ -1,7 +1,3 @@
-<p align="center">
-  <img width="150" src="./assets/logo.png">
-</p>
-
 # Cha-Go
 
 A professional Go CLI chat client supporting multiple AI platforms with web search integration.

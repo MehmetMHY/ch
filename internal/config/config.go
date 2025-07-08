@@ -66,7 +66,7 @@ func DefaultConfig() *types.Config {
 // InitializeAppState creates and returns initial application state
 func InitializeAppState() *types.AppState {
 	config := DefaultConfig()
-	
+
 	return &types.AppState{
 		Config: config,
 		Messages: []types.ChatMessage{

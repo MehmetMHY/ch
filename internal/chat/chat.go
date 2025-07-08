@@ -72,24 +72,24 @@ func (m *Manager) ExportHistory() (string, error) {
 	if len(m.state.ChatHistory) <= 1 {
 		return "", fmt.Errorf("no chat history to export")
 	}
-	
+
 	chatID := uuid.New().String()
 	filename := fmt.Sprintf("cha_go_%s.txt", chatID)
-	
+
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
-	
+
 	fullPath := filepath.Join(currentDir, filename)
-	
+
 	var content strings.Builder
 	content.WriteString(fmt.Sprintf("Cha Go Chat Export\n"))
 	content.WriteString(fmt.Sprintf("Platform: %s\n", m.state.Config.CurrentPlatform))
 	content.WriteString(fmt.Sprintf("Model: %s\n", m.state.Config.CurrentModel))
 	content.WriteString(fmt.Sprintf("Exported: %s\n", time.Now().Format("2006-01-02 15:04:05")))
 	content.WriteString(strings.Repeat("=", 50) + "\n\n")
-	
+
 	for _, entry := range m.state.ChatHistory[1:] {
 		if entry.User != "" {
 			content.WriteString(fmt.Sprintf("User: %s\n\n", entry.User))
@@ -99,12 +99,12 @@ func (m *Manager) ExportHistory() (string, error) {
 			content.WriteString(strings.Repeat("-", 30) + "\n\n")
 		}
 	}
-	
+
 	err = os.WriteFile(fullPath, []byte(content.String()), 0644)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return fullPath, nil
 }
 
@@ -117,36 +117,36 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 			return "", fmt.Errorf("error creating tmp directory: %v", err)
 		}
 	}
-	
+
 	tmpFile, err := ioutil.TempFile(tmpDir, "cha-go-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("error creating temp file: %v", err)
 	}
 	tmpFilePath := tmpFile.Name()
 	tmpFile.Close()
-	
+
 	defer os.Remove(tmpFilePath)
-	
+
 	cmd := exec.Command(m.state.Config.PreferredEditor, tmpFilePath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	err = cmd.Run()
 	if err != nil {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
-	
+
 	content, err := ioutil.ReadFile(tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error reading temp file: %v", err)
 	}
-	
+
 	input := strings.TrimSpace(string(content))
 	if input == "" {
 		return "", fmt.Errorf("no input provided")
 	}
-	
+
 	return input, nil
 }
 
