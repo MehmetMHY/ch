@@ -34,6 +34,9 @@ go mod download
 # Build the project
 make build
 
+# Or use the build script
+./build.sh
+
 # Or build manually
 go build -o bin/cha-go cmd/cha-go/main.go
 ```

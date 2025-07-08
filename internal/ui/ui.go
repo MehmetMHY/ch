@@ -33,24 +33,24 @@ func (t *Terminal) IsTerminal() bool {
 
 // ShowHelp displays the help information
 func (t *Terminal) ShowHelp() {
-	fmt.Println("Simple Go Chat Client")
+	fmt.Println("Cha-Go")
 	fmt.Println("\nUsage:")
-	fmt.Println("  ./cha-go                              # Interactive mode")
-	fmt.Println("  ./cha-go [query]                      # Direct query mode")
-	fmt.Println("  ./cha-go -h                           # Show this help")
-	fmt.Println("  ./cha-go -p [platform]                # Switch platform")
-	fmt.Println("  ./cha-go -m [model]                   # Specify model")
-	fmt.Println("  ./cha-go -p [platform] -m [model] [query]  # Full command")
+	fmt.Println("  ./cha-go")
+	fmt.Println("  ./cha-go [query]")
+	fmt.Println("  ./cha-go -h")
+	fmt.Println("  ./cha-go -p [platform]")
+	fmt.Println("  ./cha-go -m [model]")
+	fmt.Println("  ./cha-go -p [platform] -m [model] [query]")
 	fmt.Println("\nExamples:")
 	fmt.Println("  ./cha-go -p groq what is AI?")
 	fmt.Println("  ./cha-go -p groq -m llama3 what is the goal of life")
 	fmt.Println("  ./cha-go -m gpt-4o explain quantum computing")
-	fmt.Println("\nAvailable platforms:")
+	fmt.Println("\nAvailable Platforms:")
 	fmt.Println("  - openai (default)")
 	for name := range t.config.Platforms {
 		fmt.Printf("  - %s\n", name)
 	}
-	fmt.Println("\nInteractive commands:")
+	fmt.Println("\nInteractive Commands:")
 	fmt.Printf("  %s - Exit\n", t.config.ExitKey)
 	fmt.Printf("  %s - Switch models\n", t.config.ModelSwitch)
 	fmt.Printf("  %s - Terminal input mode\n", t.config.TerminalInput)
@@ -59,8 +59,8 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - Show help\n", t.config.HelpKey)
 	fmt.Println("  !p - Switch platforms (interactive)")
 	fmt.Println("  !p [platform] - Switch to specific platform")
-	fmt.Println("  !w [query] - Web search using SearXNG (requires SearXNG running on localhost:8080)")
-	fmt.Println("  !l - Load files/directories from current directory (supports multi-select with TAB)")
+	fmt.Println("  !w [query] - Web search using SearXNG (running on localhost:8080)")
+	fmt.Println("  !l - Load files/dirs from current dir")
 }
 
 // PrintTitle displays the current session information
