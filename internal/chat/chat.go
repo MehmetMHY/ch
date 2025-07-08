@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -44,9 +45,11 @@ func (m *Manager) AddAssistantMessage(content string) {
 // AddToHistory adds an entry to the chat history
 func (m *Manager) AddToHistory(user, bot string) {
 	m.state.ChatHistory = append(m.state.ChatHistory, types.ChatHistory{
-		Time: time.Now().Unix(),
-		User: user,
-		Bot:  bot,
+		Time:     time.Now().Unix(),
+		User:     user,
+		Bot:      bot,
+		Platform: m.state.Config.CurrentPlatform,
+		Model:    m.state.Config.CurrentModel,
 	})
 }
 
@@ -63,18 +66,18 @@ func (m *Manager) ClearHistory() {
 		{Role: "system", Content: m.state.Config.SystemPrompt},
 	}
 	m.state.ChatHistory = []types.ChatHistory{
-		{Time: time.Now().Unix(), User: m.state.Config.SystemPrompt, Bot: ""},
+		{Time: time.Now().Unix(), User: m.state.Config.SystemPrompt, Bot: "", Platform: m.state.Config.CurrentPlatform, Model: m.state.Config.CurrentModel},
 	}
 }
 
-// ExportHistory exports chat history to a file
+// ExportHistory exports chat history to a JSON file
 func (m *Manager) ExportHistory() (string, error) {
 	if len(m.state.ChatHistory) <= 1 {
 		return "", fmt.Errorf("no chat history to export")
 	}
 
 	chatID := uuid.New().String()
-	filename := fmt.Sprintf("cha_go_%s.txt", chatID)
+	filename := fmt.Sprintf("cha_go_%s.json", chatID)
 
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -83,24 +86,25 @@ func (m *Manager) ExportHistory() (string, error) {
 
 	fullPath := filepath.Join(currentDir, filename)
 
-	var content strings.Builder
-	content.WriteString(fmt.Sprintf("Cha Go Chat Export\n"))
-	content.WriteString(fmt.Sprintf("Platform: %s\n", m.state.Config.CurrentPlatform))
-	content.WriteString(fmt.Sprintf("Model: %s\n", m.state.Config.CurrentModel))
-	content.WriteString(fmt.Sprintf("Exported: %s\n", time.Now().Format("2006-01-02 15:04:05")))
-	content.WriteString(strings.Repeat("=", 50) + "\n\n")
-
+	var entries []types.ExportEntry
 	for _, entry := range m.state.ChatHistory[1:] {
-		if entry.User != "" {
-			content.WriteString(fmt.Sprintf("User: %s\n\n", entry.User))
-		}
-		if entry.Bot != "" {
-			content.WriteString(fmt.Sprintf("Assistant: %s\n\n", entry.Bot))
-			content.WriteString(strings.Repeat("-", 30) + "\n\n")
+		if entry.User != "" || entry.Bot != "" {
+			entries = append(entries, types.ExportEntry{
+				Platform:    entry.Platform,
+				ModelName:   entry.Model,
+				UserPrompt:  entry.User,
+				BotResponse: entry.Bot,
+				Timestamp:   entry.Time,
+			})
 		}
 	}
 
-	err = os.WriteFile(fullPath, []byte(content.String()), 0644)
+	jsonData, err := json.MarshalIndent(entries, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal JSON: %v", err)
+	}
+
+	err = os.WriteFile(fullPath, jsonData, 0644)
 	if err != nil {
 		return "", err
 	}

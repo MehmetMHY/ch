@@ -8,9 +8,11 @@ type ChatMessage struct {
 
 // ChatHistory represents a chat exchange entry
 type ChatHistory struct {
-	Time int64  `json:"time"`
-	User string `json:"user"`
-	Bot  string `json:"bot"`
+	Time     int64  `json:"time"`
+	User     string `json:"user"`
+	Bot      string `json:"bot"`
+	Platform string `json:"platform"`
+	Model    string `json:"model"`
 }
 
 // Platform represents an AI platform configuration
@@ -70,6 +72,21 @@ type SearXNGResult struct {
 	Positions []int    `json:"positions"`
 	Score     float64  `json:"score"`
 	Category  string   `json:"category"`
+}
+
+// ExportEntry represents a single entry in the JSON export
+type ExportEntry struct {
+	Platform    string `json:"platform"`
+	ModelName   string `json:"model_name"`
+	UserPrompt  string `json:"user_prompt"`
+	BotResponse string `json:"bot_response"`
+	Timestamp   int64  `json:"timestamp"`
+}
+
+// ChatExport represents the complete JSON export structure
+type ChatExport struct {
+	ExportedAt int64         `json:"exported_at"`
+	Entries    []ExportEntry `json:"entries"`
 }
 
 // AppState holds the application's runtime state
