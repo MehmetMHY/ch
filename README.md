@@ -1,3 +1,7 @@
+<p align="center">
+  <img width="150" src="./assets/logo.png">
+</p>
+
 # Cha-Go
 
 A professional Go CLI chat client supporting multiple AI platforms with web search integration.
@@ -107,7 +111,7 @@ When running in interactive mode, you can use these commands:
 For web search functionality, set up SearXNG:
 
 ```bash
-cd sxng
+cd assets/sxng
 python3 run.py
 ```
 
@@ -127,7 +131,7 @@ cha-go/
 │   ├── search/         # SearXNG web search
 │   └── ui/             # Terminal UI components
 ├── pkg/types/          # Shared types and interfaces
-├── sxng/               # SearXNG integration
+├── assets/sxng/        # SearXNG integration
 └── Makefile           # Build automation
 ```
 
