@@ -13,9 +13,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -68,6 +70,8 @@ var (
 	client      *openai.Client
 	messages    []ChatMessage
 	chatHistory []ChatHistory
+	streamingCancel context.CancelFunc
+	isStreaming     bool
 )
 
 func init() {
@@ -75,7 +79,7 @@ func init() {
 		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
 		DefaultModel:    "gpt-4o-mini",
 		CurrentModel:    "gpt-4o-mini",
-		SystemPrompt:    "You are a helpful assistant powered by a simple Go chat client. Be concise, clear, and accurate.",
+		SystemPrompt:    "You are a helpful assistant powered by Cha who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
 		ExitKey:         "!q",
 		ModelSwitch:     "!sm",
 		TerminalInput:   "!t",
@@ -175,6 +179,21 @@ func main() {
 		log.Fatalf("Failed to initialize client: %v", err)
 	}
 
+	// Set up signal handling for graceful interruption during streaming
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		for range sigChan {
+			if isStreaming && streamingCancel != nil {
+				fmt.Print("\r\033[K") // Clear current line
+				streamingCancel()
+			} else {
+				// Allow Ctrl+C to exit when not streaming
+				os.Exit(0)
+			}
+		}
+	}()
+
 	// Get remaining arguments (direct query)
 	if len(remainingArgs) > 0 {
 		// Non-interactive mode - process direct query
@@ -237,6 +256,11 @@ func main() {
 		// Send to current platform
 		response, err := sendChatRequest(input)
 		if err != nil {
+			if err.Error() == "request was interrupted" {
+				// Don't add the user message to history if the request was interrupted
+				messages = messages[:len(messages)-1]
+				continue
+			}
 			fmt.Printf("\033[91m%v\033[0m\n", err)
 			continue
 		}
@@ -330,6 +354,11 @@ func processDirectQuery(query string) error {
 	// Send request
 	response, err := sendChatRequest(query)
 	if err != nil {
+		if err.Error() == "request was interrupted" {
+			// Don't add the user message to history if the request was interrupted
+			messages = messages[:len(messages)-1]
+			return nil
+		}
 		return err
 	}
 	
@@ -429,6 +458,11 @@ func handleSpecialCommands(input string) bool {
 		// Send to AI model
 		response, err := sendChatRequest(searchContext)
 		if err != nil {
+			if err.Error() == "request was interrupted" {
+				// Don't add the search query to history if the request was interrupted
+				messages = messages[:len(messages)-1]
+				return true
+			}
 			fmt.Printf("\033[91mError generating response: %v\033[0m\n", err)
 			return true
 		}
@@ -803,6 +837,11 @@ func terminalInput() {
 	
 	response, err := sendChatRequest(input)
 	if err != nil {
+		if err.Error() == "request was interrupted" {
+			// Don't add the user message to history if the request was interrupted
+			messages = messages[:len(messages)-1]
+			return
+		}
 		fmt.Printf("\033[91m%v\033[0m\n", err)
 		return
 	}
@@ -835,13 +874,22 @@ func sendChatRequest(userInput string) (string, error) {
 		done := make(chan bool)
 		go showLoadingAnimation("Thinking", done)
 		
-		ctx := context.Background()
+		// Create context for cancellation
+		ctx, cancel := context.WithCancel(context.Background())
+		isStreaming = true
+		streamingCancel = cancel
+		
 		resp, err := client.CreateChatCompletion(ctx, req)
 		
-		// Stop loading animation
+		// Stop loading animation and reset streaming state
+		isStreaming = false
+		streamingCancel = nil
 		done <- true
 		
 		if err != nil {
+			if ctx.Err() == context.Canceled {
+				return "", fmt.Errorf("request was interrupted")
+			}
 			return "", err
 		}
 		
@@ -860,12 +908,22 @@ func sendChatRequest(userInput string) (string, error) {
 			Stream:   true,
 		}
 		
-		ctx := context.Background()
+		// Create context for cancellation
+		ctx, cancel := context.WithCancel(context.Background())
+		isStreaming = true
+		streamingCancel = cancel
+		
 		stream, err := client.CreateChatCompletionStream(ctx, req)
 		if err != nil {
+			isStreaming = false
+			streamingCancel = nil
 			return "", err
 		}
-		defer stream.Close()
+		defer func() {
+			stream.Close()
+			isStreaming = false
+			streamingCancel = nil
+		}()
 		
 		var response strings.Builder
 		
@@ -874,6 +932,9 @@ func sendChatRequest(userInput string) (string, error) {
 			if err != nil {
 				if err == io.EOF {
 					break
+				}
+				if ctx.Err() == context.Canceled {
+					return response.String(), nil // Return partial response on cancellation
 				}
 				return "", err
 			}
