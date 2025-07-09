@@ -1,8 +1,6 @@
 # Ch
 
-A professional Go CLI chat client supporting multiple AI platforms with web search integration.
-
-**Ch** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains 95%+ of the core features of Cha with significantly improved performance - delivering **6.84x faster** execution compared to the original Python version.
+A professional Go CLI chat client supporting multiple AI platforms with web search integration. **Ch** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains 95%+ of the core features of Cha with significantly improved performance - delivering **6.84x faster** execution compared to the original Python version.
 
 ## Features
 
@@ -89,10 +87,10 @@ export XAI_API_KEY="your-xai-key"
 ### Command Line Options
 
 ```bash
-./bin/ch -h                              # Show help
-./bin/ch -p [platform]                   # Switch platform
-./bin/ch -m [model]                      # Specify model
-./bin/ch -p [platform] -m [model] [query]  # Full command
+./bin/ch -h                                 # Show help
+./bin/ch -p [platform]                      # Switch platform
+./bin/ch -m [model]                         # Specify model
+./bin/ch -p [platform] -m [model] [query]   # Full command
 ```
 
 ### Interactive Commands
@@ -106,15 +104,15 @@ When running in interactive mode, you can use these commands:
 - `!p` - Switch platforms (with fuzzy finder)
 - `!t` - Terminal input mode (opens your editor)
 - `!e` - Export chat history to file
-- `!w [query]` - Web search with AI analysis
 - `!l` - Load files/directories into chat context
+- `!w [query]` - Web search with AI analysis
 
 ## Web Search Setup
 
 For web search functionality, set up SearXNG:
 
 ```bash
-cd assets/sxng
+cd sxng
 python3 run.py
 ```
 
@@ -124,18 +122,18 @@ Then use `!w <query>` in chat for web-enhanced responses with IEEE citations.
 
 ### Project Structure
 
-```
+```bash
 ch/
-├── cmd/ch/          # Main application entry point
-├── internal/            # Internal packages
-│   ├── config/         # Configuration management
-│   ├── chat/           # Chat operations and history
-│   ├── platform/       # AI platform integrations
-│   ├── search/         # SearXNG web search
-│   └── ui/             # Terminal UI components
-├── pkg/types/          # Shared types and interfaces
-├── assets/sxng/        # SearXNG integration
-└── Makefile           # Build automation
+├── cmd/ch/         # Main application entry point
+├── internal/       # Internal packages
+│   ├── config/     # Configuration management
+│   ├── chat/       # Chat operations and history
+│   ├── platform/   # AI platform integrations
+│   ├── search/     # SearXNG web search
+│   └── ui/         # Terminal UI components
+├── pkg/types/      # Shared types and interfaces
+├── sxng/           # SearXNG integration
+└── Makefile        # Build automation
 ```
 
 ### Available Make Commands

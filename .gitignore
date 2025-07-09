@@ -39,8 +39,6 @@ ch
 ig_*.json
 ig_*.jpg
 code_dump_*.txt
-codedump*.txt
-codedump_*.txt
 .sandbox/
 export_*
 cha_*
