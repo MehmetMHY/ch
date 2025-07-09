@@ -1,6 +1,6 @@
 # Ch
 
-**Ch** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains 95%+ of the core features of Cha with significantly improved performance - delivering **6.84x faster** execution compared to the original Python version.
+**Ch** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains over 79% of the core features of Cha and over 57% of the overall features, with significantly improved performance—delivering **6.84x faster** execution compared to the original Python version.
 
 ## Features
 
@@ -24,30 +24,30 @@
 ### Option 1: Build from source
 
 ```bash
-# Clone the repository
+# clone the repository
 git clone https://github.com/MehmetMHY/ch.git
 cd ch
 
-# Install dependencies
+# install dependencies
 go mod download
 
-# Build the project
+# build the project
 make build
 
-# Or use the build script
+# or use the build script
 ./build.sh
 
-# Or build manually
+# or build manually
 go build -o bin/ch cmd/ch/main.go
 ```
 
 ### Option 2: Install globally
 
 ```bash
-# Install to $GOPATH/bin
+# install to $GOPATH/bin
 make install
 
-# Or install manually
+# or install manually
 go install github.com/MehmetMHY/ch/cmd/ch@latest
 ```
 
@@ -68,19 +68,19 @@ export XAI_API_KEY="your-xai-key"
 ### Basic Usage
 
 ```bash
-# Interactive mode
+# interactive mode
 ./bin/ch
 
-# Direct query
+# direct query
 ./bin/ch "What is artificial intelligence?"
 
-# With specific platform
+# with specific platform
 ./bin/ch -p groq "Explain quantum computing"
 
-# With specific model
+# with specific model
 ./bin/ch -m gpt-4o "Write a Python function"
 
-# Combined
+# combined
 ./bin/ch -p groq -m llama3 "What is the meaning of life?"
 ```
 
@@ -125,41 +125,41 @@ Then use `!w <query>` in chat for web-enhanced responses with IEEE citations.
 
 ```bash
 ch/
-├── cmd/ch/         # Main application entry point
-├── internal/       # Internal packages
-│   ├── config/     # Configuration management
-│   ├── chat/       # Chat operations and history
+├── cmd/ch/         # main application entry point
+├── internal/       # internal packages
+│   ├── config/     # configuration management
+│   ├── chat/       # chat operations and history
 │   ├── platform/   # AI platform integrations
 │   ├── search/     # SearXNG web search
-│   └── ui/         # Terminal UI components
-├── pkg/types/      # Shared types and interfaces
+│   └── ui/         # terminal UI components
+├── pkg/types/      # shared types and interfaces
 ├── sxng/           # SearXNG integration
-└── Makefile        # Build automation
+└── Makefile        # build automation
 ```
 
 ### Available Make Commands
 
 ```bash
-make build       # Build the binary
-make install     # Install to $GOPATH/bin
-make clean       # Clean build artifacts
-make test        # Run tests
-make lint        # Run linter
-make fmt         # Format code
-make vet         # Run go vet
-make deps        # Download dependencies
-make dev         # Build and run in development mode
-make build-all   # Build for multiple platforms
-make release     # Create release tarballs
-make help        # Show all available commands
+make build       # build the binary
+make install     # install to $GOPATH/bin
+make clean       # clean build artifacts
+make test        # run tests
+make lint        # run linter
+make fmt         # format code
+make vet         # run go vet
+make deps        # download dependencies
+make dev         # build and run in development mode
+make build-all   # build for multiple platforms
+make release     # create release tarballs
+make help        # show all available commands
 ```
 
 ### Running Tests
 
 ```bash
-make test        # Run all tests
-make lint        # Run linter (requires golangci-lint)
-make vet         # Run go vet
+make test   # run all tests
+make lint   # run linter (requires golangci-lint)
+make vet    # run go vet
 ```
 
 ## Examples
@@ -180,24 +180,24 @@ Chatting on OPENAI with gpt-4o-mini
 !w [query] - Web search
 
 User: !p groq
-# Fuzzy finder opens with available platforms
+# fuzzy finder opens with available platforms
 
 User: !w latest developments in AI
-# Performs web search and provides AI analysis with citations
+# performs web search and provides AI analysis with citations
 
 User: !t
-# Opens your preferred editor for complex input
+# opens your preferred editor for complex input
 ```
 
 ### Direct Queries
 
 ```bash
-# Simple query
+# simple query
 ./bin/ch "Explain machine learning"
 
-# With platform selection
+# with platform selection
 ./bin/ch -p anthropic "What are the ethical implications of AI?"
 
-# With specific model
+# with specific model
 ./bin/ch -p groq -m llama3 "Write a Go function to reverse a string"
 ```
