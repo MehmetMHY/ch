@@ -80,7 +80,7 @@ func (t *Terminal) PrintTitle() {
 
 // ShowLoadingAnimation displays a loading animation
 func (t *Terminal) ShowLoadingAnimation(message string, done chan bool) {
-	chars := []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}
+	chars := []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"}
 	i := 0
 	for {
 		select {

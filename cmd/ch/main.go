@@ -149,7 +149,20 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 
 		chatManager.AddUserMessage(input)
 
+		// Start loading animation for non-streaming models
+		var loadingDone chan bool
+		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
+			loadingDone = make(chan bool)
+			go terminal.ShowLoadingAnimation("Thinking", loadingDone)
+		}
+
 		response, err := platformManager.SendChatRequest(chatManager.GetMessages(), chatManager.GetCurrentModel(), &state.StreamingCancel, &state.IsStreaming)
+
+		// Stop loading animation if it was started
+		if loadingDone != nil {
+			loadingDone <- true
+		}
+
 		if err != nil {
 			if err.Error() == "request was interrupted" {
 				chatManager.RemoveLastUserMessage()
@@ -157,6 +170,11 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 			}
 			terminal.PrintError(fmt.Sprintf("%v", err))
 			continue
+		}
+
+		// Print response for non-streaming models
+		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
+			fmt.Printf("\033[92m%s\033[0m\n", response)
 		}
 
 		chatManager.AddAssistantMessage(response)

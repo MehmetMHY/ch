@@ -171,6 +171,11 @@ func (m *Manager) isReasoningModel(modelName string) bool {
 	return matched
 }
 
+// IsReasoningModel checks if the model is a reasoning model (like o1, o2, etc.)
+func (m *Manager) IsReasoningModel(modelName string) bool {
+	return m.isReasoningModel(modelName)
+}
+
 func (m *Manager) sendNonStreamingRequest(openaiMessages []openai.ChatCompletionMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
 	req := openai.ChatCompletionRequest{
 		Model:    model,
@@ -196,7 +201,6 @@ func (m *Manager) sendNonStreamingRequest(openaiMessages []openai.ChatCompletion
 
 	if len(resp.Choices) > 0 {
 		fullResponse := resp.Choices[0].Message.Content
-		fmt.Printf("\033[92m%s\033[0m\n", fullResponse)
 		return fullResponse, nil
 	}
 
