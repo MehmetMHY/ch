@@ -1,13 +1,13 @@
-# Makefile for cha-go
+# Makefile for ch
 # A professional CLI chat tool for multiple AI platforms
 
 .PHONY: build install clean test lint fmt vet help dev run
 
 # Variables
-BINARY_NAME=cha-go
+BINARY_NAME=ch
 BINARY_PATH=./bin/$(BINARY_NAME)
 BUILD_DIR=./bin
-CMD_DIR=./cmd/cha-go
+CMD_DIR=./cmd/ch
 MAIN_FILE=$(CMD_DIR)/main.go
 
 # Build information

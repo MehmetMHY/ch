@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MehmetMHY/cha-go/pkg/types"
+	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/google/uuid"
 )
 
@@ -77,7 +77,7 @@ func (m *Manager) ExportHistory() (string, error) {
 	}
 
 	chatID := uuid.New().String()
-	filename := fmt.Sprintf("cha_go_%s.json", chatID)
+	filename := fmt.Sprintf("ch_%s.json", chatID)
 
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -122,7 +122,7 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 		}
 	}
 
-	tmpFile, err := ioutil.TempFile(tmpDir, "cha-go-*.txt")
+	tmpFile, err := ioutil.TempFile(tmpDir, "ch-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("error creating temp file: %v", err)
 	}

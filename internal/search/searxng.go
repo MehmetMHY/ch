@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MehmetMHY/cha-go/pkg/types"
+	"github.com/MehmetMHY/ch/pkg/types"
 )
 
 // SearXNGClient handles web search operations

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MehmetMHY/cha-go/pkg/types"
+	"github.com/MehmetMHY/ch/pkg/types"
 )
 
 // Terminal handles terminal-related operations
@@ -33,18 +33,18 @@ func (t *Terminal) IsTerminal() bool {
 
 // ShowHelp displays the help information
 func (t *Terminal) ShowHelp() {
-	fmt.Println("Cha-Go")
+	fmt.Println("Ch")
 	fmt.Println("\nUsage:")
-	fmt.Println("  ./cha-go")
-	fmt.Println("  ./cha-go [query]")
-	fmt.Println("  ./cha-go -h")
-	fmt.Println("  ./cha-go -p [platform]")
-	fmt.Println("  ./cha-go -m [model]")
-	fmt.Println("  ./cha-go -p [platform] -m [model] [query]")
+	fmt.Println("  ./ch")
+	fmt.Println("  ./ch [query]")
+	fmt.Println("  ./ch -h")
+	fmt.Println("  ./ch -p [platform]")
+	fmt.Println("  ./ch -m [model]")
+	fmt.Println("  ./ch -p [platform] -m [model] [query]")
 	fmt.Println("\nExamples:")
-	fmt.Println("  ./cha-go -p groq what is AI?")
-	fmt.Println("  ./cha-go -p groq -m llama3 what is the goal of life")
-	fmt.Println("  ./cha-go -m gpt-4o explain quantum computing")
+	fmt.Println("  ./ch -p groq what is AI?")
+	fmt.Println("  ./ch -p groq -m llama3 what is the goal of life")
+	fmt.Println("  ./ch -m gpt-4o explain quantum computing")
 	fmt.Println("\nAvailable Platforms:")
 	fmt.Println("  - openai (default)")
 	for name := range t.config.Platforms {

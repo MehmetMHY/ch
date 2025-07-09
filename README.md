@@ -1,8 +1,8 @@
-# Cha-Go
+# Ch
 
 A professional Go CLI chat client supporting multiple AI platforms with web search integration.
 
-**Cha-Go** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains 95%+ of the core features of Cha with significantly improved performance - delivering **6.84x faster** execution compared to the original Python version.
+**Ch** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains 95%+ of the core features of Cha with significantly improved performance - delivering **6.84x faster** execution compared to the original Python version.
 
 ## Features
 
@@ -27,8 +27,8 @@ A professional Go CLI chat client supporting multiple AI platforms with web sear
 
 ```bash
 # Clone the repository
-git clone https://github.com/MehmetMHY/cha-go.git
-cd cha-go
+git clone https://github.com/MehmetMHY/ch.git
+cd ch
 
 # Install dependencies
 go mod download
@@ -40,7 +40,7 @@ make build
 ./build.sh
 
 # Or build manually
-go build -o bin/cha-go cmd/cha-go/main.go
+go build -o bin/ch cmd/ch/main.go
 ```
 
 ### Option 2: Install globally
@@ -50,7 +50,7 @@ go build -o bin/cha-go cmd/cha-go/main.go
 make install
 
 # Or install manually
-go install github.com/MehmetMHY/cha-go/cmd/cha-go@latest
+go install github.com/MehmetMHY/ch/cmd/ch@latest
 ```
 
 ## Configuration
@@ -71,28 +71,28 @@ export XAI_API_KEY="your-xai-key"
 
 ```bash
 # Interactive mode
-./bin/cha-go
+./bin/ch
 
 # Direct query
-./bin/cha-go "What is artificial intelligence?"
+./bin/ch "What is artificial intelligence?"
 
 # With specific platform
-./bin/cha-go -p groq "Explain quantum computing"
+./bin/ch -p groq "Explain quantum computing"
 
 # With specific model
-./bin/cha-go -m gpt-4o "Write a Python function"
+./bin/ch -m gpt-4o "Write a Python function"
 
 # Combined
-./bin/cha-go -p groq -m llama3 "What is the meaning of life?"
+./bin/ch -p groq -m llama3 "What is the meaning of life?"
 ```
 
 ### Command Line Options
 
 ```bash
-./bin/cha-go -h                              # Show help
-./bin/cha-go -p [platform]                   # Switch platform
-./bin/cha-go -m [model]                      # Specify model
-./bin/cha-go -p [platform] -m [model] [query]  # Full command
+./bin/ch -h                              # Show help
+./bin/ch -p [platform]                   # Switch platform
+./bin/ch -m [model]                      # Specify model
+./bin/ch -p [platform] -m [model] [query]  # Full command
 ```
 
 ### Interactive Commands
@@ -125,8 +125,8 @@ Then use `!w <query>` in chat for web-enhanced responses with IEEE citations.
 ### Project Structure
 
 ```
-cha-go/
-├── cmd/cha-go/          # Main application entry point
+ch/
+├── cmd/ch/          # Main application entry point
 ├── internal/            # Internal packages
 │   ├── config/         # Configuration management
 │   ├── chat/           # Chat operations and history
@@ -168,7 +168,7 @@ make vet         # Run go vet
 ### Interactive Session
 
 ```bash
-$ ./bin/cha-go
+$ ./bin/ch
 Chatting with OPENAI Model: gpt-4o-mini
 Commands:
   • !q - Exit
@@ -195,11 +195,11 @@ User: !t
 
 ```bash
 # Simple query
-./bin/cha-go "Explain machine learning"
+./bin/ch "Explain machine learning"
 
 # With platform selection
-./bin/cha-go -p anthropic "What are the ethical implications of AI?"
+./bin/ch -p anthropic "What are the ethical implications of AI?"
 
 # With specific model
-./bin/cha-go -p groq -m llama3 "Write a Go function to reverse a string"
+./bin/ch -p groq -m llama3 "Write a Go function to reverse a string"
 ```

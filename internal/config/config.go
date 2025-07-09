@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/MehmetMHY/cha-go/pkg/types"
+	"github.com/MehmetMHY/ch/pkg/types"
 )
 
 // DefaultConfig returns the default configuration
