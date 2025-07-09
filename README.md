@@ -169,7 +169,7 @@ make vet         # Run go vet
 
 ```bash
 $ ./bin/ch
-OPENAI gpt-4o-mini
+Chatting on OPENAI with gpt-4o-mini
 !q - Exit
 !m - Switch models
 !p - Switch platforms

@@ -65,7 +65,7 @@ func (t *Terminal) ShowHelp() {
 
 // PrintTitle displays the current session information
 func (t *Terminal) PrintTitle() {
-	fmt.Printf("\033[93m%s %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
+	fmt.Printf("\033[93mChatting on %s with %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
 	fmt.Printf("\033[93m%s - Exit\033[0m\n", t.config.ExitKey)
 	fmt.Printf("\033[93m%s - Switch models\033[0m\n", t.config.ModelSwitch)
 	fmt.Printf("\033[93m!p - Switch platforms\033[0m\n")
