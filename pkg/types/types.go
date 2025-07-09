@@ -33,17 +33,18 @@ type PlatformModels struct {
 
 // Config holds application configuration
 type Config struct {
-	OpenAIAPIKey  string
-	DefaultModel  string
-	CurrentModel  string
-	SystemPrompt  string
-	ExitKey       string
-	ModelSwitch   string
-	TerminalInput string
-	ClearHistory  string
-	HelpKey       string
-	ExportChat    string
-	// Temp: (2025-07-09) For handling 'cha -ocr' integration.
+	OpenAIAPIKey    string
+	DefaultModel    string
+	CurrentModel    string
+	SystemPrompt    string
+	ExitKey         string
+	ModelSwitch     string
+	EditorInput     string
+	ClearHistory    string
+	HelpKey         string
+	ExportChat      string
+	Backtrack       string
+	WebSearch       string
 	LoadFileOCR     string
 	PreferredEditor string
 	CurrentPlatform string

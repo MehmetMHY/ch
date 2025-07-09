@@ -9,8 +9,9 @@
 - **Web search integration**: SearXNG with IEEE citation format
 - **File/directory loading**: Load text files into chat context with multi-select
 - **Chat history export**: Export conversations to files
-- **Terminal input mode**: Use your preferred editor for complex prompts
+- **Text editor input mode**: Use your preferred editor for complex prompts
 - **Model switching**: Easily switch between different AI models
+- **Chat backtracking**: Revert to any point in the conversation history
 - **Professional architecture**: Clean, modular Go codebase
 
 ## Requirements
@@ -102,11 +103,12 @@ When running in interactive mode, you can use these commands:
 - `!c` - Clear chat history
 - `!m` - Switch models (with fuzzy finder)
 - `!p` - Switch platforms (with fuzzy finder)
-- `!t` - Terminal input mode (opens your editor)
-- `!e` - Export chat history to file
-- `!l` - Load files/directories into chat context
-- `!w [query]` - Web search with AI analysis
-- `!s` - **(Optional)** Load content using advanced scraping via [Cha](https://github.com/MehmetMHY/cha/). This command supports a wide range of inputs, including local files (PDFs, DOCX, images with OCR), web URLs, and even YouTube video transcripts. Requires `cha` to be installed.
+- `!t` - Text editor input mode (opens your editor)
+- `!b` - Backtrack to a previous message in the chat history.
+- `!l` - Load files/dirs into chat context
+- `!e [all]` - Save the last response or all history to a file.
+- `!s [query]` - Web search with AI analysis
+- `!o` - **(Optional)** Load content using advanced scraping via [Cha](https://github.com/MehmetMHY/cha/). This command supports a wide range of inputs, including local files (PDFs, DOCX, images with OCR), web URLs, and even YouTube video transcripts. Requires `cha` to be installed.
 
 ## Web Search Setup
 
@@ -117,7 +119,7 @@ cd sxng
 python3 run.py
 ```
 
-Then use `!w <query>` in chat for web-enhanced responses with IEEE citations.
+Then use `!s <query>` in chat for web-enhanced responses with IEEE citations.
 
 ## Development
 
@@ -172,17 +174,18 @@ Chatting on OPENAI with gpt-4o-mini
 !q - Exit
 !m - Switch models
 !p - Switch platforms
-!t - Terminal input
+!t - Text editor input
 !c - Clear history
-!e - Export chat
+!b - Backtrack
 !h - Help
-!l - Load files/directories
-!w [query] - Web search
+!l - Load files/dirs
+!e [all] - Export chat
+!s [query] - Web search
 
 User: !p groq
 # fuzzy finder opens with available platforms
 
-User: !w latest developments in AI
+User: !s latest developments in AI
 # performs web search and provides AI analysis with citations
 
 User: !t

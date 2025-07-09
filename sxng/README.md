@@ -1,24 +1,14 @@
 # SearXNG Search Engine for Cha
 
-SearXNG is an open-source search engine you host yourself. It's recommended for Cha to enable the `!w` web search feature, avoiding API limits and key management found in other search APIs.
+SearXNG is an open-source search engine you host yourself. It's recommended for Cha to enable the `!s` web search feature, avoiding API limits and key management found in other search APIs.
 
 ## Setup
 
 1. Install [Docker](https://www.docker.com/).
 
-2. (Optional) Install Python dependencies:
+2. Install Python dependencies: `pip3 install -r requirements.txt`
 
-   ```bash
-   pip3 install -r requirements.txt
-   ```
-
-3. Run the setup script:
-
-   ```bash
-   python3 run.py
-   ```
-
-   This configures JSON response format in `settings.yml` automatically if PyYAML is installed. Otherwise, add JSON format manually.
+3. Run the setup script: `python3 run.py`
 
 ## Running
 

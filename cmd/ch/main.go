@@ -271,21 +271,20 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		}
 		return true
 
-	case strings.HasPrefix(input, "!w "):
+	case strings.HasPrefix(input, config.WebSearch):
 		return handleWebSearch(input, chatManager, platformManager, searchClient, terminal, state)
 
-	case input == "!w":
-		terminal.PrintError("Please provide a search query after !w")
+	case input == config.WebSearch:
+		terminal.PrintError("Please provide a search query after !s")
 		return true
 
 	case input == "!l":
 		return handleFileLoad(chatManager, terminal, state)
 
-	// Temp: (2025-07-09) For handling 'cha -ocr' integration.
 	case input == config.LoadFileOCR:
 		return handleFileLoadOCR(chatManager, terminal, state)
 
-	case input == config.TerminalInput:
+	case input == config.EditorInput:
 		userInput, err := chatManager.HandleTerminalInput()
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
@@ -296,7 +295,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 
 		chatManager.AddUserMessage(userInput)
 
-		// Start loading animation for non-streaming models
 		var loadingDone chan bool
 		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
 			loadingDone = make(chan bool)
@@ -305,7 +303,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 
 		response, err := platformManager.SendChatRequest(chatManager.GetMessages(), chatManager.GetCurrentModel(), &state.StreamingCancel, &state.IsStreaming)
 
-		// Stop loading animation if it was started
 		if loadingDone != nil {
 			loadingDone <- true
 		}
@@ -319,7 +316,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 			return true
 		}
 
-		// Print response for non-streaming models
 		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
 			fmt.Printf("\033[92m%s\033[0m\n", response)
 		}
@@ -328,12 +324,32 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		chatManager.AddToHistory(userInput, response)
 		return true
 
-	case input == config.ExportChat:
-		filePath, err := chatManager.ExportHistory()
+	case strings.HasPrefix(input, config.ExportChat):
+		args := strings.TrimPrefix(input, config.ExportChat)
+		args = strings.TrimSpace(args)
+
+		var filePath string
+		var err error
+
+		if args == "all" {
+			filePath, err = chatManager.ExportFullHistory()
+		} else {
+			filePath, err = chatManager.ExportLastResponse()
+		}
+
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("Error exporting chat: %v", err))
 		} else {
 			fmt.Println(filePath)
+		}
+		return true
+
+	case input == config.Backtrack:
+		backtrackedCount, err := chatManager.BacktrackHistory()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("Error backtracking: %v", err))
+		} else {
+			terminal.PrintInfo(fmt.Sprintf("Backtracked by %d.", backtrackedCount))
 		}
 		return true
 
@@ -343,9 +359,9 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 }
 
 func handleWebSearch(input string, chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, terminal *ui.Terminal, state *types.AppState) bool {
-	searchQuery := strings.TrimPrefix(input, "!w ")
+	searchQuery := strings.TrimPrefix(input, state.Config.WebSearch+" ")
 	if strings.TrimSpace(searchQuery) == "" {
-		terminal.PrintError("Please provide a search query after !w")
+		terminal.PrintError("Please provide a search query after !s")
 		return true
 	}
 
@@ -370,7 +386,7 @@ func handleWebSearch(input string, chatManager *chat.Manager, platformManager *p
 	}
 
 	chatManager.AddAssistantMessage(response)
-	chatManager.AddToHistory(fmt.Sprintf("!w %s", searchQuery), response)
+	chatManager.AddToHistory(fmt.Sprintf("!s %s", searchQuery), response)
 
 	return true
 }
@@ -439,7 +455,7 @@ func handleFileLoadOCR(chatManager *chat.Manager, terminal *ui.Terminal, state *
 	}
 
 	if content != "" {
-		userPrompt := fmt.Sprintf("!s [Loaded from %s]:\n%s", selection, content)
+		userPrompt := fmt.Sprintf("!o [Loaded from %s]:\n%s", selection, content)
 		chatManager.AddUserMessage(content)
 		chatManager.AddToHistory(userPrompt, "")
 	}
