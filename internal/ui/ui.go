@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -61,6 +62,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  !p [platform] - Switch to specific platform")
 	fmt.Println("  !w [query] - Web search using SearXNG (running on localhost:8080)")
 	fmt.Println("  !l - Load files/dirs from current dir")
+	fmt.Println("  !s - Load files/dirs using 'cha -ocr'")
 }
 
 // PrintTitle displays the current session information
@@ -74,6 +76,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - Export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s - Help\033[0m\n", t.config.HelpKey)
 	fmt.Printf("\033[93m!l - Load files/directories\033[0m\n")
+	fmt.Printf("\033[93m!s - Load files/directories with OCR\033[0m\n")
 	fmt.Printf("\033[93m!w [query] - Web search\033[0m\n")
 }
 
@@ -123,6 +126,47 @@ func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, erro
 	}
 
 	return strings.Split(result, "\n"), nil
+}
+
+// FzfSelectOrQuery provides a fuzzy finder interface that allows for selection or custom query input.
+func (t *Terminal) FzfSelectOrQuery(items []string, prompt string) (string, error) {
+	// --print-query will print the query before the selection
+	cmd := exec.Command("fzf", "--reverse", "--height=40%", "--border", "--prompt="+prompt, "--print-query")
+	cmd.Stdin = strings.NewReader(strings.Join(items, "\n"))
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			// Exit code 130 means user cancelled (e.g., Ctrl-C, Esc).
+			if exitErr.ExitCode() == 130 {
+				return "", nil
+			}
+		}
+		// For other errors, or if there's no output, we might still have a query.
+		// If output is empty, it's a real cancellation or error.
+		if len(output) == 0 {
+			return "", nil // Treat as cancellation
+		}
+	}
+
+	lines := strings.Split(strings.TrimRight(string(output), "\n"), "\n")
+
+	if len(lines) == 0 {
+		return "", nil
+	}
+
+	// If fzf returns a selection, it's on the second line.
+	if len(lines) > 1 && lines[1] != "" {
+		return lines[1], nil
+	}
+
+	// If there's no selection, the query is on the first line.
+	// This handles the case where the user types a URL and hits enter.
+	if lines[0] != "" {
+		return lines[0], nil
+	}
+
+	return "", nil
 }
 
 // PrintSuccess prints a success message
@@ -175,6 +219,41 @@ func (t *Terminal) LoadFileContent(selections []string) (string, error) {
 	}
 
 	return contentBuilder.String(), nil
+}
+
+// Temp: (2025-07-09) For handling 'cha -ocr' integration.
+// LoadFileContentOCR loads content from a file or URL using 'cha -ocr'
+func (t *Terminal) LoadFileContentOCR(selection string, state *types.AppState) (string, error) {
+	_, err := exec.LookPath("cha")
+	if err != nil {
+		return "", fmt.Errorf("'cha' command not found, please install it first")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	state.IsExecutingCommand = true
+	state.CommandCancel = cancel
+
+	defer func() {
+		state.IsExecutingCommand = false
+		state.CommandCancel = nil
+	}()
+
+	done := make(chan bool)
+	go t.ShowLoadingAnimation("Loading content with 'cha -ocr'", done)
+
+	cmd := exec.CommandContext(ctx, "cha", "-ocr", selection)
+	output, err := cmd.CombinedOutput()
+
+	done <- true
+
+	if err != nil {
+		if ctx.Err() == context.Canceled {
+			return "", fmt.Errorf("command cancelled")
+		}
+		return "", fmt.Errorf("error running 'cha -ocr': %v\n%s", err, string(output))
+	}
+
+	return string(output), nil
 }
 
 // loadTextFile loads content from a text file
@@ -268,6 +347,28 @@ func (t *Terminal) GetCurrentDirFiles() ([]string, error) {
 		if entry.IsDir() {
 			items = append(items, entry.Name()+"/")
 		} else {
+			items = append(items, entry.Name())
+		}
+	}
+
+	return items, nil
+}
+
+// GetCurrentDirFilesOnly returns non-directory files in the current directory
+func (t *Terminal) GetCurrentDirFilesOnly() ([]string, error) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := ioutil.ReadDir(pwd)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
 			items = append(items, entry.Name())
 		}
 	}

@@ -33,16 +33,18 @@ type PlatformModels struct {
 
 // Config holds application configuration
 type Config struct {
-	OpenAIAPIKey    string
-	DefaultModel    string
-	CurrentModel    string
-	SystemPrompt    string
-	ExitKey         string
-	ModelSwitch     string
-	TerminalInput   string
-	ClearHistory    string
-	HelpKey         string
-	ExportChat      string
+	OpenAIAPIKey  string
+	DefaultModel  string
+	CurrentModel  string
+	SystemPrompt  string
+	ExitKey       string
+	ModelSwitch   string
+	TerminalInput string
+	ClearHistory  string
+	HelpKey       string
+	ExportChat    string
+	// Temp: (2025-07-09) For handling 'cha -ocr' integration.
+	LoadFileOCR     string
 	PreferredEditor string
 	CurrentPlatform string
 	Platforms       map[string]Platform
@@ -91,11 +93,13 @@ type ChatExport struct {
 
 // AppState holds the application's runtime state
 type AppState struct {
-	Config          *Config
-	Messages        []ChatMessage
-	ChatHistory     []ChatHistory
-	IsStreaming     bool
-	StreamingCancel func()
+	Config             *Config
+	Messages           []ChatMessage
+	ChatHistory        []ChatHistory
+	IsStreaming        bool
+	StreamingCancel    func()
+	IsExecutingCommand bool
+	CommandCancel      func()
 }
 
 // ClientInitializer interface for creating AI clients

@@ -106,6 +106,7 @@ When running in interactive mode, you can use these commands:
 - `!e` - Export chat history to file
 - `!l` - Load files/directories into chat context
 - `!w [query]` - Web search with AI analysis
+- `!s` - **(Optional)** Load content using advanced scraping via [Cha](https://github.com/MehmetMHY/cha/). This command supports a wide range of inputs, including local files (PDFs, DOCX, images with OCR), web URLs, and even YouTube video transcripts. Requires `cha` to be installed.
 
 ## Web Search Setup
 
