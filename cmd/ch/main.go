@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/MehmetMHY/ch/internal/search"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
+	"github.com/chzyer/readline"
 )
 
 func main() {
@@ -117,33 +118,34 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 }
 
 func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, terminal *ui.Terminal, state *types.AppState) {
-	scanner := bufio.NewScanner(os.Stdin)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("Error getting home directory: %v", err))
+		return
+	}
+	historyFile := filepath.Join(homeDir, ".ch_history")
+
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:      "\033[94mUser: \033[0m",
+		HistoryFile: historyFile,
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer rl.Close()
 
 	for {
-		if !terminal.IsTerminal() && !scanner.Scan() {
+		line, err := rl.Readline()
+		if err != nil { // io.EOF, readline.ErrInterrupt
 			break
 		}
-
-		terminal.PrintPrompt()
-
-		var input string
-		if terminal.IsTerminal() {
-			if !scanner.Scan() {
-				break
-			}
-			input = strings.TrimSpace(scanner.Text())
-		} else {
-			input = strings.TrimSpace(scanner.Text())
-		}
+		input := strings.TrimSpace(line)
 
 		if input == "" {
 			continue
 		}
 
 		if handleSpecialCommands(input, chatManager, platformManager, searchClient, terminal, state) {
-			if !terminal.IsTerminal() {
-				break
-			}
 			continue
 		}
 

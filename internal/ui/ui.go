@@ -65,17 +65,16 @@ func (t *Terminal) ShowHelp() {
 
 // PrintTitle displays the current session information
 func (t *Terminal) PrintTitle() {
-	fmt.Printf("\033[93mChatting with %s Model: %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
-	fmt.Printf("\033[93mCommands:\033[0m\n")
-	fmt.Printf("\033[93m  • %s - Exit\033[0m\n", t.config.ExitKey)
-	fmt.Printf("\033[93m  • %s - Switch models\033[0m\n", t.config.ModelSwitch)
-	fmt.Printf("\033[93m  • !p - Switch platforms\033[0m\n")
-	fmt.Printf("\033[93m  • %s - Terminal input\033[0m\n", t.config.TerminalInput)
-	fmt.Printf("\033[93m  • %s - Clear history\033[0m\n", t.config.ClearHistory)
-	fmt.Printf("\033[93m  • %s - Export chat\033[0m\n", t.config.ExportChat)
-	fmt.Printf("\033[93m  • %s - Help\033[0m\n", t.config.HelpKey)
-	fmt.Printf("\033[93m  • !w [query] - Web search\033[0m\n")
-	fmt.Printf("\033[93m  • !l - Load files/directories\033[0m\n")
+	fmt.Printf("\033[93m%s %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
+	fmt.Printf("\033[93m%s - Exit\033[0m\n", t.config.ExitKey)
+	fmt.Printf("\033[93m%s - Switch models\033[0m\n", t.config.ModelSwitch)
+	fmt.Printf("\033[93m!p - Switch platforms\033[0m\n")
+	fmt.Printf("\033[93m%s - Terminal input\033[0m\n", t.config.TerminalInput)
+	fmt.Printf("\033[93m%s - Clear history\033[0m\n", t.config.ClearHistory)
+	fmt.Printf("\033[93m%s - Export chat\033[0m\n", t.config.ExportChat)
+	fmt.Printf("\033[93m%s - Help\033[0m\n", t.config.HelpKey)
+	fmt.Printf("\033[93m!l - Load files/directories\033[0m\n")
+	fmt.Printf("\033[93m!w [query] - Web search\033[0m\n")
 }
 
 // ShowLoadingAnimation displays a loading animation
@@ -124,13 +123,6 @@ func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, erro
 	}
 
 	return strings.Split(result, "\n"), nil
-}
-
-// PrintPrompt displays the user prompt
-func (t *Terminal) PrintPrompt() {
-	if t.IsTerminal() {
-		fmt.Print("\033[94mUser: \033[0m")
-	}
 }
 
 // PrintSuccess prints a success message

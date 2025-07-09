@@ -102,7 +102,7 @@ When running in interactive mode, you can use these commands:
 - `!q` - Exit the application
 - `!h` - Show help
 - `!c` - Clear chat history
-- `!sm` - Switch models (with fuzzy finder)
+- `!m` - Switch models (with fuzzy finder)
 - `!p` - Switch platforms (with fuzzy finder)
 - `!t` - Terminal input mode (opens your editor)
 - `!e` - Export chat history to file
@@ -169,17 +169,16 @@ make vet         # Run go vet
 
 ```bash
 $ ./bin/ch
-Chatting with OPENAI Model: gpt-4o-mini
-Commands:
-  • !q - Exit
-  • !sm - Switch models
-  • !p - Switch platforms
-  • !t - Terminal input
-  • !c - Clear history
-  • !e - Export chat
-  • !h - Help
-  • !w [query] - Web search
-  • !l - Load files/directories
+OPENAI gpt-4o-mini
+!q - Exit
+!m - Switch models
+!p - Switch platforms
+!t - Terminal input
+!c - Clear history
+!e - Export chat
+!h - Help
+!l - Load files/directories
+!w [query] - Web search
 
 User: !p groq
 # Fuzzy finder opens with available platforms
