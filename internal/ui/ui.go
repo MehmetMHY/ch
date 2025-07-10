@@ -66,6 +66,42 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s [query] - Web search using SearXNG\n", t.config.WebSearch)
 }
 
+// ShowHelpFzf displays the help information using fzf for interactive selection.
+func (t *Terminal) ShowHelpFzf() {
+	options := t.getInteractiveHelpOptions()
+	selected, err := t.FzfMultiSelect(options, "Select with Tab to see more: ")
+	if err != nil {
+		t.PrintError(fmt.Sprintf("Error displaying help: %v", err))
+		return
+	}
+
+	for _, s := range selected {
+		fmt.Printf("\033[93m%s\033[0m\n", s)
+	}
+}
+
+// getInteractiveHelpOptions returns a slice of strings containing the help information.
+func (t *Terminal) getInteractiveHelpOptions() []string {
+	title := fmt.Sprintf("Chatting on %s with %s", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
+	options := []string{
+		title,
+		fmt.Sprintf("%s - Exit Interface", t.config.ExitKey),
+		fmt.Sprintf("%s - Switch models", t.config.ModelSwitch),
+		fmt.Sprintf("%s - Text editor input mode", t.config.EditorInput),
+		fmt.Sprintf("%s - Clear chat history", t.config.ClearHistory),
+		fmt.Sprintf("%s - Backtrack to a previous message", t.config.Backtrack),
+		fmt.Sprintf("%s - Help page", t.config.HelpKey),
+		"!p - Switch platforms (interactive)",
+		"!p [platform] - Switch to specific platform",
+		"!l - Load files/dirs from current dir",
+		fmt.Sprintf("%s - Load files/dirs with Cha OCR", t.config.LoadFileOCR),
+		fmt.Sprintf("%s [all] - Save last response or all history to a file", t.config.ExportChat),
+		fmt.Sprintf("%s [query] - Web search using SearXNG", t.config.WebSearch),
+	}
+
+	return options
+}
+
 // PrintTitle displays the current session information
 func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93mChatting on %s with %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
@@ -119,10 +155,13 @@ func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, erro
 
 	output, err := cmd.Output()
 	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 130 {
+			return []string{}, nil // User cancelled with Esc
+		}
 		return nil, err
 	}
 
-	result := strings.TrimSpace(string(output))
+	result := strings.TrimSuffix(string(output), "\n")
 	if result == "" {
 		return []string{}, nil
 	}

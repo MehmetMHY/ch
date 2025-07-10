@@ -197,7 +197,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		return true
 
 	case input == config.HelpKey || input == "help":
-		terminal.PrintTitle()
+		terminal.ShowHelpFzf()
 		return true
 
 	case input == config.ClearHistory:
