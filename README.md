@@ -127,33 +127,33 @@ Then use `!s <query>` in chat for web-enhanced responses with IEEE citations.
 
 ```bash
 ch/
-├── cmd/ch/         # main application entry point
-├── internal/       # internal packages
-│   ├── config/     # configuration management
-│   ├── chat/       # chat operations and history
-│   ├── platform/   # AI platform integrations
-│   ├── search/     # SearXNG web search
-│   └── ui/         # terminal UI components
-├── pkg/types/      # shared types and interfaces
-├── sxng/           # SearXNG integration
-└── Makefile        # build automation
+├── cmd/ch/       # main application entry point
+├── internal/     # internal packages
+│   ├── config/   # configuration management
+│   ├── chat/     # chat operations and history
+│   ├── platform/ # AI platform integrations
+│   ├── search/   # SearXNG web search
+│   └── ui/       # terminal UI components
+├── pkg/types/    # shared types and interfaces
+├── sxng/         # SearXNG integration
+└── Makefile      # build automation
 ```
 
 ### Available Make Commands
 
 ```bash
-make build       # build the binary
-make install     # install to $GOPATH/bin
-make clean       # clean build artifacts
-make test        # run tests
-make lint        # run linter
-make fmt         # format code
-make vet         # run go vet
-make deps        # download dependencies
-make dev         # build and run in development mode
-make build-all   # build for multiple platforms
-make release     # create release tarballs
-make help        # show all available commands
+make build        # build the binary
+make install      # install to $GOPATH/bin
+make clean        # clean build artifacts
+make test         # run tests
+make lint         # run linter
+make fmt          # format code
+make vet          # run go vet
+make deps         # download dependencies
+make dev          # build and run in development mode
+make build-all    # build for multiple platforms
+make release      # create release tarballs
+make help         # show all available commands
 ```
 
 ### Running Tests
