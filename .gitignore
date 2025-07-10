@@ -14,6 +14,11 @@ coverage.*
 *.coverprofile
 profile.cov
 
+# Go build cache
+.cache/
+tmp/
+temp/
+
 # Dependency directories
 vendor/
 node_modules/
@@ -23,21 +28,76 @@ go.work
 go.work.sum
 
 # Build output
-/bin
-/build
+/bin/
+/build/
+/dist/
 
-# env file
+# Configuration and environment files
 .env*
 *.env
 .env.local
+config.local.*
+
+# Logs
+*.log
+logs/
+
+# Python files (for sxng directory)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
 # Editor/IDE
 .idea/
 .vscode/
 .cursor/
+*.swp
+*.swo
+*~
 
-# Custom
+# OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# Custom project files
 cha-go
 ch
 *.jpg
