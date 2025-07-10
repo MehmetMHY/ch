@@ -1,5 +1,7 @@
 # Ch
 
+⚠️ **Warning:** This project is currently in beta and is still being actively developed. It is in a rough state, and features may change or be unstable. Use at your own risk. For a more established version, you can check out the original [Cha](https://github.com/MehmetMHY/cha/).
+
 **Ch** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains over 79% of the core features of Cha and over 57% of the overall features, with significantly improved performance—delivering **6.84x faster** execution compared to the original Python version.
 
 ## Features
