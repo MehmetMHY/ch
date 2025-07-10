@@ -121,16 +121,8 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 }
 
 func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, terminal *ui.Terminal, state *types.AppState) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Error getting home directory: %v", err))
-		return
-	}
-	historyFile := filepath.Join(homeDir, ".ch_history")
-
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:      "\033[94mUser: \033[0m",
-		HistoryFile: historyFile,
+		Prompt: "\033[94mUser: \033[0m",
 	})
 	if err != nil {
 		panic(err)
