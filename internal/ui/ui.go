@@ -52,16 +52,16 @@ func (t *Terminal) ShowHelp() {
 		fmt.Printf("  - %s\n", name)
 	}
 	fmt.Println("\nInteractive Commands:")
-	fmt.Printf("  %s - Exit\n", t.config.ExitKey)
+	fmt.Printf("  %s - Exit Interface\n", t.config.ExitKey)
 	fmt.Printf("  %s - Switch models\n", t.config.ModelSwitch)
 	fmt.Printf("  %s - Text editor input mode\n", t.config.EditorInput)
 	fmt.Printf("  %s - Clear chat history\n", t.config.ClearHistory)
 	fmt.Printf("  %s - Backtrack to a previous message\n", t.config.Backtrack)
-	fmt.Printf("  %s - Show help\n", t.config.HelpKey)
+	fmt.Printf("  %s - Help page\n", t.config.HelpKey)
 	fmt.Println("  !p - Switch platforms (interactive)")
 	fmt.Println("  !p [platform] - Switch to specific platform")
 	fmt.Println("  !l - Load files/dirs from current dir")
-	fmt.Printf("  %s - Load files/dirs using 'cha -ocr'\n", t.config.LoadFileOCR)
+	fmt.Printf("  %s - Load files/dirs with Cha OCR\n", t.config.LoadFileOCR)
 	fmt.Printf("  %s [all] - Save last response or all history to a file\n", t.config.ExportChat)
 	fmt.Printf("  %s [query] - Web search using SearXNG\n", t.config.WebSearch)
 }
@@ -69,15 +69,15 @@ func (t *Terminal) ShowHelp() {
 // PrintTitle displays the current session information
 func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93mChatting on %s with %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
-	fmt.Printf("\033[93m%s - Exit\033[0m\n", t.config.ExitKey)
+	fmt.Printf("\033[93m%s - Exit Interface\033[0m\n", t.config.ExitKey)
 	fmt.Printf("\033[93m%s - Switch models\033[0m\n", t.config.ModelSwitch)
 	fmt.Printf("\033[93m!p - Switch platforms\033[0m\n")
 	fmt.Printf("\033[93m%s - Text editor input\033[0m\n", t.config.EditorInput)
 	fmt.Printf("\033[93m%s - Clear history\033[0m\n", t.config.ClearHistory)
 	fmt.Printf("\033[93m%s - Backtrack\033[0m\n", t.config.Backtrack)
-	fmt.Printf("\033[93m%s - Help\033[0m\n", t.config.HelpKey)
+	fmt.Printf("\033[93m%s - Help page\033[0m\n", t.config.HelpKey)
 	fmt.Printf("\033[93m!l - Load files/dirs\033[0m\n")
-	fmt.Printf("\033[93m%s - Load files/dirs with OCR\033[0m\n", t.config.LoadFileOCR)
+	fmt.Printf("\033[93m%s - Load files/dirs with Cha OCR\033[0m\n", t.config.LoadFileOCR)
 	fmt.Printf("\033[93m%s [all] - Export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s [query] - Web search\033[0m\n", t.config.WebSearch)
 }
@@ -241,7 +241,7 @@ func (t *Terminal) LoadFileContentOCR(selection string, state *types.AppState) (
 	}()
 
 	done := make(chan bool)
-	go t.ShowLoadingAnimation("Loading content with 'cha -ocr'", done)
+	go t.ShowLoadingAnimation("Loading", done)
 
 	cmd := exec.CommandContext(ctx, "cha", "-ocr", selection)
 	output, err := cmd.CombinedOutput()

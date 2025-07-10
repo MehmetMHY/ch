@@ -14,15 +14,22 @@ coverage.*
 *.coverprofile
 profile.cov
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Dependency directories
+vendor/
+node_modules/
 
 # Go workspace file
 go.work
 go.work.sum
 
+# Build output
+/bin
+/build
+
 # env file
-.env
+.env*
+*.env
+.env.local
 
 # Editor/IDE
 .idea/
@@ -30,7 +37,6 @@ go.work.sum
 .cursor/
 
 # Custom
-bin/
 .DS_Store
 cha-go
 ch

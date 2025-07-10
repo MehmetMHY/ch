@@ -19,6 +19,7 @@
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections - `brew install fzf`
 - API keys for your chosen platforms (OpenAI, Groq, etc.)
+- (Optional) [Cha](https://github.com/MehmetMHY/cha/) for more advance file content extraction (pdfs, images, videos, audios, etc).
 
 ## Installation
 
@@ -98,8 +99,8 @@ export XAI_API_KEY="your-xai-key"
 
 When running in interactive mode, you can use these commands:
 
-- `!q` - Exit the application
-- `!h` - Show help
+- `!q` - Exit Interface
+- `!h` - Help page
 - `!c` - Clear chat history
 - `!m` - Switch models (with fuzzy finder)
 - `!p` - Switch platforms (with fuzzy finder)
@@ -108,7 +109,7 @@ When running in interactive mode, you can use these commands:
 - `!l` - Load files/dirs into chat context
 - `!e [all]` - Save the last response or all history to a file.
 - `!s [query]` - Web search with AI analysis
-- `!o` - **(Optional)** Load content using advanced scraping via [Cha](https://github.com/MehmetMHY/cha/). This command supports a wide range of inputs, including local files (PDFs, DOCX, images with OCR), web URLs, and even YouTube video transcripts. Requires `cha` to be installed.
+- `!o` - Load files/dirs with [Cha](https://github.com/MehmetMHY/cha/)
 
 ## Web Search Setup
 
