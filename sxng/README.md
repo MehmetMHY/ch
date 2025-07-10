@@ -1,6 +1,6 @@
 # SearXNG Search Engine for Cha
 
-SearXNG is an open-source search engine you host yourself. It's recommended for Cha to enable the `!s` web search feature, avoiding API limits and key management found in other search APIs.
+SearXNG is an open-source search engine that you host yourself. It's recommended for Cha to enable the `!s` web search feature, avoiding API limits and key management found in other search APIs.
 
 ## Setup
 

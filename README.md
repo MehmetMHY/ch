@@ -2,6 +2,8 @@
 
 ⚠️ **Warning:** This project is currently in beta and is still being actively developed. It is in a rough state, and features may change or be unstable. Use at your own risk. For a more established version, you can check out the original [Cha](https://github.com/MehmetMHY/cha/).
 
+## About
+
 **Ch** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains over 79% of the core features of Cha and over 57% of the overall features, with significantly improved performance—delivering **6.84x faster** execution compared to the original Python version.
 
 ## Features
@@ -21,7 +23,7 @@
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections - `brew install fzf`
 - API keys for your chosen platforms (OpenAI, Groq, etc.)
-- (Optional) [Cha](https://github.com/MehmetMHY/cha/) for more advance file content extraction (pdfs, images, videos, audios, etc).
+- (Optional) [Cha](https://github.com/MehmetMHY/cha/) for more advanced file content extraction (pdfs, images, videos, audios, etc).
 
 ## Installation
 
@@ -107,9 +109,9 @@ When running in interactive mode, you can use these commands:
 - `!m` - Switch models (with fuzzy finder)
 - `!p` - Switch platforms (with fuzzy finder)
 - `!t` - Text editor input mode (opens your editor)
-- `!b` - Backtrack to a previous message in the chat history.
+- `!b` - Backtrack to a previous message in the chat history
 - `!l` - Load files/dirs into chat context
-- `!e [all]` - Save the last response or all history to a file.
+- `!e [all]` - Save the last response or all history to a file
 - `!s [query]` - Web search with AI analysis
 - `!o` - Load files/dirs with [Cha](https://github.com/MehmetMHY/cha/)
 
