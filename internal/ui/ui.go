@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -61,7 +60,6 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  !p - Switch platforms (interactive)")
 	fmt.Println("  !p [platform] - Switch to specific platform")
 	fmt.Println("  !l - Load files/dirs from current dir")
-	fmt.Printf("  %s - Load files/dirs with Cha OCR\n", t.config.LoadFileOCR)
 	fmt.Printf("  %s [all] - Save last response or all history to a file\n", t.config.ExportChat)
 	fmt.Printf("  %s [query] - Web search using SearXNG\n", t.config.WebSearch)
 }
@@ -113,7 +111,6 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		"!p - Switch platforms (interactive)",
 		"!p [platform] - Switch to specific platform",
 		"!l - Load files/dirs from current dir",
-		fmt.Sprintf("%s - Load files/dirs with Cha OCR", t.config.LoadFileOCR),
 		fmt.Sprintf("%s [all] - Save last response or all history to a file", t.config.ExportChat),
 		fmt.Sprintf("%s [query] - Web search using SearXNG", t.config.WebSearch),
 	}
@@ -132,7 +129,6 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - Backtrack\033[0m\n", t.config.Backtrack)
 	fmt.Printf("\033[93m%s - Help page\033[0m\n", t.config.HelpKey)
 	fmt.Printf("\033[93m!l - Load files/dirs\033[0m\n")
-	fmt.Printf("\033[93m%s - Load files/dirs with Cha OCR\033[0m\n", t.config.LoadFileOCR)
 	fmt.Printf("\033[93m%s [all] - Export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s [query] - Web search\033[0m\n", t.config.WebSearch)
 }
@@ -279,41 +275,6 @@ func (t *Terminal) LoadFileContent(selections []string) (string, error) {
 	}
 
 	return contentBuilder.String(), nil
-}
-
-// Temp: (2025-07-09) For handling 'cha -ocr' integration.
-// LoadFileContentOCR loads content from a file or URL using 'cha -ocr'
-func (t *Terminal) LoadFileContentOCR(selection string, state *types.AppState) (string, error) {
-	_, err := exec.LookPath("cha")
-	if err != nil {
-		return "", fmt.Errorf("'cha' command not found, please install it first")
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	state.IsExecutingCommand = true
-	state.CommandCancel = cancel
-
-	defer func() {
-		state.IsExecutingCommand = false
-		state.CommandCancel = nil
-	}()
-
-	done := make(chan bool)
-	go t.ShowLoadingAnimation("Loading", done)
-
-	cmd := exec.CommandContext(ctx, "cha", "-ocr", selection)
-	output, err := cmd.CombinedOutput()
-
-	done <- true
-
-	if err != nil {
-		if ctx.Err() == context.Canceled {
-			return "", fmt.Errorf("command cancelled")
-		}
-		return "", fmt.Errorf("error running 'cha -ocr': %v\n%s", err, string(output))
-	}
-
-	return string(output), nil
 }
 
 // loadTextFile loads content from a text file

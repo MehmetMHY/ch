@@ -126,7 +126,6 @@ When running in interactive mode, you can use these commands:
 - `!l` - Load files/dirs into chat context
 - `!e [all]` - Save the last response or all history to a file
 - `!s [query]` - Web search with AI analysis
-- `!o` - Load files/dirs with [Cha](https://github.com/MehmetMHY/cha/)
 
 #### Interactive Help Menu
 

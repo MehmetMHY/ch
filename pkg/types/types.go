@@ -45,7 +45,6 @@ type Config struct {
 	ExportChat      string
 	Backtrack       string
 	WebSearch       string
-	LoadFileOCR     string
 	PreferredEditor string
 	CurrentPlatform string
 	Platforms       map[string]Platform

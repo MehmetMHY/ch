@@ -276,9 +276,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 	case input == "!l":
 		return handleFileLoad(chatManager, terminal, state)
 
-	case input == config.LoadFileOCR:
-		return handleFileLoadOCR(chatManager, terminal, state)
-
 	case input == config.EditorInput:
 		userInput, err := chatManager.HandleTerminalInput()
 		if err != nil {
@@ -415,44 +412,7 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 	}
 
 	if content != "" {
-		userPrompt := fmt.Sprintf("!l [Loaded %d file(s)/directory(s)]:\n%s", len(selections), content)
 		chatManager.AddUserMessage(content)
-		chatManager.AddToHistory(userPrompt, "")
-	}
-
-	return true
-}
-
-// Temp: (2025-07-09) For handling 'cha -ocr' integration.
-func handleFileLoadOCR(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
-	files, err := terminal.GetCurrentDirFilesOnly()
-	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Error reading directory: %v", err))
-		return true
-	}
-
-	selection, err := terminal.FzfSelectOrQuery(files, "Select files/dirs or enter a URL: ")
-	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Error during selection: %v", err))
-		return true
-	}
-
-	if selection == "" {
-		return true
-	}
-
-	content, err := terminal.LoadFileContentOCR(selection, state)
-	if err != nil {
-		if err.Error() != "command cancelled" {
-			terminal.PrintError(fmt.Sprintf("Error loading content: %v", err))
-		}
-		return true
-	}
-
-	if content != "" {
-		userPrompt := fmt.Sprintf("!o [Loaded from %s]:\n%s", selection, content)
-		chatManager.AddUserMessage(content)
-		chatManager.AddToHistory(userPrompt, "")
 	}
 
 	return true
