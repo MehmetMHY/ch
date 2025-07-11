@@ -9,10 +9,22 @@ import (
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() *types.Config {
+	// Get default platform from environment variable, fallback to "openai"
+	defaultPlatform := os.Getenv("CH_DEFAULT_PLATFORM")
+	if defaultPlatform == "" {
+		defaultPlatform = "openai"
+	}
+
+	// Get default model from environment variable, fallback to "gpt-4o-mini"
+	defaultModel := os.Getenv("CH_DEFAULT_MODEL")
+	if defaultModel == "" {
+		defaultModel = "gpt-4o-mini"
+	}
+
 	return &types.Config{
 		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
-		DefaultModel:    "gpt-4o-mini",
-		CurrentModel:    "gpt-4o-mini",
+		DefaultModel:    defaultModel,
+		CurrentModel:    defaultModel,
 		SystemPrompt:    "You are a helpful assistant powered by Cha who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
 		ExitKey:         "!q",
 		ModelSwitch:     "!m",
@@ -24,7 +36,7 @@ func DefaultConfig() *types.Config {
 		WebSearch:       "!s",
 		LoadFileOCR:     "!o",
 		PreferredEditor: "hx",
-		CurrentPlatform: "openai",
+		CurrentPlatform: defaultPlatform,
 		Platforms: map[string]types.Platform{
 			"groq": {
 				Name:    "groq",

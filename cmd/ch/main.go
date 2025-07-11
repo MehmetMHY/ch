@@ -188,7 +188,11 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		return true
 
 	case input == config.HelpKey || input == "help":
-		terminal.ShowHelpFzf()
+		selectedCommand := terminal.ShowHelpFzf()
+		if selectedCommand != "" {
+			// Recursively handle the selected command
+			return handleSpecialCommands(selectedCommand, chatManager, platformManager, searchClient, terminal, state)
+		}
 		return true
 
 	case input == config.ClearHistory:

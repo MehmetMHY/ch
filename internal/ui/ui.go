@@ -67,17 +67,36 @@ func (t *Terminal) ShowHelp() {
 }
 
 // ShowHelpFzf displays the help information using fzf for interactive selection.
-func (t *Terminal) ShowHelpFzf() {
+// Returns the selected command if it should be executed, empty string otherwise.
+func (t *Terminal) ShowHelpFzf() string {
 	options := t.getInteractiveHelpOptions()
-	selected, err := t.FzfMultiSelect(options, "Select with Tab to see more: ")
+	selected, err := t.FzfSelect(options, "Select an option: ")
 	if err != nil {
 		t.PrintError(fmt.Sprintf("Error displaying help: %v", err))
-		return
+		return ""
 	}
 
-	for _, s := range selected {
-		fmt.Printf("\033[93m%s\033[0m\n", s)
+	// Only process lines that start with !
+	if !strings.HasPrefix(selected, "!") {
+		return ""
 	}
+
+	// If line contains [ or ], just print it in yellow and return
+	if strings.Contains(selected, "[") || strings.Contains(selected, "]") {
+		fmt.Printf("\033[93m%s\033[0m\n", selected)
+		return ""
+	}
+
+	// Extract the command (everything before the first space or dash)
+	parts := strings.Fields(selected)
+	if len(parts) > 0 {
+		command := parts[0]
+		if strings.HasPrefix(command, "!") {
+			return command
+		}
+	}
+
+	return ""
 }
 
 // getInteractiveHelpOptions returns a slice of strings containing the help information.

@@ -59,6 +59,8 @@ go install github.com/MehmetMHY/ch/cmd/ch@latest
 
 ## Configuration
 
+### API Keys
+
 Set up API keys for your chosen platforms:
 
 ```bash
@@ -68,6 +70,17 @@ export DEEP_SEEK_API_KEY="your-deepseek-key"
 export ANTHROPIC_API_KEY="your-anthropic-key"
 export XAI_API_KEY="your-xai-key"
 ```
+
+### Default Platform and Model
+
+You can set default platform and model using environment variables:
+
+```bash
+export CH_DEFAULT_PLATFORM="groq"      # Default: "openai"
+export CH_DEFAULT_MODEL="gemma2-9b-it" # Default: "gpt-4o-mini"
+```
+
+If not set, Ch will use OpenAI with gpt-4o-mini as defaults.
 
 ## Usage
 
@@ -104,7 +117,7 @@ export XAI_API_KEY="your-xai-key"
 When running in interactive mode, you can use these commands:
 
 - `!q` - Exit Interface
-- `!h` - Help page
+- `!h` - Help page with interactive selection
 - `!c` - Clear chat history
 - `!m` - Switch models (with fuzzy finder)
 - `!p` - Switch platforms (with fuzzy finder)
@@ -114,6 +127,14 @@ When running in interactive mode, you can use these commands:
 - `!e [all]` - Save the last response or all history to a file
 - `!s [query]` - Web search with AI analysis
 - `!o` - Load files/dirs with [Cha](https://github.com/MehmetMHY/cha/)
+
+#### Interactive Help Menu
+
+The `!h` command opens an interactive help menu where you can:
+
+- Select commands that start with `!` (without brackets) to execute them directly
+- View commands with `[parameters]` by selecting them (displays info only)
+- Commands without `!` prefix are informational only
 
 ## Web Search Setup
 
