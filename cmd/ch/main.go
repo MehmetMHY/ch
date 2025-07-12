@@ -15,6 +15,7 @@ import (
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/chzyer/readline"
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -30,6 +31,7 @@ func main() {
 	// parse command line arguments
 	var (
 		helpFlag     = flag.Bool("h", false, "Show help")
+		codedumpFlag = flag.String("d", "", "Generate codedump file (optionally specify directory path)")
 		platformFlag = flag.String("p", "", "Switch platform (leave empty for interactive selection)")
 		modelFlag    = flag.String("m", "", "Specify model to use")
 	)
@@ -40,6 +42,42 @@ func main() {
 	// handle help flag
 	if *helpFlag {
 		terminal.ShowHelp()
+		return
+	}
+
+	// handle codedump flag
+	if flag.Lookup("d").Value.String() != flag.Lookup("d").DefValue {
+		targetDir := *codedumpFlag
+		if targetDir == "" {
+			targetDir = "."
+		}
+
+		// Validate directory
+		if !isValidCodedumpDir(targetDir) {
+			if targetDir != "." {
+				terminal.PrintError("Invalid directory path or permission denied")
+				return
+			}
+		}
+
+		codedump, err := terminal.CodeDumpFromDirForCLI(targetDir)
+		if err != nil {
+			// Check if user cancelled (Ctrl-C/Ctrl-D during fzf)
+			if strings.Contains(err.Error(), "user cancelled") {
+				return // Exit silently without creating file
+			}
+			terminal.PrintError(fmt.Sprintf("Error generating codedump: %v", err))
+			return
+		}
+
+		filename := fmt.Sprintf("code_dump_%s.txt", uuid.New().String())
+		err = os.WriteFile(filename, []byte(codedump), 0644)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("Error writing codedump file: %v", err))
+			return
+		}
+
+		fmt.Println(filename)
 		return
 	}
 
@@ -276,6 +314,9 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 	case input == "!l":
 		return handleFileLoad(chatManager, terminal, state)
 
+	case input == "!d":
+		return handleCodeDump(chatManager, terminal, state)
+
 	case input == config.EditorInput:
 		userInput, err := chatManager.HandleTerminalInput()
 		if err != nil {
@@ -416,4 +457,33 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 	}
 
 	return true
+}
+
+func handleCodeDump(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	codedump, err := terminal.CodeDump()
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("Error generating codedump: %v", err))
+		return true
+	}
+
+	if codedump != "" {
+		chatManager.AddUserMessage(codedump)
+	}
+
+	return true
+}
+
+func isValidCodedumpDir(dirPath string) bool {
+	// Never allow root directory
+	if dirPath == "/" {
+		return false
+	}
+
+	// Check if path exists and is a directory
+	info, err := os.Stat(dirPath)
+	if err != nil {
+		return false
+	}
+
+	return info.IsDir()
 }

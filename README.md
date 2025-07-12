@@ -107,6 +107,7 @@ If not set, Ch will use OpenAI with gpt-4o-mini as defaults.
 
 ```bash
 ./bin/ch -h                                 # Show help
+./bin/ch -d [directory]                     # Generate codedump file (current dir if no path)
 ./bin/ch -p [platform]                      # Switch platform
 ./bin/ch -m [model]                         # Specify model
 ./bin/ch -p [platform] -m [model] [query]   # Full command
@@ -124,6 +125,7 @@ When running in interactive mode, you can use these commands:
 - `!t` - Text editor input mode (opens your editor)
 - `!b` - Backtrack to a previous message in the chat history
 - `!l` - Load files/dirs into chat context
+- `!d` - Generate codedump of all text files
 - `!e [all]` - Save the last response or all history to a file
 - `!s [query]` - Web search with AI analysis
 
@@ -204,6 +206,7 @@ Chatting on OPENAI with gpt-4o-mini
 !b - Backtrack
 !h - Help
 !l - Load files/dirs
+!d - Generate codedump
 !e [all] - Export chat
 !s [query] - Web search
 
@@ -212,6 +215,10 @@ User: !p groq
 
 User: !s latest developments in AI
 # performs web search and provides AI analysis with citations
+
+User: !d
+# opens fzf selector to choose files/directories to exclude
+# generates comprehensive codedump of project files
 
 User: !t
 # opens your preferred editor for complex input
