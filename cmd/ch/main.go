@@ -221,7 +221,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 
 	switch {
 	case input == config.ExitKey:
-		fmt.Println("Goodbye!")
 		os.Exit(0)
 		return true
 

@@ -17,6 +17,7 @@
 - **Model switching**: Easily switch between different AI models
 - **Chat backtracking**: Revert to any point in the conversation history
 - **Professional architecture**: Clean, modular Go codebase
+- **Code Dump**: Get all the content/files in a directory and save it to a single string/text-file which can be used as context for the model(s)
 
 ## Requirements
 
@@ -52,9 +53,6 @@ go build -o bin/ch cmd/ch/main.go
 ```bash
 # install to $GOPATH/bin
 make install
-
-# or install manually
-go install github.com/MehmetMHY/ch/cmd/ch@latest
 ```
 
 ## Configuration
