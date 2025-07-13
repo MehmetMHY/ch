@@ -148,6 +148,11 @@ Then use `!s <query>` in chat for web-enhanced responses with IEEE citations.
 
 ## Development
 
+### Available Scripts
+
+- `./build.sh`: Compiles the project and places the binary in the `bin/` directory.
+- `./update.sh`: Updates all Go modules to their latest versions.
+
 ### Project Structure
 
 ```bash

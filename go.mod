@@ -1,13 +1,13 @@
 module github.com/MehmetMHY/ch
 
-go 1.21
+go 1.23.0
+
+toolchain go1.24.3
 
 require (
+	github.com/chzyer/readline v1.5.1
 	github.com/google/uuid v1.6.0
-	github.com/sashabaranov/go-openai v1.36.0
+	github.com/sashabaranov/go-openai v1.40.5
 )
 
-require (
-	github.com/chzyer/readline v1.5.1 // indirect
-	golang.org/x/sys v0.0.0-20220310020820-b874c991c1a5 // indirect
-)
+require golang.org/x/sys v0.34.0 // indirect
