@@ -73,7 +73,7 @@ func (t *Terminal) ShowHelpFzf() string {
 	options := t.getInteractiveHelpOptions()
 	selected, err := t.FzfSelect(options, "Select an option: ")
 	if err != nil {
-		t.PrintError(fmt.Sprintf("Error displaying help: %v", err))
+		t.PrintError(fmt.Sprintf("%v", err))
 		return ""
 	}
 
