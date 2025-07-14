@@ -179,7 +179,7 @@ func (t *Terminal) FzfSelect(items []string, prompt string) (string, error) {
 
 // FzfMultiSelect provides a fuzzy finder interface for multiple selections
 func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, error) {
-	cmd := exec.Command("fzf", "--reverse", "--height=40%", "--border", "--prompt="+prompt, "--multi", "--bind=tab:select+down")
+	cmd := exec.Command("fzf", "--reverse", "--height=40%", "--border", "--prompt="+prompt, "--multi", "--bind=tab:toggle+down")
 	cmd.Stdin = strings.NewReader(strings.Join(items, "\n"))
 
 	output, err := cmd.Output()
@@ -200,7 +200,7 @@ func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, erro
 
 // FzfMultiSelectForCLI provides a fuzzy finder interface for multiple selections with cancellation detection
 func (t *Terminal) FzfMultiSelectForCLI(items []string, prompt string) ([]string, error) {
-	cmd := exec.Command("fzf", "--reverse", "--height=40%", "--border", "--prompt="+prompt, "--multi", "--bind=tab:select+down")
+	cmd := exec.Command("fzf", "--reverse", "--height=40%", "--border", "--prompt="+prompt, "--multi", "--bind=tab:toggle+down")
 	cmd.Stdin = strings.NewReader(strings.Join(items, "\n"))
 
 	output, err := cmd.Output()
