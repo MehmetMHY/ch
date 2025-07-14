@@ -11,6 +11,7 @@
 - **Multi-platform support**: OpenAI, Groq, DeepSeek, Anthropic, XAI
 - **Interactive & Direct modes**: Chat interactively or run single queries
 - **Web search integration**: SearXNG with IEEE citation format
+- **Web scraping**: Extract content from web pages and analyze with AI
 - **File/directory loading**: Load text files into chat context with multi-select
 - **Chat history export**: Export conversations to files
 - **Text editor input mode**: Use your preferred editor for complex prompts
@@ -23,6 +24,7 @@
 
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections - `brew install fzf`
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for web scraping - `pip install yt-dlp`
 - API keys for your chosen platforms (OpenAI, Groq, etc.)
 - (Optional) [Cha](https://github.com/MehmetMHY/cha/) for more advanced file content extraction (pdfs, images, videos, audios, etc).
 
@@ -108,6 +110,7 @@ If not set, Ch will use OpenAI with gpt-4o-mini as defaults.
 ./bin/ch -d [directory]                     # Generate codedump file (current dir if no path)
 ./bin/ch -p [platform]                      # Switch platform
 ./bin/ch -m [model]                         # Specify model
+./bin/ch -w [url]                           # Scrape web page and analyze
 ./bin/ch -p [platform] -m [model] [query]   # Full command
 ```
 
@@ -126,6 +129,7 @@ When running in interactive mode, you can use these commands:
 - `!d` - Generate codedump of all text files
 - `!e [all]` - Save the last response or all history to a file
 - `!s [query]` - Web search with AI analysis
+- `!w [url]` - Web scraper for content extraction
 - `\` - Enter multi-line input mode (exit by typing `\` on a new line)
 
 #### Interactive Help Menu
@@ -163,6 +167,7 @@ ch/
 │   ├── config/   # configuration management
 │   ├── chat/     # chat operations and history
 │   ├── platform/ # AI platform integrations
+│   ├── scraper/  # web scraping functionality
 │   ├── search/   # SearXNG web search
 │   └── ui/       # terminal UI components
 ├── pkg/types/    # shared types and interfaces
@@ -213,6 +218,7 @@ Chatting on OPENAI with gpt-4o-mini
 !d - Generate codedump
 !e [all] - Export chat
 !s [query] - Web search
+!w [url] - Web scraper
 
 User: !p groq
 # fuzzy finder opens with available platforms

@@ -42,11 +42,14 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  ./ch -d [directory]")
 	fmt.Println("  ./ch -p [platform]")
 	fmt.Println("  ./ch -m [model]")
+	fmt.Println("  ./ch -w [url/text]")
 	fmt.Println("  ./ch -p [platform] -m [model] [query]")
 	fmt.Println("\nExamples:")
 	fmt.Println("  ./ch -p groq what is AI?")
 	fmt.Println("  ./ch -p groq -m llama3 what is the goal of life")
 	fmt.Println("  ./ch -m gpt-4o explain quantum computing")
+	fmt.Println("  ./ch -w https://example.com                                        # scrape and print content")
+	fmt.Println("  ./ch -w \"Check out https://example.com and https://news.ycombinator.com\"  # scrape multiple URLs")
 	fmt.Println("\nAvailable Platforms:")
 	fmt.Println("  - openai (default)")
 	for name := range t.config.Platforms {
@@ -65,6 +68,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  !d - Generate codedump (all text files with fzf exclusion)")
 	fmt.Printf("  %s [all] - Save last response or all history to a file\n", t.config.ExportChat)
 	fmt.Printf("  %s [query] - Web search using SearXNG\n", t.config.WebSearch)
+	fmt.Printf("  %s [url/text] - Web scraper for content extraction (supports multiple URLs)\n", t.config.Scraper)
 	fmt.Printf("  %s - Multi-line input mode (end with '\\' on a new line)\n", t.config.MultiLine)
 }
 
@@ -118,6 +122,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		"!d - Generate codedump (all text files with fzf exclusion)",
 		fmt.Sprintf("%s [all] - Save last response or all history to a file", t.config.ExportChat),
 		fmt.Sprintf("%s [query] - Web search using SearXNG", t.config.WebSearch),
+		fmt.Sprintf("%s [url/text] - Web scraper for content extraction (supports multiple URLs)", t.config.Scraper),
 		fmt.Sprintf("%s - Multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 	}
 
@@ -138,6 +143,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m!d - Generate codedump\033[0m\n")
 	fmt.Printf("\033[93m%s [all] - Export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s [query] - Web search\033[0m\n", t.config.WebSearch)
+	fmt.Printf("\033[93m%s [url/text] - Web scraper\033[0m\n", t.config.Scraper)
 	fmt.Printf("\033[93m%s - Multi-line input\033[0m\n", t.config.MultiLine)
 }
 
