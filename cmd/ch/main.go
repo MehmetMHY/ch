@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -383,6 +384,75 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		} else {
 			terminal.PrintInfo(fmt.Sprintf("Backtracked by %d.", backtrackedCount))
 		}
+		return true
+
+	case input == config.MultiLine:
+		var lines []string
+		terminal.PrintInfo("Multi-line mode (end with '\\' on a new line).")
+
+		// Create a new readline instance for multi-line input
+		multiLineRl, err := readline.NewEx(&readline.Config{
+			Prompt:      "... ",
+			HistoryFile: "/dev/null", // Disable history for multi-line
+		})
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("Error creating multi-line input: %v", err))
+			return true
+		}
+		defer multiLineRl.Close()
+
+		for {
+			line, err := multiLineRl.Readline()
+			if err != nil {
+				if err == readline.ErrInterrupt || err == io.EOF {
+					fmt.Println() // Move to the next line for a clean prompt
+					return true   // Exit silently
+				}
+				break // Exit for other errors
+			}
+			if line == config.MultiLine {
+				break
+			}
+			lines = append(lines, line)
+		}
+
+		fullInput := strings.Join(lines, "\n")
+		if strings.TrimSpace(fullInput) == "" {
+			return true
+		}
+
+		chatManager.AddUserMessage(fullInput)
+
+		// Start loading animation for non-streaming models
+		var loadingDone chan bool
+		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
+			loadingDone = make(chan bool)
+			go terminal.ShowLoadingAnimation("Thinking", loadingDone)
+		}
+
+		response, err := platformManager.SendChatRequest(chatManager.GetMessages(), chatManager.GetCurrentModel(), &state.StreamingCancel, &state.IsStreaming)
+
+		// Stop loading animation if it was started
+		if loadingDone != nil {
+			loadingDone <- true
+		}
+
+		if err != nil {
+			if err.Error() == "request was interrupted" {
+				chatManager.RemoveLastUserMessage()
+				return true
+			}
+			terminal.PrintError(fmt.Sprintf("%v", err))
+			return true
+		}
+
+		// Print response for non-streaming models
+		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
+			fmt.Printf("\033[92m%s\033[0m\n", response)
+		}
+
+		chatManager.AddAssistantMessage(response)
+		chatManager.AddToHistory(fullInput, response)
 		return true
 
 	default:

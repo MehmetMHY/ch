@@ -34,6 +34,7 @@ func DefaultConfig() *types.Config {
 		ExportChat:      "!e",
 		Backtrack:       "!b",
 		WebSearch:       "!s",
+		MultiLine:       "\\",
 		PreferredEditor: "hx",
 		CurrentPlatform: defaultPlatform,
 		Platforms: map[string]types.Platform{

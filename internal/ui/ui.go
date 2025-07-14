@@ -65,6 +65,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  !d - Generate codedump (all text files with fzf exclusion)")
 	fmt.Printf("  %s [all] - Save last response or all history to a file\n", t.config.ExportChat)
 	fmt.Printf("  %s [query] - Web search using SearXNG\n", t.config.WebSearch)
+	fmt.Printf("  %s - Multi-line input mode (end with '\\' on a new line)\n", t.config.MultiLine)
 }
 
 // ShowHelpFzf displays the help information using fzf for interactive selection.
@@ -117,6 +118,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		"!d - Generate codedump (all text files with fzf exclusion)",
 		fmt.Sprintf("%s [all] - Save last response or all history to a file", t.config.ExportChat),
 		fmt.Sprintf("%s [query] - Web search using SearXNG", t.config.WebSearch),
+		fmt.Sprintf("%s - Multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 	}
 
 	return options
@@ -136,6 +138,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m!d - Generate codedump\033[0m\n")
 	fmt.Printf("\033[93m%s [all] - Export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s [query] - Web search\033[0m\n", t.config.WebSearch)
+	fmt.Printf("\033[93m%s - Multi-line input\033[0m\n", t.config.MultiLine)
 }
 
 // ShowLoadingAnimation displays a loading animation
