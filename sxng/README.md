@@ -8,7 +8,9 @@ SearXNG is an open-source search engine that you host yourself. It's recommended
 
 2. Install Python dependencies: `pip3 install -r requirements.txt`
 
-3. Run the setup script: `python3 run.py`
+3. Run the setup script:
+   - `python3 run.py` (uses default settings: port 8080, name "searxng-search", URL "http://localhost")
+   - `python3 run.py -c` or `python3 run.py --custom` (prompts for custom configuration)
 
 ## Running
 

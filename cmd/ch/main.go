@@ -89,7 +89,7 @@ func main() {
 	if *scraperFlag != "" {
 		result, err := scraperClient.ProcessInput(*scraperFlag)
 		if err != nil {
-			fmt.Printf("\033[91mScraping failed: %v\033[0m\n", err)
+			fmt.Printf("\033[91m%v\033[0m\n", err)
 			return
 		}
 
@@ -98,7 +98,7 @@ func main() {
 		case *scraper.ScrapedContent:
 			// Single URL result
 			if v.Error != "" {
-				fmt.Printf("\033[91mScraping failed: %s\033[0m\n", v.Error)
+				fmt.Printf("\033[91m%s\033[0m\n", v.Error)
 				return
 			}
 			fmt.Printf("Scraped content from %s:\n\n%s\n", v.URL, v.Content)
@@ -563,7 +563,7 @@ func handleScraper(input string, chatManager *chat.Manager, platformManager *pla
 	fmt.Print("\r\033[K") // Clear loading line
 
 	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Scraping failed: %v", err))
+		terminal.PrintError(fmt.Sprintf("%v", err))
 		return true
 	}
 
@@ -574,7 +574,7 @@ func handleScraper(input string, chatManager *chat.Manager, platformManager *pla
 	case *scraper.ScrapedContent:
 		// Single URL result
 		if v.Error != "" {
-			terminal.PrintError(fmt.Sprintf("Scraping failed: %s", v.Error))
+			terminal.PrintError(fmt.Sprintf("%s", v.Error))
 			return true
 		}
 		scrapedContext = fmt.Sprintf("Scraped content from %s:\n\n%s", v.URL, v.Content)
