@@ -32,6 +32,7 @@ all: build
 ## Build the binary
 build:
 	@echo "Building $(BINARY_NAME)..."
+	@echo "Note: Web scraping requires yt-dlp - install with: pip install yt-dlp"
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(LDFLAGS) -o $(BINARY_PATH) $(MAIN_FILE)
 	@echo "Build complete: $(BINARY_PATH)"
@@ -131,3 +132,8 @@ help:
 	@echo "  make build"
 	@echo "  make run ARGS='--help'"
 	@echo "  make run ARGS='-p groq what is AI?'"
+	@echo "  make run ARGS='-w https://example.com'"
+	@echo ""
+	@echo "Dependencies:"
+	@echo "  - fzf (brew install fzf)"
+	@echo "  - yt-dlp (pip install yt-dlp)"

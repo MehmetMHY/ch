@@ -45,6 +45,7 @@ type Config struct {
 	ExportChat      string
 	Backtrack       string
 	WebSearch       string
+	Scraper         string
 	MultiLine       string
 	PreferredEditor string
 	CurrentPlatform string
