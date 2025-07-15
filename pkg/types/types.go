@@ -46,6 +46,15 @@ type Config struct {
 	Backtrack       string
 	WebSearch       string
 	Scraper         string
+	SaveHistory     string
+	LoadFiles       string
+	LoadFilesAdv    string
+	AnswerSearch    string
+	PlatformSwitch  string
+	CodeDump        string
+	ShellOption     string
+	LoadHistory     string
+	EditorAlias     string
 	MultiLine       string
 	PreferredEditor string
 	CurrentPlatform string

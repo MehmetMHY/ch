@@ -62,10 +62,10 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - Clear chat history\n", t.config.ClearHistory)
 	fmt.Printf("  %s - Backtrack to a previous message\n", t.config.Backtrack)
 	fmt.Printf("  %s - Help page\n", t.config.HelpKey)
-	fmt.Println("  !p - Switch platforms (interactive)")
-	fmt.Println("  !p [platform] - Switch to specific platform")
-	fmt.Println("  !l - Load files/dirs from current dir")
-	fmt.Println("  !d - Generate codedump (all text files with fzf exclusion)")
+	fmt.Printf("  %s - Switch platforms (interactive)\n", t.config.PlatformSwitch)
+	fmt.Printf("  %s [platform] - Switch to specific platform\n", t.config.PlatformSwitch)
+	fmt.Printf("  %s - Load files/dirs from current dir\n", t.config.LoadFiles)
+	fmt.Printf("  %s - Generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
 	fmt.Printf("  %s [all] - Save last response or all history to a file\n", t.config.ExportChat)
 	fmt.Printf("  %s [query] - Web search using SearXNG\n", t.config.WebSearch)
 	fmt.Printf("  %s [url/text] - Web scraper for content extraction (supports multiple URLs)\n", t.config.Scraper)
@@ -76,13 +76,51 @@ func (t *Terminal) ShowHelp() {
 // Returns the selected command if it should be executed, empty string otherwise.
 func (t *Terminal) ShowHelpFzf() string {
 	options := t.getInteractiveHelpOptions()
-	selected, err := t.FzfSelect(options, "Select an option: ")
+
+	cmd := exec.Command("fzf", "--reverse", "--height=40%", "--border",
+		"--prompt=Select an option: ", "--multi",
+		"--header", fmt.Sprintf("Chatting on %s with %s", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel))
+	cmd.Stdin = strings.NewReader(strings.Join(options, "\n"))
+
+	output, err := cmd.Output()
 	if err != nil {
 		t.PrintError(fmt.Sprintf("%v", err))
 		return ""
 	}
 
-	// Only process lines that start with !
+	selectedOutput := strings.TrimSpace(string(output))
+	if selectedOutput == "" {
+		return ""
+	}
+
+	selectedItems := strings.Split(selectedOutput, "\n")
+
+	// If [ALL] is selected along with other items, ignore [ALL] and process others
+	if len(selectedItems) > 1 {
+		for _, item := range selectedItems {
+			if !strings.HasPrefix(item, "[ALL]") {
+				return t.processHelpSelection(item, options)
+			}
+		}
+	}
+
+	// If only [ALL] is selected, show all options
+	if len(selectedItems) == 1 && strings.HasPrefix(selectedItems[0], "[ALL]") {
+		fmt.Printf("\033[93m%s\033[0m\n", fmt.Sprintf("Chatting on %s with %s", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel))
+		for _, option := range options {
+			if !strings.HasPrefix(option, "[ALL]") {
+				fmt.Printf("\033[93m%s\033[0m\n", option)
+			}
+		}
+		return ""
+	}
+
+	// Process single selection
+	return t.processHelpSelection(selectedItems[0], options)
+}
+
+func (t *Terminal) processHelpSelection(selected string, options []string) string {
+	// Only process lines that start with ! (commands)
 	if !strings.HasPrefix(selected, "!") {
 		return ""
 	}
@@ -107,19 +145,18 @@ func (t *Terminal) ShowHelpFzf() string {
 
 // getInteractiveHelpOptions returns a slice of strings containing the help information.
 func (t *Terminal) getInteractiveHelpOptions() []string {
-	title := fmt.Sprintf("Chatting on %s with %s", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
 	options := []string{
-		title,
+		"[ALL] - Show all help options",
 		fmt.Sprintf("%s - Exit Interface", t.config.ExitKey),
 		fmt.Sprintf("%s - Switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - Text editor input mode", t.config.EditorInput),
 		fmt.Sprintf("%s - Clear chat history", t.config.ClearHistory),
 		fmt.Sprintf("%s - Backtrack to a previous message", t.config.Backtrack),
 		fmt.Sprintf("%s - Help page", t.config.HelpKey),
-		"!p - Switch platforms (interactive)",
-		"!p [platform] - Switch to specific platform",
-		"!l - Load files/dirs from current dir",
-		"!d - Generate codedump (all text files with fzf exclusion)",
+		fmt.Sprintf("%s - Switch platforms (interactive)", t.config.PlatformSwitch),
+		fmt.Sprintf("%s [platform] - Switch to specific platform", t.config.PlatformSwitch),
+		fmt.Sprintf("%s - Load files/dirs from current dir", t.config.LoadFiles),
+		fmt.Sprintf("%s - Generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
 		fmt.Sprintf("%s [all] - Save last response or all history to a file", t.config.ExportChat),
 		fmt.Sprintf("%s [query] - Web search using SearXNG", t.config.WebSearch),
 		fmt.Sprintf("%s [url/text] - Web scraper for content extraction (supports multiple URLs)", t.config.Scraper),
@@ -134,13 +171,13 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93mChatting on %s with %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
 	fmt.Printf("\033[93m%s - Exit Interface\033[0m\n", t.config.ExitKey)
 	fmt.Printf("\033[93m%s - Switch models\033[0m\n", t.config.ModelSwitch)
-	fmt.Printf("\033[93m!p - Switch platforms\033[0m\n")
+	fmt.Printf("\033[93m%s - Switch platforms\033[0m\n", t.config.PlatformSwitch)
 	fmt.Printf("\033[93m%s - Text editor input\033[0m\n", t.config.EditorInput)
 	fmt.Printf("\033[93m%s - Clear history\033[0m\n", t.config.ClearHistory)
 	fmt.Printf("\033[93m%s - Backtrack\033[0m\n", t.config.Backtrack)
 	fmt.Printf("\033[93m%s - Help page\033[0m\n", t.config.HelpKey)
-	fmt.Printf("\033[93m!l - Load files/dirs\033[0m\n")
-	fmt.Printf("\033[93m!d - Generate codedump\033[0m\n")
+	fmt.Printf("\033[93m%s - Load files/dirs\033[0m\n", t.config.LoadFiles)
+	fmt.Printf("\033[93m%s - Generate codedump\033[0m\n", t.config.CodeDump)
 	fmt.Printf("\033[93m%s [all] - Export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s [query] - Web search\033[0m\n", t.config.WebSearch)
 	fmt.Printf("\033[93m%s [url/text] - Web scraper\033[0m\n", t.config.Scraper)

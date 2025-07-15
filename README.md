@@ -129,7 +129,7 @@ When running in interactive mode, you can use these commands:
 - `!d` - Generate codedump of all text files
 - `!e [all]` - Save the last response or all history to a file
 - `!s [query]` - Web search with AI analysis
-- `!w [url]` - Web scraper for content extraction
+- `!u [url/text]` - Web scraper for content extraction (supports multiple URLs)
 - `\` - Enter multi-line input mode (exit by typing `\` on a new line)
 
 #### Interactive Help Menu
@@ -218,7 +218,7 @@ Chatting on OPENAI with gpt-4o-mini
 !d - Generate codedump
 !e [all] - Export chat
 !s [query] - Web search
-!w [url] - Web scraper
+!u [url/text] - Web scraper
 
 User: !p groq
 # fuzzy finder opens with available platforms

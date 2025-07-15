@@ -311,7 +311,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		chatManager.AddToHistory(fmt.Sprintf("%s %s", config.ModelSwitch, modelName), fmt.Sprintf("Switched model from %s to %s", oldModel, modelName))
 		return true
 
-	case input == "!p":
+	case input == config.PlatformSwitch:
 		result, err := platformManager.SelectPlatform("", "", terminal.FzfSelect)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
@@ -324,13 +324,13 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("Error initializing client: %v", err))
 			} else {
-				chatManager.AddToHistory("!p", fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
+				chatManager.AddToHistory(config.PlatformSwitch, fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
 		return true
 
-	case strings.HasPrefix(input, "!p "):
-		platformName := strings.TrimPrefix(input, "!p ")
+	case strings.HasPrefix(input, config.PlatformSwitch+" "):
+		platformName := strings.TrimPrefix(input, config.PlatformSwitch+" ")
 		result, err := platformManager.SelectPlatform(platformName, "", terminal.FzfSelect)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
@@ -343,7 +343,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("Error initializing client: %v", err))
 			} else {
-				chatManager.AddToHistory(fmt.Sprintf("!p %s", platformName), fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
+				chatManager.AddToHistory(fmt.Sprintf("%s %s", config.PlatformSwitch, platformName), fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
 		return true
@@ -352,20 +352,20 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		return handleWebSearch(input, chatManager, platformManager, searchClient, terminal, state)
 
 	case input == config.WebSearch:
-		terminal.PrintError("Please provide a search query after !s")
+		terminal.PrintError("Please provide a search query after " + config.WebSearch)
 		return true
 
 	case strings.HasPrefix(input, config.Scraper):
 		return handleScraper(input, chatManager, platformManager, scraperClient, terminal, state)
 
 	case input == config.Scraper:
-		terminal.PrintError("Please provide a URL or text with URLs after !w")
+		terminal.PrintError("Please provide a URL or text with URLs after " + config.Scraper)
 		return true
 
-	case input == "!l":
+	case input == config.LoadFiles:
 		return handleFileLoad(chatManager, terminal, state)
 
-	case input == "!d":
+	case input == config.CodeDump:
 		return handleCodeDump(chatManager, terminal, state)
 
 	case input == config.EditorInput:
@@ -514,7 +514,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 func handleWebSearch(input string, chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, terminal *ui.Terminal, state *types.AppState) bool {
 	searchQuery := strings.TrimPrefix(input, state.Config.WebSearch+" ")
 	if strings.TrimSpace(searchQuery) == "" {
-		terminal.PrintError("Please provide a search query after !s")
+		terminal.PrintError("Please provide a search query after " + state.Config.WebSearch)
 		return true
 	}
 
@@ -539,7 +539,7 @@ func handleWebSearch(input string, chatManager *chat.Manager, platformManager *p
 	}
 
 	chatManager.AddAssistantMessage(response)
-	chatManager.AddToHistory(fmt.Sprintf("!s %s", searchQuery), response)
+	chatManager.AddToHistory(fmt.Sprintf("%s %s", state.Config.WebSearch, searchQuery), response)
 
 	return true
 }
@@ -547,7 +547,7 @@ func handleWebSearch(input string, chatManager *chat.Manager, platformManager *p
 func handleScraper(input string, chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) bool {
 	inputText := strings.TrimPrefix(input, state.Config.Scraper+" ")
 	if strings.TrimSpace(inputText) == "" {
-		terminal.PrintError("Please provide a URL or text with URLs after !w")
+		terminal.PrintError("Please provide a URL or text with URLs after " + state.Config.Scraper)
 		return true
 	}
 
