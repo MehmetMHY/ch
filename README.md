@@ -1,5 +1,7 @@
 # Ch
 
+🚨 **Project Archived:** After careful consideration, I have decided to archive the Ch project due to the challenges of maintaining both Ch and Cha. While Ch showcases my journey with GoLang and offers impressive performance, I believe Cha is more defined, future-rich, and proven. I will focus my efforts on Cha, but I welcome anyone interested to fork Ch and make their own improvements. This project has been a fun experience, and I look forward to seeing where the community can take it! For a more established version, please check out [Cha](https://github.com/MehmetMHY/cha/)!
+
 ⚠️ **Warning:** This project is currently in beta and is still being actively developed. It is in a rough state, and features may change or be unstable. Use at your own risk. For a more established version, you can check out the original [Cha](https://github.com/MehmetMHY/cha/).
 
 ## About
