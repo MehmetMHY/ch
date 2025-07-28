@@ -224,14 +224,17 @@ Switch platforms during conversation:
 ```bash
 git clone https://github.com/MehmetMHY/ch.git
 cd ch
-go mod download
-make build
+./build.sh
 ```
 
-### Available Make Commands
+### Build Options
 
 ```bash
-make build        # build the binary
+./build.sh              # build the binary
+./build.sh -u           # update dependencies and build
+./build.sh -h           # show help
+
+# Available Make Commands
 make install      # install to $GOPATH/bin
 make clean        # clean build artifacts
 make test         # run tests
@@ -253,7 +256,7 @@ Contributions are welcome! Here's how to get started:
 ```bash
 git clone https://github.com/MehmetMHY/ch.git
 cd ch
-go mod download
+./build.sh -u
 make dev
 ```
 
