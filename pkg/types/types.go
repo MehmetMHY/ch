@@ -44,7 +44,6 @@ type Config struct {
 	HelpKey         string
 	ExportChat      string
 	Backtrack       string
-	WebSearch       string
 	Scraper         string
 	SaveHistory     string
 	LoadFiles       string
@@ -59,32 +58,6 @@ type Config struct {
 	PreferredEditor string
 	CurrentPlatform string
 	Platforms       map[string]Platform
-}
-
-// SearXNGResponse represents the JSON response from SearXNG API
-type SearXNGResponse struct {
-	Query           string          `json:"query"`
-	NumberOfResults int             `json:"number_of_results"`
-	Results         []SearXNGResult `json:"results"`
-	Infoboxes       []interface{}   `json:"infoboxes"`
-	Suggestions     []string        `json:"suggestions"`
-	Answers         []interface{}   `json:"answers"`
-	Corrections     []interface{}   `json:"corrections"`
-	Unresponsive    []interface{}   `json:"unresponsive_engines"`
-}
-
-// SearXNGResult represents a single search result
-type SearXNGResult struct {
-	URL       string   `json:"url"`
-	Title     string   `json:"title"`
-	Content   string   `json:"content"`
-	Engine    string   `json:"engine"`
-	ParsedURL []string `json:"parsed_url"`
-	Template  string   `json:"template"`
-	Engines   []string `json:"engines"`
-	Positions []int    `json:"positions"`
-	Score     float64  `json:"score"`
-	Category  string   `json:"category"`
 }
 
 // ExportEntry represents a single entry in the JSON export

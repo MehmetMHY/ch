@@ -32,8 +32,6 @@ all: build
 ## Build the binary
 build:
 	@echo "Building $(BINARY_NAME)..."
-	@echo "Note: Web scraping requires yt-dlp - install with: pip install yt-dlp"
-	@echo "Note: Interactive mode requires fzf - install with: brew install fzf"
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(LDFLAGS) -o $(BINARY_PATH) $(MAIN_FILE)
 	@echo "Build complete: $(BINARY_PATH)"

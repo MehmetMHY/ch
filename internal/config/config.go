@@ -33,7 +33,6 @@ func DefaultConfig() *types.Config {
 		HelpKey:         "!h",
 		ExportChat:      "!e",
 		Backtrack:       "!b",
-		WebSearch:       "!s",
 		Scraper:         "!u",
 		SaveHistory:     "!w",
 		LoadFiles:       "!l",

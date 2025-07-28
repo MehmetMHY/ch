@@ -13,7 +13,6 @@ import (
 	"github.com/MehmetMHY/ch/internal/config"
 	"github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/internal/scraper"
-	"github.com/MehmetMHY/ch/internal/search"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/chzyer/readline"
@@ -28,7 +27,6 @@ func main() {
 	terminal := ui.NewTerminal(state.Config)
 	chatManager := chat.NewManager(state)
 	platformManager := platform.NewManager(state.Config)
-	searchClient := search.NewSearXNGClient("")
 	scraperClient := scraper.NewScraper()
 
 	// parse command line arguments
@@ -182,7 +180,7 @@ func main() {
 	// handle direct query mode
 	if len(remainingArgs) > 0 {
 		query := strings.Join(remainingArgs, " ")
-		err := processDirectQuery(query, chatManager, platformManager, searchClient, scraperClient, terminal, state, *exportCodeFlag)
+		err := processDirectQuery(query, chatManager, platformManager, scraperClient, terminal, state, *exportCodeFlag)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 		}
@@ -190,11 +188,11 @@ func main() {
 	}
 
 	// interactive mode
-	runInteractiveMode(chatManager, platformManager, searchClient, scraperClient, terminal, state)
+	runInteractiveMode(chatManager, platformManager, scraperClient, terminal, state)
 }
 
-func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState, exportCode bool) error {
-	if handleSpecialCommands(query, chatManager, platformManager, searchClient, scraperClient, terminal, state) {
+func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState, exportCode bool) error {
+	if handleSpecialCommands(query, chatManager, platformManager, scraperClient, terminal, state) {
 		return nil
 	}
 
@@ -227,7 +225,7 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 	return nil
 }
 
-func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) {
+func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) {
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt: "\033[94mUser: \033[0m",
 	})
@@ -247,7 +245,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 			continue
 		}
 
-		if handleSpecialCommands(input, chatManager, platformManager, searchClient, scraperClient, terminal, state) {
+		if handleSpecialCommands(input, chatManager, platformManager, scraperClient, terminal, state) {
 			continue
 		}
 
@@ -286,7 +284,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 	}
 }
 
-func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) bool {
+func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) bool {
 	config := state.Config
 
 	switch {
@@ -298,7 +296,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		selectedCommand := terminal.ShowHelpFzf()
 		if selectedCommand != "" {
 			// Recursively handle the selected command
-			return handleSpecialCommands(selectedCommand, chatManager, platformManager, searchClient, scraperClient, terminal, state)
+			return handleSpecialCommands(selectedCommand, chatManager, platformManager, scraperClient, terminal, state)
 		}
 		return true
 
@@ -373,13 +371,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 				chatManager.AddToHistory(fmt.Sprintf("%s %s", config.PlatformSwitch, platformName), fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
-		return true
-
-	case strings.HasPrefix(input, config.WebSearch):
-		return handleWebSearch(input, chatManager, platformManager, searchClient, terminal, state)
-
-	case input == config.WebSearch:
-		terminal.PrintError("Please provide a search query after " + config.WebSearch)
 		return true
 
 	case strings.HasPrefix(input, config.Scraper):
@@ -523,39 +514,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 	default:
 		return false
 	}
-}
-
-func handleWebSearch(input string, chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, terminal *ui.Terminal, state *types.AppState) bool {
-	searchQuery := strings.TrimPrefix(input, state.Config.WebSearch+" ")
-	if strings.TrimSpace(searchQuery) == "" {
-		terminal.PrintError("Please provide a search query after " + state.Config.WebSearch)
-		return true
-	}
-
-	searchResults, err := searchClient.Search(searchQuery)
-	if err != nil {
-		terminal.PrintError(fmt.Sprintf("%v", err))
-		return true
-	}
-
-	searchContext := searchClient.FormatResults(searchResults, searchQuery)
-
-	chatManager.AddUserMessage(searchContext)
-
-	response, err := platformManager.SendChatRequest(chatManager.GetMessages(), chatManager.GetCurrentModel(), &state.StreamingCancel, &state.IsStreaming)
-	if err != nil {
-		if err.Error() == "request was interrupted" {
-			chatManager.RemoveLastUserMessage()
-			return true
-		}
-		terminal.PrintError(fmt.Sprintf("Error generating response: %v", err))
-		return true
-	}
-
-	chatManager.AddAssistantMessage(response)
-	chatManager.AddToHistory(fmt.Sprintf("%s %s", state.Config.WebSearch, searchQuery), response)
-
-	return true
 }
 
 func handleScraper(input string, chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) bool {

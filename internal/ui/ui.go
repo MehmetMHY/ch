@@ -78,7 +78,6 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - Load files/dirs from current dir\n", t.config.LoadFiles)
 	fmt.Printf("  %s - Generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
 	fmt.Printf("  %s - Export selected chat entries to a file\n", t.config.ExportChat)
-	fmt.Printf("  %s [query] - Web search using SearXNG\n", t.config.WebSearch)
 	fmt.Printf("  %s [url/text] - Web scraper for content extraction (supports multiple URLs)\n", t.config.Scraper)
 	fmt.Printf("  %s - Multi-line input mode (end with '\\' on a new line)\n", t.config.MultiLine)
 }
@@ -165,12 +164,10 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - Backtrack to a previous message", t.config.Backtrack),
 		fmt.Sprintf("%s - Help page", t.config.HelpKey),
 		fmt.Sprintf("%s - Switch platforms (interactive)", t.config.PlatformSwitch),
-		fmt.Sprintf("%s [platform] - Switch to specific platform", t.config.PlatformSwitch),
 		fmt.Sprintf("%s - Load files/dirs from current dir", t.config.LoadFiles),
 		fmt.Sprintf("%s - Generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
 		fmt.Sprintf("%s - Export selected chat entries to a file", t.config.ExportChat),
-		fmt.Sprintf("%s [query] - Web search using SearXNG", t.config.WebSearch),
-		fmt.Sprintf("%s [url/text] - Web scraper for content extraction (supports multiple URLs)", t.config.Scraper),
+		fmt.Sprintf("%s [url/text] - Web scraper (supports multiple URLs)", t.config.Scraper),
 		fmt.Sprintf("%s - Multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 	}
 
@@ -190,8 +187,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - Load files/dirs\033[0m\n", t.config.LoadFiles)
 	fmt.Printf("\033[93m%s - Generate codedump\033[0m\n", t.config.CodeDump)
 	fmt.Printf("\033[93m%s - Export chat\033[0m\n", t.config.ExportChat)
-	fmt.Printf("\033[93m%s [query] - Web search\033[0m\n", t.config.WebSearch)
-	fmt.Printf("\033[93m%s [url/text] - Web scraper\033[0m\n", t.config.Scraper)
+	fmt.Printf("\033[93m%s [url/text] - Web scraper (supports multiple URLs)\033[0m\n", t.config.Scraper)
 	fmt.Printf("\033[93m%s - Multi-line input\033[0m\n", t.config.MultiLine)
 }
 
