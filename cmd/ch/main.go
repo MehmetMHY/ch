@@ -33,11 +33,12 @@ func main() {
 
 	// parse command line arguments
 	var (
-		helpFlag     = flag.Bool("h", false, "Show help")
-		codedumpFlag = flag.String("d", "", "Generate codedump file (optionally specify directory path)")
-		platformFlag = flag.String("p", "", "Switch platform (leave empty for interactive selection)")
-		modelFlag    = flag.String("m", "", "Specify model to use")
-		scraperFlag  = flag.String("w", "", "Scrape web page or URL and print content")
+		helpFlag       = flag.Bool("h", false, "Show help")
+		codedumpFlag   = flag.String("d", "", "Generate codedump file (optionally specify directory path)")
+		platformFlag   = flag.String("p", "", "Switch platform (leave empty for interactive selection)")
+		modelFlag      = flag.String("m", "", "Specify model to use")
+		scraperFlag    = flag.String("w", "", "Scrape web page or URL and print content")
+		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
 	)
 
 	flag.Parse()
@@ -126,6 +127,15 @@ func main() {
 		return
 	}
 
+	// handle export code flag
+	if *exportCodeFlag {
+		err := handleExportCodeBlocks(chatManager, terminal)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("Error exporting code blocks: %v", err))
+		}
+		return
+	}
+
 	// handle platform switching
 	if *platformFlag != "" {
 		result, err := platformManager.SelectPlatform(*platformFlag, *modelFlag, terminal.FzfSelect)
@@ -136,6 +146,7 @@ func main() {
 		if result != nil {
 			chatManager.SetCurrentPlatform(result["platform_name"].(string))
 			chatManager.SetCurrentModel(result["picked_model"].(string))
+			terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
 		}
 	}
 
@@ -171,7 +182,7 @@ func main() {
 	// handle direct query mode
 	if len(remainingArgs) > 0 {
 		query := strings.Join(remainingArgs, " ")
-		err := processDirectQuery(query, chatManager, platformManager, searchClient, scraperClient, terminal, state)
+		err := processDirectQuery(query, chatManager, platformManager, searchClient, scraperClient, terminal, state, *exportCodeFlag)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 		}
@@ -182,7 +193,7 @@ func main() {
 	runInteractiveMode(chatManager, platformManager, searchClient, scraperClient, terminal, state)
 }
 
-func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) error {
+func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, searchClient *search.SearXNGClient, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState, exportCode bool) error {
 	if handleSpecialCommands(query, chatManager, platformManager, searchClient, scraperClient, terminal, state) {
 		return nil
 	}
@@ -199,6 +210,20 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 	}
 
 	chatManager.AddAssistantMessage(response)
+	chatManager.AddToHistory(query, response)
+
+	// Export code blocks if -e flag was used
+	if exportCode {
+		filePaths, exportErr := chatManager.ExportCodeBlocks()
+		if exportErr != nil {
+			terminal.PrintError(fmt.Sprintf("Error exporting code blocks: %v", exportErr))
+		} else if len(filePaths) > 0 {
+			for _, filePath := range filePaths {
+				fmt.Println(filePath)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -324,6 +349,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("Error initializing client: %v", err))
 			} else {
+				terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
 				chatManager.AddToHistory(config.PlatformSwitch, fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
@@ -343,6 +369,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("Error initializing client: %v", err))
 			} else {
+				terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
 				chatManager.AddToHistory(fmt.Sprintf("%s %s", config.PlatformSwitch, platformName), fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
@@ -408,23 +435,10 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		chatManager.AddToHistory(userInput, response)
 		return true
 
-	case strings.HasPrefix(input, config.ExportChat):
-		args := strings.TrimPrefix(input, config.ExportChat)
-		args = strings.TrimSpace(args)
-
-		var filePath string
-		var err error
-
-		if args == "all" {
-			filePath, err = chatManager.ExportFullHistory()
-		} else {
-			filePath, err = chatManager.ExportLastResponse()
-		}
-
+	case input == config.ExportChat:
+		err := handleExportChatInteractive(chatManager, terminal, state)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("Error exporting chat: %v", err))
-		} else {
-			fmt.Println(filePath)
 		}
 		return true
 
@@ -669,4 +683,35 @@ func isValidCodedumpDir(dirPath string) bool {
 	}
 
 	return info.IsDir()
+}
+
+func handleExportCodeBlocks(chatManager *chat.Manager, terminal *ui.Terminal) error {
+	filePaths, err := chatManager.ExportCodeBlocks()
+	if err != nil {
+		return err
+	}
+
+	if len(filePaths) == 0 {
+		terminal.PrintInfo("No code blocks found in the last response")
+		return nil
+	}
+
+	for _, filePath := range filePaths {
+		fmt.Println(filePath)
+	}
+
+	return nil
+}
+
+func handleExportChatInteractive(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) error {
+	filePath, err := chatManager.ExportChatInteractive(terminal)
+	if err != nil {
+		return err
+	}
+
+	if filePath != "" {
+		fmt.Println(filePath)
+	}
+
+	return nil
 }

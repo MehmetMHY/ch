@@ -1,61 +1,106 @@
 # Ch
 
-⚠️ **Warning:** This project is currently in beta and is still being actively developed. It is in a rough state, and features may change or be unstable. Use at your own risk. For a more established version, you can check out the original [Cha](https://github.com/MehmetMHY/cha/).
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+<a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.21+-blue.svg" alt="Go 1.21+"></a>
+<a href="https://github.com/MehmetMHY/ch/stargazers"><img src="https://img.shields.io/github/stars/MehmetMHY/ch" alt="GitHub stars"></a>
+<a href="https://github.com/MehmetMHY/ch/graphs/contributors"><img src="https://img.shields.io/github/contributors/MehmetMHY/ch" alt="Contributors"></a>
 
-## About
+**⚠️ This project is actively developed and may have breaking changes. For a stable version, see the original [Cha](https://github.com/MehmetMHY/cha/)!**
 
-**Ch** is a GoLang implementation of the original Python-based [Cha](https://github.com/MehmetMHY/cha/). While not a 1-to-1 feature port, it contains over 79% of the core features of Cha and over 57% of the overall features, with significantly improved performance—delivering **2.55x faster** execution compared to the original Python version.
+## Table of Contents
+
+- [Ch](#ch)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Vision](#vision)
+  - [Quick Start](#quick-start)
+  - [Features](#features)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+    - [API Keys](#api-keys)
+    - [Default Settings](#default-settings)
+  - [Usage](#usage)
+    - [Basic Usage](#basic-usage)
+    - [Interactive Commands](#interactive-commands)
+    - [Advanced Features](#advanced-features)
+  - [Platform Compatibility](#platform-compatibility)
+  - [Development](#development)
+    - [Prerequisites](#prerequisites)
+    - [Build from Source](#build-from-source)
+    - [Available Make Commands](#available-make-commands)
+  - [Contributing](#contributing)
+    - [Development Setup](#development-setup)
+    - [Code Standards](#code-standards)
+  - [License](#license)
+
+## Overview
+
+**Ch** is a lightweight, GoLang-based version of the popular [Cha](https://github.com/MehmetMHY/cha/) CLI tool. Built from the ground up in Go, Ch is over 10x faster at startup compared to Cha and delivers significantly faster performance for complex processes like codedump. While Cha offers more advanced and powerful features with a larger codebase, Ch prioritizes speed and efficiency, making it ideal for developers who need rapid AI interaction with minimal overhead.
+
+## Vision
+
+Ch follows the Unix philosophy of doing one thing well. It provides direct terminal access to powerful AI models with minimal overhead, transparent operations, and explicit user control. No hidden automation, no surprise file modifications—just fast, reliable AI interaction that integrates seamlessly into your development workflow.
+
+## Quick Start
+
+**Install:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
+```
+
+**Configure:**
+
+```bash
+export OPENAI_API_KEY="your-api-key-here"
+```
+
+**Start using:**
+
+```bash
+ch "What are the key features of Go programming language?"
+```
 
 ## Features
 
-- **Multi-platform support**: OpenAI, Groq, DeepSeek, Anthropic, XAI
-- **Interactive & Direct modes**: Chat interactively or run single queries
-- **Web search integration**: SearXNG with IEEE citation format
-- **Web scraping**: Extract content from web pages and analyze with AI
-- **File/directory loading**: Load text files into chat context with multi-select
-- **Chat history export**: Export conversations to files
-- **Text editor input mode**: Use your preferred editor for complex prompts
-- **Model switching**: Easily switch between different AI models
-- **Chat backtracking**: Revert to any point in the conversation history
-- **Professional architecture**: Clean, modular Go codebase
-- **Code Dump**: Get all the content/files in a directory and save it to a single string/text-file which can be used as context for the model(s)
-
-## Requirements
-
-- Go 1.21 or higher
-- [fzf](https://github.com/junegunn/fzf) for interactive selections - `brew install fzf`
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for web scraping - `pip install yt-dlp`
-- API keys for your chosen platforms (OpenAI, Groq, etc.)
-- (Optional) [Cha](https://github.com/MehmetMHY/cha/) for more advanced file content extraction (pdfs, images, videos, audios, etc).
+- **High Performance**: 2.55x faster than the original Python implementation
+- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI
+- **Interactive & Direct Modes**: Chat interactively or run single queries
+- **Web Integration**: SearXNG search with IEEE citations and web scraping
+- **Smart File Handling**: Load files/directories with intelligent text detection
+- **Advanced Export**: Interactive chat export with fzf selection and editor integration
+- **Code Block Export**: Extract and save markdown code blocks with proper file extensions
+- **Text Editor Integration**: Use your preferred editor for complex prompts
+- **Dynamic Switching**: Change models and platforms mid-conversation
+- **Chat Backtracking**: Revert to any point in conversation history
+- **Code Dump**: Package entire directories for AI analysis
+- **Colored Output**: Platform and model names displayed in distinct colors
 
 ## Installation
 
-### Option 1: Build from source
+```bash
+curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
+```
+
+**Alternative methods:**
 
 ```bash
-# clone the repository
+# using wget
+wget -qO- https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
+
+# manual clone and install
 git clone https://github.com/MehmetMHY/ch.git
 cd ch
-
-# install dependencies
-go mod download
-
-# build the project
-make build
-
-# or use the build script
-./build.sh
-
-# or build manually
-go build -o bin/ch cmd/ch/main.go
+./install.sh
 ```
 
-### Option 2: Install globally
+The installer automatically:
 
-```bash
-# install to $GOPATH/bin
-make install
-```
+- Checks for Go 1.21+ and dependencies (fzf, yt-dlp)
+- Installs missing dependencies via system package managers
+- Builds and installs Ch to `~/.ch/bin/ch`
+- Creates global symlink at `/usr/local/bin/ch`
+- Configures PATH if needed
 
 ## Configuration
 
@@ -64,23 +109,24 @@ make install
 Set up API keys for your chosen platforms:
 
 ```bash
+# required
 export OPENAI_API_KEY="your-openai-key"
+
+# optional additional platforms
 export GROQ_API_KEY="your-groq-key"
 export DEEP_SEEK_API_KEY="your-deepseek-key"
 export ANTHROPIC_API_KEY="your-anthropic-key"
 export XAI_API_KEY="your-xai-key"
 ```
 
-### Default Platform and Model
+### Default Settings
 
-You can set default platform and model using environment variables:
+Customize default platform and model:
 
 ```bash
-export CH_DEFAULT_PLATFORM="groq"      # Default: "openai"
-export CH_DEFAULT_MODEL="gemma2-9b-it" # Default: "gpt-4o-mini"
+export CH_DEFAULT_PLATFORM="groq"        # default: "openai"
+export CH_DEFAULT_MODEL="llama3-8b-8192" # default: "gpt-4o-mini"
 ```
-
-If not set, Ch will use OpenAI with gpt-4o-mini as defaults.
 
 ## Usage
 
@@ -88,91 +134,98 @@ If not set, Ch will use OpenAI with gpt-4o-mini as defaults.
 
 ```bash
 # interactive mode
-./bin/ch
+ch
 
 # direct query
-./bin/ch "What is artificial intelligence?"
+ch "Explain quantum computing"
 
-# with specific platform
-./bin/ch -p groq "Explain quantum computing"
+# platform-specific query
+ch -p groq "Write a Go function to reverse a string"
 
-# with specific model
-./bin/ch -m gpt-4o "Write a Python function"
+# model-specific query
+ch -m gpt-4o "Create a REST API in Python"
 
-# combined
-./bin/ch -p groq -m llama3 "What is the meaning of life?"
-```
-
-### Command Line Options
-
-```bash
-./bin/ch -h                                 # Show help
-./bin/ch -d [directory]                     # Generate codedump file (current dir if no path)
-./bin/ch -p [platform]                      # Switch platform
-./bin/ch -m [model]                         # Specify model
-./bin/ch -w [url]                           # Scrape web page and analyze
-./bin/ch -p [platform] -m [model] [query]   # Full command
+# export code blocks to files
+ch -e "Write a Python script to sort a list"
 ```
 
 ### Interactive Commands
 
-When running in interactive mode, you can use these commands:
+When in interactive mode (`ch`), use these commands:
 
-- `!q` - Exit Interface
-- `!h` - Help page with interactive selection
-- `!c` - Clear chat history
-- `!m` - Switch models (with fuzzy finder)
-- `!p` - Switch platforms (with fuzzy finder)
-- `!t` - Text editor input mode (opens your editor)
-- `!b` - Backtrack to a previous message in the chat history
-- `!l` - Load files/dirs into chat context
-- `!d` - Generate codedump of all text files
-- `!e [all]` - Save the last response or all history to a file
-- `!s [query]` - Web search with AI analysis
-- `!u [url/text]` - Web scraper for content extraction (supports multiple URLs)
-- `\` - Enter multi-line input mode (exit by typing `\` on a new line)
+| Command      | Description                          |
+| ------------ | ------------------------------------ |
+| `!q`         | Exit interface                       |
+| `!h`         | Interactive help menu                |
+| `!m`         | Switch models (with fuzzy finder)    |
+| `!p`         | Switch platforms (with fuzzy finder) |
+| `!c`         | Clear chat history                   |
+| `!t`         | Text editor input mode               |
+| `!b`         | Backtrack to previous message        |
+| `!l`         | Load files/directories               |
+| `!d`         | Generate code dump                   |
+| `!e`         | Export selected chat entries         |
+| `!s [query]` | Web search with AI analysis          |
+| `!u [url]`   | Web scraper for content extraction   |
+| `\\`         | Multi-line input mode                |
 
-#### Interactive Help Menu
+### Advanced Features
 
-The `!h` command opens an interactive help menu where you can:
+**Code Export (`-e` flag):**
 
-- Select commands that start with `!` (without brackets) to execute them directly
-- View commands with `[parameters]` by selecting them (displays info only)
-- Commands without `!` prefix are informational only
+- Automatically detects programming languages
+- Saves with proper file extensions
+- Supports 25+ languages and file types
 
-## Web Search Setup
+**Interactive Export (`!e`):**
 
-For web search functionality, set up SearXNG:
+1. Select chat entries with fzf
+2. Edit content in your preferred editor
+3. Save to timestamped file
+
+**Web Search Setup:**
 
 ```bash
 cd sxng
 python3 run.py
+# then use !s <query> for web-enhanced responses
 ```
 
-Then use `!s <query>` in chat for web-enhanced responses with IEEE citations.
+## Platform Compatibility
+
+Ch supports multiple AI platforms with seamless switching:
+
+| Platform  | Models                    | Environment Variable |
+| --------- | ------------------------- | -------------------- |
+| OpenAI    | GPT-4o, GPT-4o-mini, etc. | `OPENAI_API_KEY`     |
+| Groq      | Llama3, Mixtral, etc.     | `GROQ_API_KEY`       |
+| DeepSeek  | DeepSeek-Chat, etc.       | `DEEP_SEEK_API_KEY`  |
+| Anthropic | Claude-3.5, etc.          | `ANTHROPIC_API_KEY`  |
+| XAI       | Grok models               | `XAI_API_KEY`        |
+
+Switch platforms during conversation:
+
+```bash
+!p groq
+!p anthropic
+!m gpt-4o
+```
 
 ## Development
 
-### Available Scripts
+### Prerequisites
 
-- `./build.sh`: Compiles the project and places the binary in the `bin/` directory.
-- `./update.sh`: Updates all Go modules to their latest versions.
+- Go 1.21 or higher
+- [fzf](https://github.com/junegunn/fzf) for interactive selections
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for web scraping
 
-### Project Structure
+### Build from Source
 
 ```bash
-ch/
-├── cmd/ch/       # main application entry point
-├── internal/     # internal packages
-│   ├── config/   # configuration management
-│   ├── chat/     # chat operations and history
-│   ├── platform/ # AI platform integrations
-│   ├── scraper/  # web scraping functionality
-│   ├── search/   # SearXNG web search
-│   └── ui/       # terminal UI components
-├── pkg/types/    # shared types and interfaces
-├── sxng/         # SearXNG integration
-└── Makefile      # build automation
+git clone https://github.com/MehmetMHY/ch.git
+cd ch
+go mod download
+make build
 ```
 
 ### Available Make Commands
@@ -184,65 +237,33 @@ make clean        # clean build artifacts
 make test         # run tests
 make lint         # run linter
 make fmt          # format code
-make vet          # run go vet
-make deps         # download dependencies
 make dev          # build and run in development mode
-make build-all    # build for multiple platforms
-make release      # create release tarballs
-make help         # show all available commands
 ```
 
-### Running Tests
+## Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. **Report Issues**: [Open an issue](https://github.com/MehmetMHY/ch/issues) for bugs or feature requests
+2. **Submit Pull Requests**: Fork, make changes, and submit a PR
+3. **Improve Documentation**: Help enhance README, examples, or guides
+
+### Development Setup
 
 ```bash
-make test   # run all tests
-make lint   # run linter (requires golangci-lint)
-make vet    # run go vet
+git clone https://github.com/MehmetMHY/ch.git
+cd ch
+go mod download
+make dev
 ```
 
-## Examples
+### Code Standards
 
-### Interactive Session
+- Follow existing Go conventions
+- Run `make fmt` and `make lint` before submitting
+- Test your changes thoroughly
+- Update documentation as needed
 
-```bash
-$ ./bin/ch
-Chatting on OPENAI with gpt-4o-mini
-!q - Exit
-!m - Switch models
-!p - Switch platforms
-!t - Text editor input
-!c - Clear history
-!b - Backtrack
-!h - Help
-!l - Load files/dirs
-!d - Generate codedump
-!e [all] - Export chat
-!s [query] - Web search
-!u [url/text] - Web scraper
+## License
 
-User: !p groq
-# fuzzy finder opens with available platforms
-
-User: !s latest developments in AI
-# performs web search and provides AI analysis with citations
-
-User: !d
-# opens fzf selector to choose files/directories to exclude
-# generates comprehensive codedump of project files
-
-User: !t
-# opens your preferred editor for complex input
-```
-
-### Direct Queries
-
-```bash
-# simple query
-./bin/ch "Explain machine learning"
-
-# with platform selection
-./bin/ch -p anthropic "What are the ethical implications of AI?"
-
-# with specific model
-./bin/ch -p groq -m llama3 "Write a Go function to reverse a string"
-```
+Ch is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
