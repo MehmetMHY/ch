@@ -166,9 +166,28 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 	}, nil
 }
 
+// isSlowModel checks if the model is a slow/reasoning model that requires non-streaming
+// NOTE: This is hard-coded for what is considered a slow model - last updated on July 25, 2025
+func (m *Manager) isSlowModel(modelName string) bool {
+	patterns := []string{
+		`^o\d+`,
+		`^gemini-\d+\.\d+-pro.*`,
+		`^deepseek-reasoner$`,
+		`^grok-4.*`,
+		`^claude-opus-4.*`,
+	}
+
+	for _, pattern := range patterns {
+		matched, _ := regexp.MatchString(pattern, modelName)
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manager) isReasoningModel(modelName string) bool {
-	matched, _ := regexp.MatchString(`^o\d+`, modelName)
-	return matched
+	return m.isSlowModel(modelName)
 }
 
 // IsReasoningModel checks if the model is a reasoning model (like o1, o2, etc.)

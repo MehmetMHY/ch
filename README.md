@@ -257,6 +257,7 @@ make dev
 - Run `make fmt` and `make lint` before submitting
 - Test your changes thoroughly
 - Update documentation as needed
+- To add new slow models, update patterns in `internal/platform/platform.go`
 
 ## License
 
