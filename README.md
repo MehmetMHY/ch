@@ -64,7 +64,7 @@ ch "What are the key features of Go programming language?"
 ## Features
 
 - **High Performance**: 2.55x faster than the original Python implementation
-- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI
+- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Smart File Handling**: Load files/directories with intelligent text detection
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
@@ -128,6 +128,22 @@ export CH_DEFAULT_PLATFORM="groq"        # default: "openai"
 export CH_DEFAULT_MODEL="llama3-8b-8192" # default: "gpt-4o-mini"
 ```
 
+### Local & Open-Source Setup (Ollama)
+
+Ch supports local models via Ollama, allowing you to run it without relying on third-party services. This provides a completely private, open-source, and offline-capable environment.
+
+1.  **Install Ollama**: Follow the official instructions at [ollama.com](https://ollama.com).
+2.  **Pull a model**:
+    ```bash
+    ollama pull llama3
+    ```
+3.  **Run Ch with Ollama**:
+    ```bash
+    ch -p ollama "What is the capital of France?"
+    ```
+
+Since Ollama runs locally, no API key is required.
+
 ## Usage
 
 ### Basic Usage
@@ -186,13 +202,14 @@ When in interactive mode (`ch`), use these commands:
 
 Ch supports multiple AI platforms with seamless switching:
 
-| Platform  | Models                    | Environment Variable |
-| --------- | ------------------------- | -------------------- |
-| OpenAI    | GPT-4o, GPT-4o-mini, etc. | `OPENAI_API_KEY`     |
-| Groq      | Llama3, Mixtral, etc.     | `GROQ_API_KEY`       |
-| DeepSeek  | DeepSeek-Chat, etc.       | `DEEPSEEK_API_KEY`   |
-| Anthropic | Claude-3.5, etc.          | `ANTHROPIC_API_KEY`  |
-| XAI       | Grok models               | `XAI_API_KEY`        |
+| Platform  | Models                     | Environment Variable |
+| --------- | -------------------------- | -------------------- |
+| OpenAI    | GPT-4o, GPT-4o-mini, etc.  | `OPENAI_API_KEY`     |
+| Groq      | Llama3, Mixtral, etc.      | `GROQ_API_KEY`       |
+| DeepSeek  | DeepSeek-Chat, etc.        | `DEEPSEEK_API_KEY`   |
+| Anthropic | Claude-3.5, etc.           | `ANTHROPIC_API_KEY`  |
+| XAI       | Grok models                | `XAI_API_KEY`        |
+| Ollama    | Local models (Llama3, etc) | (none)               |
 
 Switch platforms during conversation:
 

@@ -83,6 +83,15 @@ func DefaultConfig() *types.Config {
 					JSONPath: "data.id",
 				},
 			},
+			"ollama": {
+				Name:    "ollama",
+				BaseURL: "http://localhost:11434/v1",
+				EnvName: "ollama",
+				Models: types.PlatformModels{
+					URL:      "http://localhost:11434/api/tags",
+					JSONPath: "models.name",
+				},
+			},
 		},
 	}
 }

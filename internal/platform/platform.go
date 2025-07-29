@@ -43,9 +43,12 @@ func (m *Manager) Initialize() error {
 		return fmt.Errorf("platform %s not found", m.config.CurrentPlatform)
 	}
 
-	apiKey := os.Getenv(platform.EnvName)
-	if apiKey == "" {
-		return fmt.Errorf("%s environment variable is required for %s", platform.EnvName, platform.Name)
+	var apiKey string
+	if platform.Name != "ollama" {
+		apiKey = os.Getenv(platform.EnvName)
+		if apiKey == "" {
+			return fmt.Errorf("%s environment variable is required for %s", platform.EnvName, platform.Name)
+		}
 	}
 
 	clientConfig := openai.DefaultConfig(apiKey)
@@ -285,14 +288,14 @@ func (m *Manager) fetchPlatformModels(platform types.Platform) ([]string, error)
 	}
 
 	apiKey := os.Getenv(platform.EnvName)
-	if apiKey == "" {
+	if apiKey == "" && platform.Name != "ollama" {
 		return nil, fmt.Errorf("%s environment variable not set", platform.EnvName)
 	}
 
 	if platform.Name == "anthropic" {
 		req.Header.Set("x-api-key", apiKey)
 		req.Header.Set("anthropic-version", "2023-06-01")
-	} else {
+	} else if platform.Name != "ollama" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	req.Header.Set("Content-Type", "application/json")
