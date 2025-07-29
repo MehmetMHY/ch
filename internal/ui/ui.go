@@ -76,7 +76,48 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - Load files/dirs from current dir\n", t.config.LoadFiles)
 	fmt.Printf("  %s - Generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
 	fmt.Printf("  %s - Export selected chat entries to a file\n", t.config.ExportChat)
+	fmt.Printf("  %s - Record a shell session and use it as context\n", t.config.ShellRecord)
 	fmt.Printf("  %s - Multi-line input mode (end with '\\')\n", t.config.MultiLine)
+}
+
+// RecordShellSession records the entire shell session and returns the content as a string.
+func (t *Terminal) RecordShellSession() (string, error) {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh" // Fallback shell
+	}
+
+	// Create a temporary file to store the session recording
+	tempFile, err := ioutil.TempFile("", "ch_shell_session_*.log")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	defer os.Remove(tempFile.Name()) // Clean up the temp file
+
+	t.PrintError(fmt.Sprintf("Starting shell session in %s (CTRL-D to exit)", shell))
+
+	// Use the 'script' command to record the session
+	cmd := exec.Command("script", "-q", tempFile.Name(), shell)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		// An exit error is expected when the shell exits, so we don't treat it as a fatal error here.
+		if _, ok := err.(*exec.ExitError); !ok {
+			return "", fmt.Errorf("failed to run shell session: %w", err)
+		}
+	}
+
+	t.PrintError("Shell session ended")
+
+	// Read the recorded content from the temporary file
+	content, err := ioutil.ReadFile(tempFile.Name())
+	if err != nil {
+		return "", fmt.Errorf("failed to read session recording: %w", err)
+	}
+
+	return string(content), nil
 }
 
 // ShowHelpFzf displays the help information using fzf for interactive selection.
@@ -164,6 +205,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - Load files/dirs from current dir", t.config.LoadFiles),
 		fmt.Sprintf("%s - Generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
 		fmt.Sprintf("%s - Export selected chat entries to a file", t.config.ExportChat),
+		fmt.Sprintf("%s - Record a shell session and use it as context", t.config.ShellRecord),
 		fmt.Sprintf("%s - Multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 	}
 
@@ -183,6 +225,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - Load files/dirs\033[0m\n", t.config.LoadFiles)
 	fmt.Printf("\033[93m%s - Generate codedump\033[0m\n", t.config.CodeDump)
 	fmt.Printf("\033[93m%s - Export chat\033[0m\n", t.config.ExportChat)
+	fmt.Printf("\033[93m%s - Record shell session\033[0m\n", t.config.ShellRecord)
 	fmt.Printf("\033[93m%s - Multi-line input\033[0m\n", t.config.MultiLine)
 }
 

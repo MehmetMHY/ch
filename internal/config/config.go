@@ -39,6 +39,7 @@ func DefaultConfig() *types.Config {
 		AnswerSearch:    "!a",
 		PlatformSwitch:  "!p",
 		CodeDump:        "!d",
+		ShellRecord:     "!x",
 		ShellOption:     "!x",
 		LoadHistory:     "!r",
 		EditorAlias:     "!v",

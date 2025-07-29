@@ -73,6 +73,7 @@ ch "What are the key features of Go programming language?"
 - **Dynamic Switching**: Change models and platforms mid-conversation
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Code Dump**: Package entire directories for AI analysis
+- **Shell Session Recording**: Record terminal sessions and provide them as context to the model.
 - **Colored Output**: Platform and model names displayed in distinct colors
 
 ## Installation
@@ -113,7 +114,7 @@ export OPENAI_API_KEY="your-openai-key"
 
 # optional additional platforms
 export GROQ_API_KEY="your-groq-key"
-export DEEP_SEEK_API_KEY="your-deepseek-key"
+export DEEPSEEK_API_KEY="your-deepseek-key"
 export ANTHROPIC_API_KEY="your-anthropic-key"
 export XAI_API_KEY="your-xai-key"
 ```
@@ -164,6 +165,7 @@ When in interactive mode (`ch`), use these commands:
 | `!l`    | Load files/directories               |
 | `!d`    | Generate code dump                   |
 | `!e`    | Export selected chat entries         |
+| `!x`    | Record a shell session for context   |
 | `\\`    | Multi-line input mode                |
 
 ### Advanced Features
@@ -188,7 +190,7 @@ Ch supports multiple AI platforms with seamless switching:
 | --------- | ------------------------- | -------------------- |
 | OpenAI    | GPT-4o, GPT-4o-mini, etc. | `OPENAI_API_KEY`     |
 | Groq      | Llama3, Mixtral, etc.     | `GROQ_API_KEY`       |
-| DeepSeek  | DeepSeek-Chat, etc.       | `DEEP_SEEK_API_KEY`  |
+| DeepSeek  | DeepSeek-Chat, etc.       | `DEEPSEEK_API_KEY`   |
 | Anthropic | Claude-3.5, etc.          | `ANTHROPIC_API_KEY`  |
 | XAI       | Grok models               | `XAI_API_KEY`        |
 

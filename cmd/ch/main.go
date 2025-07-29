@@ -335,6 +335,9 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 	case input == config.CodeDump:
 		return handleCodeDump(chatManager, terminal, state)
 
+	case input == config.ShellRecord:
+		return handleShellRecord(chatManager, terminal, state)
+
 	case input == config.EditorInput:
 		userInput, err := chatManager.HandleTerminalInput()
 		if err != nil {
@@ -509,6 +512,36 @@ func handleCodeDump(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 
 	if codedump != "" {
 		chatManager.AddUserMessage(codedump)
+	}
+
+	return true
+}
+
+func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	sessionContent, err := terminal.RecordShellSession()
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("Error recording shell session: %v", err))
+		return true
+	}
+
+	if strings.TrimSpace(sessionContent) != "" {
+		// Sanitize the content slightly to make it cleaner for the model
+		// This removes the "Script started/done" lines.
+		lines := strings.Split(sessionContent, "\n")
+		var cleanedLines []string
+		for _, line := range lines {
+			if !strings.HasPrefix(line, "Script started on") && !strings.HasPrefix(line, "Script done on") {
+				cleanedLines = append(cleanedLines, line)
+			}
+		}
+		cleanedContent := strings.Join(cleanedLines, "\n")
+
+		// Wrap the content for clarity
+		formattedContent := fmt.Sprintf("The user ran the following shell session and here is the output:\n\n---\n%s\n---", cleanedContent)
+
+		chatManager.AddUserMessage(formattedContent)
+	} else {
+		terminal.PrintInfo("No activity recorded in shell session.")
 	}
 
 	return true

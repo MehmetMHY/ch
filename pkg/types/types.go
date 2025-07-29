@@ -50,6 +50,7 @@ type Config struct {
 	AnswerSearch    string
 	PlatformSwitch  string
 	CodeDump        string
+	ShellRecord     string
 	ShellOption     string
 	LoadHistory     string
 	EditorAlias     string
