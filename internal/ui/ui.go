@@ -548,7 +548,7 @@ func (t *Terminal) CodeDumpFromDir(targetDir string) (string, error) {
 	}
 
 	// Add NONE option at the top of the list
-	fzfOptions := append([]string{"[NONE - Don't exclude anything]"}, allFiles...)
+	fzfOptions := append([]string{"[NONE]"}, allFiles...)
 
 	// Use fzf to let user exclude files/directories
 	excludedItems, err := t.FzfMultiSelect(fzfOptions, "Select files/directories to EXCLUDE from codedump (TAB to select multiple): ")
@@ -595,7 +595,7 @@ func (t *Terminal) CodeDumpFromDirForCLI(targetDir string) (string, error) {
 	}
 
 	// Add NONE option at the top of the list
-	fzfOptions := append([]string{"[NONE - Don't exclude anything]"}, allFiles...)
+	fzfOptions := append([]string{"[NONE]"}, allFiles...)
 
 	// Use CLI-specific fzf that detects cancellation
 	excludedItems, err := t.FzfMultiSelectForCLI(fzfOptions, "Select files/directories to EXCLUDE from codedump (TAB to select multiple): ")
