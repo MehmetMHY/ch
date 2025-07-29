@@ -135,4 +135,3 @@ help:
 	@echo ""
 	@echo "Dependencies:"
 	@echo "  - fzf (brew install fzf)"
-	@echo "  - yt-dlp (pip install yt-dlp)"

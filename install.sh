@@ -43,7 +43,7 @@ install_dependencies() {
 
 	log "Checking system dependencies for $os"
 
-	local deps=("fzf" "yt-dlp")
+	local deps=("fzf")
 	local missing_deps=()
 
 	for dep in "${deps[@]}"; do

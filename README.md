@@ -66,7 +66,6 @@ ch "What are the key features of Go programming language?"
 - **High Performance**: 2.55x faster than the original Python implementation
 - **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI
 - **Interactive & Direct Modes**: Chat interactively or run single queries
-- **Web Integration**: Web scraping for content extraction
 - **Smart File Handling**: Load files/directories with intelligent text detection
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
@@ -96,7 +95,7 @@ cd ch
 
 The installer automatically:
 
-- Checks for Go 1.21+ and dependencies (fzf, yt-dlp)
+- Checks for Go 1.21+ and dependencies (fzf)
 - Installs missing dependencies via system package managers
 - Builds and installs Ch to `~/.ch/bin/ch`
 - Creates global symlink at `/usr/local/bin/ch`
@@ -153,20 +152,19 @@ ch -e "Write a Python script to sort a list"
 
 When in interactive mode (`ch`), use these commands:
 
-| Command    | Description                          |
-| ---------- | ------------------------------------ |
-| `!q`       | Exit interface                       |
-| `!h`       | Interactive help menu                |
-| `!m`       | Switch models (with fuzzy finder)    |
-| `!p`       | Switch platforms (with fuzzy finder) |
-| `!c`       | Clear chat history                   |
-| `!t`       | Text editor input mode               |
-| `!b`       | Backtrack to previous message        |
-| `!l`       | Load files/directories               |
-| `!d`       | Generate code dump                   |
-| `!e`       | Export selected chat entries         |
-| `!u [url]` | Web scraper (supports multiple URLs) |
-| `\\`       | Multi-line input mode                |
+| Command | Description                          |
+| ------- | ------------------------------------ |
+| `!q`    | Exit interface                       |
+| `!h`    | Interactive help menu                |
+| `!m`    | Switch models (with fuzzy finder)    |
+| `!p`    | Switch platforms (with fuzzy finder) |
+| `!c`    | Clear chat history                   |
+| `!t`    | Text editor input mode               |
+| `!b`    | Backtrack to previous message        |
+| `!l`    | Load files/directories               |
+| `!d`    | Generate code dump                   |
+| `!e`    | Export selected chat entries         |
+| `\\`    | Multi-line input mode                |
 
 ### Advanced Features
 
@@ -208,7 +206,6 @@ Switch platforms during conversation:
 
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for web scraping
 
 ### Build from Source
 

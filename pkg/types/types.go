@@ -44,7 +44,6 @@ type Config struct {
 	HelpKey         string
 	ExportChat      string
 	Backtrack       string
-	Scraper         string
 	SaveHistory     string
 	LoadFiles       string
 	LoadFilesAdv    string

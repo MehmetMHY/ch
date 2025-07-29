@@ -47,7 +47,6 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  -d [DIRECTORY]       Generate codedump file (optionally specify directory path)")
 	fmt.Println("  -p [PLATFORM]        Switch platform (leave empty for interactive selection)")
 	fmt.Println("  -m MODEL             Specify model to use")
-	fmt.Println("  -w URL/TEXT          Scrape web page or URL and print content")
 	fmt.Println("  -e, --export         Export code blocks from the last response")
 	fmt.Println("")
 	fmt.Println("Examples:")
@@ -56,7 +55,6 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  ch -p groq -m llama3-8b-8192 \"Explain quantum computing\"")
 	fmt.Println("  ch -m gpt-4o \"Write a Python function to calculate fibonacci\"")
 	fmt.Println("  ch -e \"Write a Python script to sort a list\"  # Export code to file")
-	fmt.Println("  ch -w https://example.com                     # Scrape and print content")
 	fmt.Println("  ch -d                                         # Generate codedump of current directory")
 	fmt.Println("  ch -d /path/to/project                        # Generate codedump of specific directory")
 	fmt.Println("")
@@ -78,8 +76,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - Load files/dirs from current dir\n", t.config.LoadFiles)
 	fmt.Printf("  %s - Generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
 	fmt.Printf("  %s - Export selected chat entries to a file\n", t.config.ExportChat)
-	fmt.Printf("  %s [url/text] - Web scraper for content extraction (supports multiple URLs)\n", t.config.Scraper)
-	fmt.Printf("  %s - Multi-line input mode (end with '\\' on a new line)\n", t.config.MultiLine)
+	fmt.Printf("  %s - Multi-line input mode (end with '\\')\n", t.config.MultiLine)
 }
 
 // ShowHelpFzf displays the help information using fzf for interactive selection.
@@ -167,7 +164,6 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - Load files/dirs from current dir", t.config.LoadFiles),
 		fmt.Sprintf("%s - Generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
 		fmt.Sprintf("%s - Export selected chat entries to a file", t.config.ExportChat),
-		fmt.Sprintf("%s [url/text] - Web scraper (supports multiple URLs)", t.config.Scraper),
 		fmt.Sprintf("%s - Multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 	}
 
@@ -187,7 +183,6 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - Load files/dirs\033[0m\n", t.config.LoadFiles)
 	fmt.Printf("\033[93m%s - Generate codedump\033[0m\n", t.config.CodeDump)
 	fmt.Printf("\033[93m%s - Export chat\033[0m\n", t.config.ExportChat)
-	fmt.Printf("\033[93m%s [url/text] - Web scraper (supports multiple URLs)\033[0m\n", t.config.Scraper)
 	fmt.Printf("\033[93m%s - Multi-line input\033[0m\n", t.config.MultiLine)
 }
 

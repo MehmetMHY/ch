@@ -12,7 +12,6 @@ import (
 	"github.com/MehmetMHY/ch/internal/chat"
 	"github.com/MehmetMHY/ch/internal/config"
 	"github.com/MehmetMHY/ch/internal/platform"
-	"github.com/MehmetMHY/ch/internal/scraper"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/chzyer/readline"
@@ -27,7 +26,6 @@ func main() {
 	terminal := ui.NewTerminal(state.Config)
 	chatManager := chat.NewManager(state)
 	platformManager := platform.NewManager(state.Config)
-	scraperClient := scraper.NewScraper()
 
 	// parse command line arguments
 	var (
@@ -35,7 +33,6 @@ func main() {
 		codedumpFlag   = flag.String("d", "", "Generate codedump file (optionally specify directory path)")
 		platformFlag   = flag.String("p", "", "Switch platform (leave empty for interactive selection)")
 		modelFlag      = flag.String("m", "", "Specify model to use")
-		scraperFlag    = flag.String("w", "", "Scrape web page or URL and print content")
 		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
 	)
 
@@ -81,47 +78,6 @@ func main() {
 		}
 
 		fmt.Println(filename)
-		return
-	}
-
-	// handle scraper flag
-	if *scraperFlag != "" {
-		result, err := scraperClient.ProcessInput(*scraperFlag)
-		if err != nil {
-			fmt.Printf("\033[91m%v\033[0m\n", err)
-			return
-		}
-
-		// Handle both single and multiple URL results - just print the scraped content
-		switch v := result.(type) {
-		case *scraper.ScrapedContent:
-			// Single URL result
-			if v.Error != "" {
-				fmt.Printf("\033[91m%s\033[0m\n", v.Error)
-				return
-			}
-			fmt.Printf("Scraped content from %s:\n\n%s\n", v.URL, v.Content)
-
-		case *scraper.MultiScrapedResult:
-			// Multiple URL result
-			if v.SuccessCount == 0 {
-				fmt.Printf("\033[91mAll URLs failed\033[0m\n")
-				return
-			}
-
-			// Show summary if there were failures
-			if v.FailureCount > 0 {
-				fmt.Printf("\033[91m%d of %d URLs failed\033[0m\n", v.FailureCount, v.TotalURLs)
-			}
-
-			fmt.Printf("Scraped content from %d URLs (%d successful, %d failed):\n\n%s",
-				v.TotalURLs, v.SuccessCount, v.FailureCount, v.CombinedContent)
-
-		default:
-			fmt.Printf("\033[91mUnexpected scraper result\033[0m\n")
-			return
-		}
-
 		return
 	}
 
@@ -180,7 +136,7 @@ func main() {
 	// handle direct query mode
 	if len(remainingArgs) > 0 {
 		query := strings.Join(remainingArgs, " ")
-		err := processDirectQuery(query, chatManager, platformManager, scraperClient, terminal, state, *exportCodeFlag)
+		err := processDirectQuery(query, chatManager, platformManager, terminal, state, *exportCodeFlag)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 		}
@@ -188,11 +144,11 @@ func main() {
 	}
 
 	// interactive mode
-	runInteractiveMode(chatManager, platformManager, scraperClient, terminal, state)
+	runInteractiveMode(chatManager, platformManager, terminal, state)
 }
 
-func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState, exportCode bool) error {
-	if handleSpecialCommands(query, chatManager, platformManager, scraperClient, terminal, state) {
+func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, exportCode bool) error {
+	if handleSpecialCommands(query, chatManager, platformManager, terminal, state) {
 		return nil
 	}
 
@@ -225,7 +181,7 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 	return nil
 }
 
-func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) {
+func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) {
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt: "\033[94mUser: \033[0m",
 	})
@@ -245,7 +201,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 			continue
 		}
 
-		if handleSpecialCommands(input, chatManager, platformManager, scraperClient, terminal, state) {
+		if handleSpecialCommands(input, chatManager, platformManager, terminal, state) {
 			continue
 		}
 
@@ -284,7 +240,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 	}
 }
 
-func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) bool {
+func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) bool {
 	config := state.Config
 
 	switch {
@@ -296,7 +252,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		selectedCommand := terminal.ShowHelpFzf()
 		if selectedCommand != "" {
 			// Recursively handle the selected command
-			return handleSpecialCommands(selectedCommand, chatManager, platformManager, scraperClient, terminal, state)
+			return handleSpecialCommands(selectedCommand, chatManager, platformManager, terminal, state)
 		}
 		return true
 
@@ -371,13 +327,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 				chatManager.AddToHistory(fmt.Sprintf("%s %s", config.PlatformSwitch, platformName), fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
-		return true
-
-	case strings.HasPrefix(input, config.Scraper):
-		return handleScraper(input, chatManager, platformManager, scraperClient, terminal, state)
-
-	case input == config.Scraper:
-		terminal.PrintError("Please provide a URL or text with URLs after " + config.Scraper)
 		return true
 
 	case input == config.LoadFiles:
@@ -514,69 +463,6 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 	default:
 		return false
 	}
-}
-
-func handleScraper(input string, chatManager *chat.Manager, platformManager *platform.Manager, scraperClient *scraper.Scraper, terminal *ui.Terminal, state *types.AppState) bool {
-	inputText := strings.TrimPrefix(input, state.Config.Scraper+" ")
-	if strings.TrimSpace(inputText) == "" {
-		terminal.PrintError("Please provide a URL or text with URLs after " + state.Config.Scraper)
-		return true
-	}
-
-	// Start loading animation
-	loadingDone := make(chan bool)
-	go terminal.ShowLoadingAnimation("Scraping", loadingDone)
-
-	// Process input (can be single URL or text with multiple URLs)
-	result, err := scraperClient.ProcessInput(inputText)
-
-	// Stop loading animation
-	loadingDone <- true
-	fmt.Print("\r\033[K") // Clear loading line
-
-	if err != nil {
-		terminal.PrintError(fmt.Sprintf("%v", err))
-		return true
-	}
-
-	var scrapedContext string
-
-	// Handle both single and multiple URL results
-	switch v := result.(type) {
-	case *scraper.ScrapedContent:
-		// Single URL result
-		if v.Error != "" {
-			terminal.PrintError(fmt.Sprintf("%s", v.Error))
-			return true
-		}
-		scrapedContext = fmt.Sprintf("Scraped content from %s:\n\n%s", v.URL, v.Content)
-
-	case *scraper.MultiScrapedResult:
-		// Multiple URL result
-		if v.SuccessCount == 0 {
-			terminal.PrintError("All URLs failed")
-			return true
-		}
-
-		// Show error for failures only
-		if v.FailureCount > 0 {
-			fmt.Printf("\033[91m%d of %d URLs failed\033[0m\n", v.FailureCount, v.TotalURLs)
-		}
-
-		scrapedContext = fmt.Sprintf("Scraped content from %d URLs (%d successful, %d failed):\n\n%s",
-			v.TotalURLs, v.SuccessCount, v.FailureCount, v.CombinedContent)
-
-	default:
-		terminal.PrintError("Unexpected scraper result")
-		return true
-	}
-
-	// Add scraped content to chat context silently (like !l does)
-	if scrapedContext != "" {
-		chatManager.AddUserMessage(scrapedContext)
-	}
-
-	return true
 }
 
 func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
