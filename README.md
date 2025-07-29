@@ -5,7 +5,7 @@
 <a href="https://github.com/MehmetMHY/ch/stargazers"><img src="https://img.shields.io/github/stars/MehmetMHY/ch" alt="GitHub stars"></a>
 <a href="https://github.com/MehmetMHY/ch/graphs/contributors"><img src="https://img.shields.io/github/contributors/MehmetMHY/ch" alt="Contributors"></a>
 
-**⚠️ This project is actively developed and may have breaking changes. For a stable version, see the original [Cha](https://github.com/MehmetMHY/cha/)!**
+⚠️ This project is actively developed and may have breaking changes. For a stable version, see the original **[Cha](https://github.com/MehmetMHY/cha/)!**
 
 ## Table of Contents
 
