@@ -258,7 +258,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 
 	case input == config.ClearHistory:
 		chatManager.ClearHistory()
-		terminal.PrintInfo("Chat history cleared.")
+		terminal.PrintInfo("History cleared")
 		return true
 
 	case input == config.ModelSwitch:
@@ -388,15 +388,15 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 	case input == config.Backtrack:
 		backtrackedCount, err := chatManager.BacktrackHistory()
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error backtracking: %v", err))
+			terminal.PrintError(err.Error())
 		} else {
-			terminal.PrintInfo(fmt.Sprintf("Backtracked by %d.", backtrackedCount))
+			terminal.PrintInfo(fmt.Sprintf("Backtracked by %d", backtrackedCount))
 		}
 		return true
 
 	case input == config.MultiLine:
 		var lines []string
-		terminal.PrintInfo("Multi-line mode (end with '\\' on a new line).")
+		terminal.PrintInfo("Multi-line mode (end with '\\' on a new line)")
 
 		// Create a new readline instance for multi-line input
 		multiLineRl, err := readline.NewEx(&readline.Config{
@@ -498,6 +498,8 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 
 	if content != "" {
 		chatManager.AddUserMessage(content)
+		historySummary := fmt.Sprintf("Loaded: %s", strings.Join(selections, ", "))
+		chatManager.AddToHistory(historySummary, "")
 	}
 
 	return true
@@ -512,6 +514,7 @@ func handleCodeDump(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 
 	if codedump != "" {
 		chatManager.AddUserMessage(codedump)
+		chatManager.AddToHistory("Codedump loaded", "")
 	}
 
 	return true
@@ -540,8 +543,9 @@ func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *
 		formattedContent := fmt.Sprintf("The user ran the following shell session and here is the output:\n\n---\n%s\n---", cleanedContent)
 
 		chatManager.AddUserMessage(formattedContent)
+		chatManager.AddToHistory("Shell session loaded", "")
 	} else {
-		terminal.PrintInfo("No activity recorded in shell session.")
+		terminal.PrintInfo("No activity recorded in shell session")
 	}
 
 	return true

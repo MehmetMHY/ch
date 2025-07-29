@@ -412,9 +412,9 @@ func (t *Terminal) loadTextFile(filePath string) (string, error) {
 	}
 
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("--- File: %s ---\n", filePath))
+	result.WriteString(fmt.Sprintf("File: %s\n", filePath))
 	result.WriteString(string(content))
-	result.WriteString("\n--- End of file ---\n\n")
+	result.WriteString("\n\n")
 
 	return result.String(), nil
 }

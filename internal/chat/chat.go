@@ -146,7 +146,7 @@ func (m *Manager) ExportLastResponse() (string, error) {
 // It returns the number of messages that were backtracked.
 func (m *Manager) BacktrackHistory() (int, error) {
 	if len(m.state.ChatHistory) <= 1 {
-		return 0, fmt.Errorf("no history to backtrack")
+		return 0, fmt.Errorf("No history to backtrack")
 	}
 
 	var items []string
@@ -171,7 +171,10 @@ func (m *Manager) BacktrackHistory() (int, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return 0, fmt.Errorf("fzf selection cancelled")
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 130 {
+			return 0, nil // fzf selection cancelled by user
+		}
+		return 0, fmt.Errorf("fzf selection failed: %v", err)
 	}
 
 	selected := strings.TrimSpace(string(out))
