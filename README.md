@@ -19,6 +19,7 @@
   - [Configuration](#configuration)
     - [API Keys](#api-keys)
     - [Default Settings](#default-settings)
+    - [Local \& Open-Source Setup (Ollama)](#local--open-source-setup-ollama)
   - [Usage](#usage)
     - [Basic Usage](#basic-usage)
     - [Interactive Commands](#interactive-commands)
@@ -27,7 +28,7 @@
   - [Development](#development)
     - [Prerequisites](#prerequisites)
     - [Build from Source](#build-from-source)
-    - [Available Make Commands](#available-make-commands)
+    - [Build Options](#build-options)
   - [Contributing](#contributing)
     - [Development Setup](#development-setup)
     - [Code Standards](#code-standards)
@@ -182,7 +183,7 @@ When in interactive mode (`ch`), use these commands:
 | `!d`    | Generate code dump                   |
 | `!e`    | Export selected chat entries         |
 | `!x`    | Record a shell session for context   |
-| `\\`    | Multi-line input mode                |
+| `\`     | Multi-line input mode                |
 
 ### Advanced Features
 
@@ -208,7 +209,7 @@ Ch supports multiple AI platforms with seamless switching:
 | Groq      | Llama3, Mixtral, etc.      | `GROQ_API_KEY`       |
 | DeepSeek  | DeepSeek-Chat, etc.        | `DEEPSEEK_API_KEY`   |
 | Anthropic | Claude-3.5, etc.           | `ANTHROPIC_API_KEY`  |
-| XAI       | Grok models                | `XAI_API_KEY`        |
+| xAI       | Grok models                | `XAI_API_KEY`        |
 | Ollama    | Local models (Llama3, etc) | (none)               |
 
 Switch platforms during conversation:
