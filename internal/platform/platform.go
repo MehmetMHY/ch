@@ -31,10 +31,11 @@ func NewManager(config *types.Config) *Manager {
 // Initialize initializes the AI client for the current platform
 func (m *Manager) Initialize() error {
 	if m.config.CurrentPlatform == "openai" {
-		if m.config.OpenAIAPIKey == "" {
-			return fmt.Errorf("OPENAI_API_KEY environment variable is required")
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			return fmt.Errorf("OPENAI_API_KEY environment variable is required for OpenAI platform")
 		}
-		m.client = openai.NewClient(m.config.OpenAIAPIKey)
+		m.client = openai.NewClient(apiKey)
 		return nil
 	}
 

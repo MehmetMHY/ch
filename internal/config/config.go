@@ -22,7 +22,7 @@ func DefaultConfig() *types.Config {
 	}
 
 	return &types.Config{
-		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
+		OpenAIAPIKey:    "", // API keys are fetched per-platform in Initialize()
 		DefaultModel:    defaultModel,
 		CurrentModel:    defaultModel,
 		SystemPrompt:    "You are a helpful assistant powered by Cha who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
