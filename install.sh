@@ -30,8 +30,13 @@ check_go() {
 detect_os() {
 	if [[ "$OSTYPE" == "darwin"* ]]; then
 		echo "macos"
-	elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-		echo "linux"
+	elif [[ "$OSTYPE" == "linux-gnu"* ]] || [[ "$OSTYPE" == "linux-android"* ]]; then
+		# Check if we're in Termux/Android environment
+		if [[ -n "${TERMUX_VERSION:-}" ]] || [[ -d "/data/data/com.termux" ]]; then
+			echo "android"
+		else
+			echo "linux"
+		fi
 	else
 		error "Unsupported operating system: $OSTYPE"
 	fi
@@ -72,6 +77,16 @@ install_dependencies() {
 		for dep in "${missing_deps[@]}"; do
 			log "Installing $dep with Homebrew..."
 			brew install "$dep"
+		done
+		;;
+	"android")
+		if ! command -v pkg >/dev/null 2>&1; then
+			error "pkg package manager not found. Make sure you're running this in Termux."
+		fi
+		pkg update -y
+		for dep in "${missing_deps[@]}"; do
+			log "Installing $dep with pkg..."
+			pkg install -y "$dep"
 		done
 		;;
 	"linux")
@@ -131,50 +146,79 @@ build_ch() {
 }
 
 create_symlink() {
-	log "Creating symlink for 'ch' in /usr/local/bin"
-	local target_dir="/usr/local/bin"
-	local symlink_path="$target_dir/ch"
+	local os
+	os=$(detect_os)
 	local source_path="$BIN_DIR/ch"
 
-	if [[ ! -d "$target_dir" ]]; then
-		log "Directory $target_dir does not exist. Creating it with sudo."
-		if command -v sudo >/dev/null 2>&1; then
-			sudo mkdir -p "$target_dir"
-		else
-			error "sudo is required to create $target_dir. Please create it manually and re-run."
-		fi
-		if [[ $? -ne 0 ]]; then
-			error "Failed to create $target_dir. Please create it manually and re-run the script."
-		fi
-	fi
+	if [[ "$os" == "android" ]]; then
+		log "Creating symlink for 'ch' in \$PREFIX/bin"
+		local target_dir="$PREFIX/bin"
+		local symlink_path="$target_dir/ch"
 
-	if [[ -w "$target_dir" ]]; then
+		if [[ ! -d "$target_dir" ]]; then
+			mkdir -p "$target_dir" || error "Failed to create directory $target_dir"
+		fi
+
 		ln -sf "$source_path" "$symlink_path"
 		log "Symlink created: $symlink_path -> $source_path"
 	else
-		log "Attempting to create symlink with sudo..."
-		if command -v sudo >/dev/null 2>&1; then
-			sudo ln -sf "$source_path" "$symlink_path"
+		log "Creating symlink for 'ch' in /usr/local/bin"
+		local target_dir="/usr/local/bin"
+		local symlink_path="$target_dir/ch"
+
+		if [[ ! -d "$target_dir" ]]; then
+			log "Directory $target_dir does not exist. Creating it with sudo."
+			if command -v sudo >/dev/null 2>&1; then
+				sudo mkdir -p "$target_dir"
+			else
+				error "sudo is required to create $target_dir. Please create it manually and re-run."
+			fi
+			if [[ $? -ne 0 ]]; then
+				error "Failed to create $target_dir. Please create it manually and re-run the script."
+			fi
+		fi
+
+		if [[ -w "$target_dir" ]]; then
+			ln -sf "$source_path" "$symlink_path"
+			log "Symlink created: $symlink_path -> $source_path"
 		else
-			error "sudo is required to create symlink in $target_dir. Please create it manually."
+			log "Attempting to create symlink with sudo..."
+			if command -v sudo >/dev/null 2>&1; then
+				sudo ln -sf "$source_path" "$symlink_path"
+			else
+				error "sudo is required to create symlink in $target_dir. Please create it manually."
+			fi
+			if [[ $? -ne 0 ]]; then
+				error "Failed to create symlink. Please try creating it manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
+			fi
+			log "Symlink created with sudo: $symlink_path -> $source_path"
 		fi
-		if [[ $? -ne 0 ]]; then
-			error "Failed to create symlink. Please try creating it manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
-		fi
-		log "Symlink created with sudo: $symlink_path -> $source_path"
 	fi
 }
 
 print_success() {
+	local os
+	os=$(detect_os)
+
 	echo
 	echo -e "\033[92m🎉 Ch installation/update complete!\033[0m"
 	echo
 	echo -e "Ch is installed in: \033[90m$CH_HOME\033[0m"
-	echo -e "A symlink has been created at /usr/local/bin/ch, so you can run 'ch' from anywhere."
-	echo
-	echo -e "\033[93mImportant:\033[0m"
-	echo -e "Make sure '/usr/local/bin' is in your \$PATH."
-	echo -e "You can check by running: \033[90mecho \$PATH\033[0m"
+
+	if [[ "$os" == "android" ]]; then
+		echo -e "A symlink has been created at \$PREFIX/bin/ch, so you can run 'ch' from anywhere."
+		echo
+		echo -e "\033[93mImportant:\033[0m"
+		echo -e "Make sure '\$PREFIX/bin' is in your \$PATH (it should be by default in Termux)."
+		echo -e "You can check by running: \033[90mecho \$PATH\033[0m"
+	else
+		echo -e "A symlink has been created at /usr/local/bin/ch, so you can run 'ch' from anywhere."
+		echo
+		echo -e "\033[93mImportant:\033[0m"
+		echo -e "Make sure '/usr/local/bin' is in your \$PATH."
+		echo -e "You can check by running: \033[90mecho \$PATH\033[0m"
+	fi
+
 	echo -e "You may need to restart your terminal session for changes to take effect."
 	echo
 	echo -e "To get started, simply type:"

@@ -98,10 +98,13 @@ cd ch
 The installer automatically:
 
 - Checks for Go 1.21+ and dependencies (fzf)
-- Installs missing dependencies via system package managers
+- Installs missing dependencies via system package managers (apt, brew, pkg, etc.)
 - Builds and installs Ch to `~/.ch/bin/ch`
-- Creates global symlink at `/usr/local/bin/ch`
+- Creates global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux)
 - Configures PATH if needed
+
+**Android/Termux Support:**
+The installer now fully supports Android devices through Termux. It automatically detects the Termux environment and uses the `pkg` package manager to install dependencies.
 
 ## Configuration
 
