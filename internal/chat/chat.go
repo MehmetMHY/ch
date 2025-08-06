@@ -34,27 +34,27 @@ func (m *Manager) getTempDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
-	
+
 	tempDir := filepath.Join(homeDir, ".ch", "tmp")
-	
+
 	// Create the directory if it doesn't exist
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	
+
 	return tempDir, nil
 }
 
 // getWorkingEditor tries the preferred editor, falls back to vim, then nano
 func (m *Manager) getWorkingEditor(testFile string) string {
 	editors := []string{m.state.Config.PreferredEditor, "vim", "nano"}
-	
+
 	for _, editor := range editors {
 		// Check if the editor binary exists
 		if _, err := exec.LookPath(editor); err != nil {
 			continue
 		}
-		
+
 		// Special handling for helix - try it but with a quick fallback if it fails
 		if editor == "hx" {
 			// Test if helix can actually run by trying it with a very brief command
@@ -65,10 +65,10 @@ func (m *Manager) getWorkingEditor(testFile string) string {
 			}
 			// If help works, let's try the real thing but be ready to catch panics
 		}
-		
+
 		return editor
 	}
-	
+
 	// Final fallback
 	return "nano"
 }
@@ -76,17 +76,17 @@ func (m *Manager) getWorkingEditor(testFile string) string {
 // runEditorWithFallback tries to run helix first, then falls back to vim/nano on failure
 func (m *Manager) runEditorWithFallback(filePath string) error {
 	editors := []string{m.state.Config.PreferredEditor, "vim", "nano"}
-	
+
 	for i, editor := range editors {
 		// Check if the editor exists
 		if _, err := exec.LookPath(editor); err != nil {
 			continue
 		}
-		
+
 		cmd := exec.Command(editor, filePath)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
-		
+
 		// For the first attempts, suppress stderr to avoid showing error messages
 		// Only show stderr for the final attempt
 		if i < len(editors)-1 {
@@ -94,16 +94,16 @@ func (m *Manager) runEditorWithFallback(filePath string) error {
 		} else {
 			cmd.Stderr = os.Stderr // Show errors for final attempt
 		}
-		
+
 		if err := cmd.Run(); err != nil {
 			// If this editor failed, try the next one
 			continue
 		}
-		
+
 		// Success!
 		return nil
 	}
-	
+
 	return fmt.Errorf("no working editor found")
 }
 
@@ -277,8 +277,12 @@ func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 		{Role: "system", Content: m.state.Config.SystemPrompt},
 	}
 	for _, entry := range m.state.ChatHistory[1:] {
-		m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: entry.User})
-		m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
+		if entry.User != "" {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: entry.User})
+		}
+		if entry.Bot != "" {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
+		}
 	}
 
 	return backtrackedCount, nil

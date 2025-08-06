@@ -135,7 +135,7 @@ install_dependencies() {
 build_ch() {
 	log "Creating installation directory $CH_HOME"
 	mkdir -p "$BIN_DIR" || error "Failed to create directory $BIN_DIR"
-	
+
 	# Create the tmp directory that the Go application uses
 	log "Creating application temp directory"
 	mkdir -p "$CH_HOME/tmp" || error "Failed to create directory $CH_HOME/tmp"
@@ -205,7 +205,7 @@ create_symlink() {
 				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
 				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
 				log "  3. Using the full path: $source_path"
-				return 0  # Don't error out, just continue
+				return 0 # Don't error out, just continue
 			fi
 			if [[ $? -ne 0 ]]; then
 				log "Failed to create symlink in $target_dir"
@@ -213,7 +213,7 @@ create_symlink() {
 				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
 				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
 				log "  3. Using the full path: $source_path"
-				return 0  # Don't error out, just continue
+				return 0 # Don't error out, just continue
 			fi
 			log "Symlink created with sudo: $symlink_path -> $source_path"
 		fi
@@ -284,7 +284,7 @@ main() {
 		local temp_dir
 		temp_dir="$HOME/.ch/tmp/ch-install-$$"
 		mkdir -p "$temp_dir" || error "Failed to create temporary directory"
-		
+
 		trap "log 'Cleaning up temporary files...'; rm -rf '$temp_dir'" EXIT
 
 		log "Cloning Ch repository into a temporary directory..."

@@ -32,14 +32,14 @@ func (t *Terminal) getTempDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
-	
+
 	tempDir := filepath.Join(homeDir, ".ch", "tmp")
-	
+
 	// Create the directory if it doesn't exist
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	
+
 	return tempDir, nil
 }
 
@@ -50,9 +50,9 @@ func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %w", err)
 	}
-	
+
 	outputFile := filepath.Join(tempDir, fmt.Sprintf("fzf-output-%d", time.Now().UnixNano()))
-	
+
 	// Build command that redirects only stdout to temp file, keeping stderr on TTY
 	// Escape each fzf argument for shell safety
 	var escapedArgs []string
@@ -61,22 +61,22 @@ func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, er
 		escapedArg := "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
 		escapedArgs = append(escapedArgs, escapedArg)
 	}
-	
+
 	// Escape the output file path for shell safety
 	escapedOutput := "'" + strings.ReplaceAll(outputFile, "'", "'\"'\"'") + "'"
 	cmdStr := fmt.Sprintf("fzf %s > %s", strings.Join(escapedArgs, " "), escapedOutput)
-	
+
 	cmd := exec.Command("sh", "-c", cmdStr)
 	cmd.Stdin = strings.NewReader(inputText)
 	// stdout goes to file (via shell redirection)
 	// stderr stays attached to TTY for UI display
 	cmd.Stderr = os.Stderr
-	
+
 	err = cmd.Run()
-	
+
 	// Clean up temp file
 	defer os.Remove(outputFile)
-	
+
 	// Handle cancellation (exit code 130 or 1)
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		if exitErr.ExitCode() == 130 || exitErr.ExitCode() == 1 {
@@ -86,7 +86,7 @@ func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, er
 	} else if err != nil {
 		return "", fmt.Errorf("fzf execution failed: %w", err)
 	}
-	
+
 	// Read the selection from temp file
 	content, err := ioutil.ReadFile(outputFile)
 	if err != nil {
@@ -95,7 +95,7 @@ func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, er
 		}
 		return "", fmt.Errorf("failed to read fzf output: %w", err)
 	}
-	
+
 	return strings.TrimSpace(string(content)), nil
 }
 
@@ -105,9 +105,9 @@ func (t *Terminal) runFzfSSHSafeWithQuery(fzfArgs []string, inputText string) ([
 	if err != nil {
 		return nil, fmt.Errorf("failed to get temp directory: %w", err)
 	}
-	
+
 	outputFile := filepath.Join(tempDir, fmt.Sprintf("fzf-query-output-%d", time.Now().UnixNano()))
-	
+
 	// Build command that redirects only stdout to temp file, keeping stderr on TTY
 	// Escape each fzf argument for shell safety
 	var escapedArgs []string
@@ -116,20 +116,20 @@ func (t *Terminal) runFzfSSHSafeWithQuery(fzfArgs []string, inputText string) ([
 		escapedArg := "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
 		escapedArgs = append(escapedArgs, escapedArg)
 	}
-	
+
 	// Escape the output file path for shell safety
 	escapedOutput := "'" + strings.ReplaceAll(outputFile, "'", "'\"'\"'") + "'"
 	cmdStr := fmt.Sprintf("fzf %s > %s", strings.Join(escapedArgs, " "), escapedOutput)
-	
+
 	cmd := exec.Command("sh", "-c", cmdStr)
 	cmd.Stdin = strings.NewReader(inputText)
 	cmd.Stderr = os.Stderr
-	
+
 	err = cmd.Run()
-	
+
 	// Clean up temp file
 	defer os.Remove(outputFile)
-	
+
 	// Handle cancellation (exit code 130 or 1)
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		if exitErr.ExitCode() == 130 || exitErr.ExitCode() == 1 {
@@ -139,7 +139,7 @@ func (t *Terminal) runFzfSSHSafeWithQuery(fzfArgs []string, inputText string) ([
 	} else if err != nil {
 		return nil, fmt.Errorf("fzf execution failed: %w", err)
 	}
-	
+
 	// Read the output from temp file
 	content, err := ioutil.ReadFile(outputFile)
 	if err != nil {
@@ -148,11 +148,11 @@ func (t *Terminal) runFzfSSHSafeWithQuery(fzfArgs []string, inputText string) ([
 		}
 		return nil, fmt.Errorf("failed to read fzf output: %w", err)
 	}
-	
+
 	if len(content) == 0 {
 		return []string{}, nil
 	}
-	
+
 	lines := strings.Split(strings.TrimRight(string(content), "\n"), "\n")
 	return lines, nil
 }
@@ -237,10 +237,10 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	// The issue is that different Unix systems expect different syntax:
 	// - Linux (util-linux): script [options] [file]
 	// - macOS/BSD: script [options] [file] [command]
-	// 
+	//
 	// We'll use the simpler approach that works across platforms
 	var cmd *exec.Cmd
-	
+
 	// Use script without specifying a command - this works on all platforms
 	// Set the SHELL environment variable to ensure script uses the correct shell
 	cmd = exec.Command("script", "-q", tempFile.Name())
@@ -257,7 +257,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			
+
 			if err := cmd.Run(); err != nil {
 				// An exit error is expected when the shell exits, so we don't treat it as a fatal error
 				if _, ok := err.(*exec.ExitError); !ok {
@@ -411,7 +411,7 @@ func (t *Terminal) ShowLoadingAnimation(message string, done chan bool) {
 func (t *Terminal) FzfSelect(items []string, prompt string) (string, error) {
 	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt}
 	inputText := strings.Join(items, "\n")
-	
+
 	return t.runFzfSSHSafe(fzfArgs, inputText)
 }
 
@@ -419,12 +419,12 @@ func (t *Terminal) FzfSelect(items []string, prompt string) (string, error) {
 func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, error) {
 	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down"}
 	inputText := strings.Join(items, "\n")
-	
+
 	result, err := t.runFzfSSHSafe(fzfArgs, inputText)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if result == "" {
 		return []string{}, nil
 	}
@@ -436,12 +436,12 @@ func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, erro
 func (t *Terminal) FzfMultiSelectForCLI(items []string, prompt string) ([]string, error) {
 	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down"}
 	inputText := strings.Join(items, "\n")
-	
+
 	result, err := t.runFzfSSHSafe(fzfArgs, inputText)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// For CLI, treat empty result as cancellation
 	if result == "" {
 		return nil, fmt.Errorf("user cancelled")
@@ -454,7 +454,7 @@ func (t *Terminal) FzfMultiSelectForCLI(items []string, prompt string) ([]string
 func (t *Terminal) FzfSelectOrQuery(items []string, prompt string) (string, error) {
 	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--print-query"}
 	inputText := strings.Join(items, "\n")
-	
+
 	lines, err := t.runFzfSSHSafeWithQuery(fzfArgs, inputText)
 	if err != nil {
 		return "", err
