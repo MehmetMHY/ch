@@ -112,6 +112,16 @@ install_dependencies() {
 					log "Installing $dep with yum..."
 					sudo yum install -y "$dep"
 				done
+			elif command -v zypper >/dev/null 2>&1; then
+				for dep in "${missing_deps[@]}"; do
+					log "Installing $dep with zypper..."
+					sudo zypper install -y "$dep"
+				done
+			elif command -v apk >/dev/null 2>&1; then
+				for dep in "${missing_deps[@]}"; do
+					log "Installing $dep with apk..."
+					sudo apk add "$dep"
+				done
 			else
 				error "Unsupported package manager. Please install manually: ${missing_deps[*]}"
 			fi
@@ -125,12 +135,16 @@ install_dependencies() {
 build_ch() {
 	log "Creating installation directory $CH_HOME"
 	mkdir -p "$BIN_DIR" || error "Failed to create directory $BIN_DIR"
+	
+	# Create the tmp directory that the Go application uses
+	log "Creating application temp directory"
+	mkdir -p "$CH_HOME/tmp" || error "Failed to create directory $CH_HOME/tmp"
 
 	if [[ -d "$CH_HOME" ]]; then
 		echo -e "\033[93mAn existing Ch installation was found.\033[0m"
-		echo -n -e "\033[91mDo you want to remove it and reinstall/update? (y/N): \033[0m"
+		echo -n -e "\033[91mDo you want to remove it and reinstall/update? (Y/n): \033[0m"
 		read -r response
-		if [[ "$response" =~ ^[Yy]$ ]]; then
+		if [[ ! "$response" =~ ^[Nn]$ ]]; then
 			log "Removing existing installation..."
 			rm -rf "$CH_HOME"
 			mkdir -p "$BIN_DIR"
@@ -186,10 +200,20 @@ create_symlink() {
 			if command -v sudo >/dev/null 2>&1; then
 				sudo ln -sf "$source_path" "$symlink_path"
 			else
-				error "sudo is required to create symlink in $target_dir. Please create it manually."
+				log "sudo not available. Cannot create symlink in $target_dir"
+				log "You can still use ch by either:"
+				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
+				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
+				log "  3. Using the full path: $source_path"
+				return 0  # Don't error out, just continue
 			fi
 			if [[ $? -ne 0 ]]; then
-				error "Failed to create symlink. Please try creating it manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
+				log "Failed to create symlink in $target_dir"
+				log "You can still use ch by either:"
+				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
+				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
+				log "  3. Using the full path: $source_path"
+				return 0  # Don't error out, just continue
 			fi
 			log "Symlink created with sudo: $symlink_path -> $source_path"
 		fi
@@ -258,7 +282,9 @@ main() {
 		fi
 
 		local temp_dir
-		temp_dir=$(mktemp -d 2>/dev/null || mktemp -d -t 'ch-install')
+		temp_dir="$HOME/.ch/tmp/ch-install-$$"
+		mkdir -p "$temp_dir" || error "Failed to create temporary directory"
+		
 		trap "log 'Cleaning up temporary files...'; rm -rf '$temp_dir'" EXIT
 
 		log "Cloning Ch repository into a temporary directory..."

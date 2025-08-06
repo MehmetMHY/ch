@@ -99,7 +99,7 @@ The installer automatically:
 
 - Checks for Go 1.21+ and dependencies (fzf)
 - Installs missing dependencies via system package managers (apt, brew, pkg, etc.)
-- Builds and installs Ch to `~/.ch/bin/ch`
+- Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`
 - Creates global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux)
 - Configures PATH if needed
 

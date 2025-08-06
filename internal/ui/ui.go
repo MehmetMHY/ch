@@ -26,6 +26,23 @@ func NewTerminal(config *types.Config) *Terminal {
 	}
 }
 
+// getTempDir returns the application's temporary directory, creating it if it doesn't exist
+func (t *Terminal) getTempDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	
+	tempDir := filepath.Join(homeDir, ".ch", "tmp")
+	
+	// Create the directory if it doesn't exist
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	
+	return tempDir, nil
+}
+
 // IsTerminal checks if the input is from a terminal
 func (t *Terminal) IsTerminal() bool {
 	fileInfo, _ := os.Stdin.Stat()
@@ -87,8 +104,14 @@ func (t *Terminal) RecordShellSession() (string, error) {
 		shell = "/bin/sh" // Fallback shell
 	}
 
+	// Get the application's temporary directory
+	tempDir, err := t.getTempDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get temp directory: %w", err)
+	}
+
 	// Create a temporary file to store the session recording
-	tempFile, err := ioutil.TempFile("", "ch_shell_session_*.log")
+	tempFile, err := ioutil.TempFile(tempDir, "ch_shell_session_*.log")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary file: %w", err)
 	}

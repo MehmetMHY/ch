@@ -28,6 +28,85 @@ func NewManager(state *types.AppState) *Manager {
 	}
 }
 
+// getTempDir returns the application's temporary directory, creating it if it doesn't exist
+func (m *Manager) getTempDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	
+	tempDir := filepath.Join(homeDir, ".ch", "tmp")
+	
+	// Create the directory if it doesn't exist
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	
+	return tempDir, nil
+}
+
+// getWorkingEditor tries the preferred editor, falls back to vim, then nano
+func (m *Manager) getWorkingEditor(testFile string) string {
+	editors := []string{m.state.Config.PreferredEditor, "vim", "nano"}
+	
+	for _, editor := range editors {
+		// Check if the editor binary exists
+		if _, err := exec.LookPath(editor); err != nil {
+			continue
+		}
+		
+		// Special handling for helix - try it but with a quick fallback if it fails
+		if editor == "hx" {
+			// Test if helix can actually run by trying it with a very brief command
+			// If this fails, we'll fall back to vim immediately
+			testCmd := exec.Command(editor, "--help")
+			if err := testCmd.Run(); err != nil {
+				continue // Skip helix and try vim
+			}
+			// If help works, let's try the real thing but be ready to catch panics
+		}
+		
+		return editor
+	}
+	
+	// Final fallback
+	return "nano"
+}
+
+// runEditorWithFallback tries to run helix first, then falls back to vim/nano on failure
+func (m *Manager) runEditorWithFallback(filePath string) error {
+	editors := []string{m.state.Config.PreferredEditor, "vim", "nano"}
+	
+	for i, editor := range editors {
+		// Check if the editor exists
+		if _, err := exec.LookPath(editor); err != nil {
+			continue
+		}
+		
+		cmd := exec.Command(editor, filePath)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		
+		// For the first attempts, suppress stderr to avoid showing error messages
+		// Only show stderr for the final attempt
+		if i < len(editors)-1 {
+			cmd.Stderr = nil // Suppress error messages for fallback attempts
+		} else {
+			cmd.Stderr = os.Stderr // Show errors for final attempt
+		}
+		
+		if err := cmd.Run(); err != nil {
+			// If this editor failed, try the next one
+			continue
+		}
+		
+		// Success!
+		return nil
+	}
+	
+	return fmt.Errorf("no working editor found")
+}
+
 // AddUserMessage adds a user message to the chat
 func (m *Manager) AddUserMessage(content string) {
 	m.state.Messages = append(m.state.Messages, types.ChatMessage{
@@ -214,12 +293,9 @@ func (m *Manager) BacktrackHistory() (int, error) {
 
 // HandleTerminalInput handles terminal input mode
 func (m *Manager) HandleTerminalInput() (string, error) {
-	tmpDir := "/tmp"
-	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
-		err = os.MkdirAll(tmpDir, 0755)
-		if err != nil {
-			return "", fmt.Errorf("error creating tmp directory: %v", err)
-		}
+	tmpDir, err := m.getTempDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get temp directory: %v", err)
 	}
 
 	tmpFile, err := ioutil.TempFile(tmpDir, "ch-*.txt")
@@ -231,12 +307,8 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 
 	defer os.Remove(tmpFilePath)
 
-	cmd := exec.Command(m.state.Config.PreferredEditor, tmpFilePath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
+	// Try to run the editor with automatic fallback
+	err = m.runEditorWithFallback(tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
@@ -525,12 +597,9 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 
 // openInEditor opens content in the user's preferred text editor and returns the edited content
 func (m *Manager) openInEditor(content string) (string, error) {
-	tmpDir := "/tmp"
-	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
-		err = os.MkdirAll(tmpDir, 0755)
-		if err != nil {
-			return "", fmt.Errorf("error creating tmp directory: %v", err)
-		}
+	tmpDir, err := m.getTempDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get temp directory: %v", err)
 	}
 
 	tmpFile, err := ioutil.TempFile(tmpDir, "ch-export-*.txt")
@@ -550,13 +619,8 @@ func (m *Manager) openInEditor(content string) (string, error) {
 
 	defer os.Remove(tmpFilePath)
 
-	// Open in editor
-	cmd := exec.Command(m.state.Config.PreferredEditor, tmpFilePath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
+	// Open in editor with automatic fallback
+	err = m.runEditorWithFallback(tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
