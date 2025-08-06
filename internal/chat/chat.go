@@ -223,7 +223,7 @@ func (m *Manager) ExportLastResponse() (string, error) {
 
 // BacktrackHistory allows the user to select a previous message to revert to.
 // It returns the number of messages that were backtracked.
-func (m *Manager) BacktrackHistory() (int, error) {
+func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 	if len(m.state.ChatHistory) <= 1 {
 		return 0, fmt.Errorf("No history to backtrack")
 	}
@@ -245,20 +245,13 @@ func (m *Manager) BacktrackHistory() (int, error) {
 		items[i], items[j] = items[j], items[i]
 	}
 
-	cmd := exec.Command("fzf", "--reverse", "--height=40%", "--border", "--prompt=Select a message to backtrack to: ")
-	cmd.Stdin = strings.NewReader(strings.Join(items, "\n"))
-
-	out, err := cmd.Output()
+	selected, err := terminal.FzfSelect(items, "Select a message to backtrack to: ")
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 130 {
-			return 0, nil // fzf selection cancelled by user
-		}
 		return 0, fmt.Errorf("fzf selection failed: %v", err)
 	}
 
-	selected := strings.TrimSpace(string(out))
 	if selected == "" {
-		return 0, fmt.Errorf("no message selected")
+		return 0, nil // User cancelled selection
 	}
 
 	parts := strings.Split(selected, ":")

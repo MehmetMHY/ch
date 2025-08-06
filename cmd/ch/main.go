@@ -386,7 +386,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		return true
 
 	case input == config.Backtrack:
-		backtrackedCount, err := chatManager.BacktrackHistory()
+		backtrackedCount, err := chatManager.BacktrackHistory(terminal)
 		if err != nil {
 			terminal.PrintError(err.Error())
 		} else {
