@@ -67,6 +67,7 @@ ch "What are the key features of Go programming language?"
 - **High Performance**: 2.55x faster than the original Python implementation
 - **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
+- **Unix Piping**: Pipe any command output or file content directly to Ch
 - **Smart File Handling**: Load files/directories with intelligent text detection
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
@@ -167,6 +168,11 @@ ch -m gpt-4o "Create a REST API in Python"
 
 # export code blocks to files
 ch -e "Write a Python script to sort a list"
+
+# piping support
+cat main.py | ch "What does this code do?"
+echo "hello world" | ch "Translate to Spanish"
+ls -la | ch "Summarize this directory"
 ```
 
 ### Interactive Commands

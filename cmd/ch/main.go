@@ -39,6 +39,17 @@ func main() {
 	flag.Parse()
 	remainingArgs := flag.Args()
 
+	// Check if input is being piped
+	var pipedInput string
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		// Input is being piped
+		pipedBytes, err := io.ReadAll(os.Stdin)
+		if err == nil && len(pipedBytes) > 0 {
+			pipedInput = string(pipedBytes)
+		}
+	}
+
 	// handle help flag
 	if *helpFlag {
 		terminal.ShowHelp()
@@ -133,9 +144,23 @@ func main() {
 		}
 	}()
 
-	// handle direct query mode
-	if len(remainingArgs) > 0 {
-		query := strings.Join(remainingArgs, " ")
+	// handle direct query mode (with piped input support)
+	if len(remainingArgs) > 0 || pipedInput != "" {
+		var query string
+
+		// Build the query from piped input and/or arguments
+		if pipedInput != "" && len(remainingArgs) > 0 {
+			// Both piped input and arguments: combine them
+			// Format: "piped content" + " " + "arguments"
+			query = strings.TrimSpace(pipedInput) + " " + strings.Join(remainingArgs, " ")
+		} else if pipedInput != "" {
+			// Only piped input
+			query = strings.TrimSpace(pipedInput)
+		} else {
+			// Only arguments (backward compatible)
+			query = strings.Join(remainingArgs, " ")
+		}
+
 		err := processDirectQuery(query, chatManager, platformManager, terminal, state, *exportCodeFlag)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))

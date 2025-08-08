@@ -189,6 +189,12 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  ch -d                                         # Generate codedump of current directory")
 	fmt.Println("  ch -d /path/to/project                        # Generate codedump of specific directory")
 	fmt.Println("")
+	fmt.Println("Piping Examples:")
+	fmt.Println("  cat main.py | ch \"What does this code do?\"")
+	fmt.Println("  echo \"hello world\" | ch \"Translate to Spanish\"")
+	fmt.Println("  ls -la | ch \"Summarize this directory\"")
+	fmt.Println("  curl api.example.com | ch \"Parse this JSON response\"")
+	fmt.Println("")
 	fmt.Println("Available Platforms:")
 	fmt.Println("  - openai (default)")
 	for name := range t.config.Platforms {
