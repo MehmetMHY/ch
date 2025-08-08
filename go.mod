@@ -10,4 +10,4 @@ require (
 	github.com/sashabaranov/go-openai v1.40.5
 )
 
-require golang.org/x/sys v0.34.0 // indirect
+require golang.org/x/sys v0.35.0 // indirect
