@@ -179,6 +179,7 @@ func (m *Manager) isSlowModel(modelName string) bool {
 		`^deepseek-reasoner$`,
 		`^grok-4.*`,
 		`^claude-opus-4.*`,
+		`^gpt-5`,
 	}
 
 	for _, pattern := range patterns {
