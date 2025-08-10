@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -349,7 +350,7 @@ func (m *Manager) SetCurrentPlatform(platform string) {
 }
 
 // ExportCodeBlocks extracts and saves all code blocks from the last bot response
-func (m *Manager) ExportCodeBlocks() ([]string, error) {
+func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 	if len(m.state.ChatHistory) <= 1 {
 		return nil, fmt.Errorf("no chat history available")
 	}
@@ -374,90 +375,23 @@ func (m *Manager) ExportCodeBlocks() ([]string, error) {
 	}
 
 	for i, match := range matches {
-		language := match[1]
 		code := match[2]
 
-		// Generate filename based on language or use generic extension
-		var extension string
-		switch strings.ToLower(language) {
-		case "python", "py":
-			extension = ".py"
-		case "go", "golang":
-			extension = ".go"
-		case "javascript", "js":
-			extension = ".js"
-		case "typescript", "ts":
-			extension = ".ts"
-		case "html":
-			extension = ".html"
-		case "css":
-			extension = ".css"
-		case "json":
-			extension = ".json"
-		case "xml":
-			extension = ".xml"
-		case "yaml", "yml":
-			extension = ".yml"
-		case "bash", "sh", "shell":
-			extension = ".sh"
-		case "sql":
-			extension = ".sql"
-		case "c":
-			extension = ".c"
-		case "cpp", "c++":
-			extension = ".cpp"
-		case "java":
-			extension = ".java"
-		case "rust", "rs":
-			extension = ".rs"
-		case "php":
-			extension = ".php"
-		case "ruby", "rb":
-			extension = ".rb"
-		case "swift":
-			extension = ".swift"
-		case "kotlin", "kt":
-			extension = ".kt"
-		case "scala":
-			extension = ".scala"
-		case "r":
-			extension = ".r"
-		case "matlab", "m":
-			extension = ".m"
-		case "perl", "pl":
-			extension = ".pl"
-		case "lua":
-			extension = ".lua"
-		case "dockerfile", "docker":
-			extension = ".dockerfile"
-		case "makefile", "make":
-			extension = ".makefile"
-		case "toml":
-			extension = ".toml"
-		case "ini":
-			extension = ".ini"
-		case "conf", "config":
-			extension = ".conf"
-		case "md", "markdown":
-			extension = ".md"
-		case "txt", "text":
-			extension = ".txt"
-		default:
-			if language != "" {
-				extension = "." + language
-			} else {
-				extension = ".txt"
-			}
+		// Generate filename options and let user select
+		filenameOptions := m.generateFilenameOptions(code)
+
+		prompt := fmt.Sprintf("Select filename for code block %d/%d: ", i+1, len(matches))
+		selectedFilename, err := terminal.FzfSelect(filenameOptions, prompt)
+		if err != nil {
+			return filePaths, fmt.Errorf("filename selection failed: %v", err)
 		}
 
-		// Generate unique filename
-		baseID := uuid.New().String()[:8]
-		var filename string
-		if len(matches) == 1 {
-			filename = fmt.Sprintf("export_%s%s", baseID, extension)
-		} else {
-			filename = fmt.Sprintf("export_%s_%d%s", baseID, i+1, extension)
+		if selectedFilename == "" {
+			// User cancelled - skip this file
+			continue
 		}
+
+		filename := selectedFilename
 
 		fullPath := filepath.Join(currentDir, filename)
 
@@ -576,8 +510,22 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no content to save")
 	}
 
+	// Generate filename options and let user select
+	filenameOptions := m.generateFilenameOptions(editedContent)
+
+	selectedFilename, err := terminal.FzfSelect(filenameOptions, "Select filename for chat export: ")
+	if err != nil {
+		return "", fmt.Errorf("filename selection failed: %v", err)
+	}
+
+	if selectedFilename == "" {
+		// User cancelled
+		return "", fmt.Errorf("export cancelled")
+	}
+
+	filename := selectedFilename
+
 	// Save to file
-	filename := fmt.Sprintf("ch_export_%d.txt", time.Now().Unix())
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current directory: %v", err)
@@ -629,4 +577,172 @@ func (m *Manager) openInEditor(content string) (string, error) {
 	}
 
 	return string(editedContent), nil
+}
+
+// generateFilenameOptions creates many filename options with various extensions
+func (m *Manager) generateFilenameOptions(content string) []string {
+	var options []string
+	currentDir, _ := os.Getwd()
+	seenNames := make(map[string]bool)
+
+	// ALL possible text file extensions
+	extensions := []string{
+		// Programming languages
+		".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".c", ".cpp", ".cc", ".cxx",
+		".h", ".hpp", ".cs", ".php", ".rb", ".swift", ".kt", ".scala", ".pl", ".pm", ".r", ".m",
+		".mm", ".lua", ".sh", ".bash", ".zsh", ".fish", ".ps1", ".bat", ".cmd", ".vb", ".fs",
+		".clj", ".cljs", ".hs", ".elm", ".ex", ".exs", ".erl", ".hrl", ".dart", ".asm", ".s",
+		".f", ".f90", ".f95", ".pas", ".pp", ".ada", ".adb", ".ads", ".d", ".nim", ".cr",
+		".jl", ".ml", ".mli", ".ocaml", ".rkt", ".scm", ".lisp", ".cl", ".lsp", ".tcl", ".tk",
+
+		// Web and markup
+		".html", ".htm", ".xhtml", ".css", ".scss", ".sass", ".less", ".stylus", ".xml", ".xsl",
+		".xslt", ".svg", ".jsp", ".asp", ".aspx", ".php3", ".php4", ".php5", ".phtml",
+
+		// Data and config
+		".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".config", ".properties",
+		".env", ".editorconfig", ".gitignore", ".gitattributes", ".htaccess", ".robots",
+
+		// Documentation
+		".md", ".markdown", ".rst", ".txt", ".rtf", ".tex", ".latex", ".org", ".adoc", ".asciidoc",
+		".wiki", ".textile", ".creole", ".pod", ".man", ".1", ".2", ".3", ".4", ".5", ".6", ".7", ".8",
+
+		// Scripts and automation
+		".dockerfile", ".makefile", ".cmake", ".mk", ".gradle", ".sbt", ".ant", ".maven", ".pom",
+		".rake", ".gulpfile", ".gruntfile", ".webpack", ".rollup", ".vite", ".parcel",
+
+		// Database and query
+		".sql", ".mysql", ".pgsql", ".sqlite", ".mongodb", ".cql", ".cypher", ".sparql",
+
+		// Logs and data
+		".log", ".logs", ".csv", ".tsv", ".tab", ".dat", ".data", ".out", ".output", ".result",
+		".report", ".summary", ".stats", ".metrics", ".trace", ".dump", ".backup", ".bak",
+
+		// System and service
+		".service", ".socket", ".timer", ".mount", ".automount", ".swap", ".target", ".path",
+		".slice", ".scope", ".desktop", ".directory", ".theme", ".spec", ".repo", ".list",
+
+		// Editor and IDE
+		".vim", ".vimrc", ".nvim", ".emacs", ".el", ".elc", ".atom", ".sublime", ".vscode",
+		".editorconfig", ".eslintrc", ".prettierrc", ".babelrc", ".tsconfig", ".jsconfig",
+
+		// Build and packaging
+		".lock", ".sum", ".mod", ".deps", ".requirements", ".pipfile", ".poetry", ".cargo",
+		".npm", ".yarn", ".package", ".manifest", ".assembly", ".project", ".solution",
+
+		// Templates and views
+		".template", ".tmpl", ".tpl", ".mustache", ".handlebars", ".hbs", ".ejs", ".erb",
+		".haml", ".slim", ".pug", ".jade", ".twig", ".blade", ".vue", ".svelte", ".angular",
+
+		// Misc text formats
+		".patch", ".diff", ".gitpatch", ".eml", ".msg", ".mbox", ".ics", ".vcf", ".ldif",
+		".pem", ".crt", ".key", ".csr", ".p12", ".pfx", ".jks", ".keystore", ".truststore",
+	}
+
+	// Extract words from content
+	words := m.extractWords(content)
+
+	// Calculate how many files per extension to ensure even distribution
+	filesPerExtension := 20000 / len(extensions)
+
+	// If we have enough words, generate 95% word-based options
+	if len(words) >= 5 {
+		// Generate word-based combinations evenly across all extensions
+		for _, ext := range extensions {
+			// Generate 95% word-based for this extension
+			wordBasedCount := int(float64(filesPerExtension) * 0.95)
+			for i := 0; i < wordBasedCount && len(options) < 19000; i++ {
+				numWords := 3 + rand.Intn(3) // 3, 4, or 5 words
+				selectedWords := m.pickRandomWords(words, numWords)
+				filename := strings.Join(selectedWords, "_") + ext
+
+				// Check if unique and doesn't exist
+				if !seenNames[filename] {
+					fullPath := filepath.Join(currentDir, filename)
+					if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+						options = append(options, filename)
+						seenNames[filename] = true
+					}
+				}
+			}
+		}
+
+		// Add remaining slots with ch_<uuid> options evenly distributed
+		for len(options) < 20000 {
+			ext := extensions[rand.Intn(len(extensions))]
+			filename := fmt.Sprintf("ch_%s%s", uuid.New().String()[:8], ext)
+			fullPath := filepath.Join(currentDir, filename)
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				options = append(options, filename)
+			}
+		}
+	} else {
+		// Not enough words, distribute ch_<uuid> format evenly across extensions
+		for _, ext := range extensions {
+			for i := 0; i < filesPerExtension && len(options) < 20000; i++ {
+				filename := fmt.Sprintf("ch_%s%s", uuid.New().String()[:8], ext)
+				fullPath := filepath.Join(currentDir, filename)
+				if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+					options = append(options, filename)
+				}
+			}
+		}
+	}
+
+	return options
+}
+
+// extractWords extracts meaningful words from content for filename generation
+func (m *Manager) extractWords(content string) []string {
+	// Remove code blocks, special characters, and split into words
+	cleaned := regexp.MustCompile("```[\\s\\S]*?```").ReplaceAllString(content, "")
+	cleaned = regexp.MustCompile("[^a-zA-Z0-9\\s]").ReplaceAllString(cleaned, " ")
+
+	words := strings.Fields(strings.ToLower(cleaned))
+	var validWords []string
+
+	// Filter words: length 3-12, not common words
+	commonWords := map[string]bool{
+		"the": true, "and": true, "for": true, "are": true, "but": true,
+		"not": true, "you": true, "all": true, "can": true, "had": true,
+		"her": true, "was": true, "one": true, "our": true, "out": true,
+		"day": true, "get": true, "has": true, "him": true, "his": true,
+		"how": true, "man": true, "new": true, "now": true, "old": true,
+		"see": true, "two": true, "way": true, "who": true, "boy": true,
+		"did": true, "its": true, "let": true, "put": true, "say": true,
+		"she": true, "too": true, "use": true, "with": true, "this": true,
+	}
+
+	for _, word := range words {
+		if len(word) >= 3 && len(word) <= 12 && !commonWords[word] {
+			validWords = append(validWords, word)
+		}
+	}
+
+	// Remove duplicates
+	seen := make(map[string]bool)
+	var unique []string
+	for _, word := range validWords {
+		if !seen[word] {
+			seen[word] = true
+			unique = append(unique, word)
+		}
+	}
+
+	return unique
+}
+
+// pickRandomWords selects n random words from the slice
+func (m *Manager) pickRandomWords(words []string, n int) []string {
+	if len(words) == 0 {
+		return []string{}
+	}
+
+	// If we need more words than available, allow repetition
+	result := make([]string, n)
+	for i := 0; i < n; i++ {
+		result[i] = words[rand.Intn(len(words))]
+	}
+
+	return result
 }

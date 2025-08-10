@@ -193,7 +193,7 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 
 	// Export code blocks if -e flag was used
 	if exportCode {
-		filePaths, exportErr := chatManager.ExportCodeBlocks()
+		filePaths, exportErr := chatManager.ExportCodeBlocks(terminal)
 		if exportErr != nil {
 			terminal.PrintError(fmt.Sprintf("Error exporting code blocks: %v", exportErr))
 		} else if len(filePaths) > 0 {
@@ -592,7 +592,7 @@ func isValidCodedumpDir(dirPath string) bool {
 }
 
 func handleExportCodeBlocks(chatManager *chat.Manager, terminal *ui.Terminal) error {
-	filePaths, err := chatManager.ExportCodeBlocks()
+	filePaths, err := chatManager.ExportCodeBlocks(terminal)
 	if err != nil {
 		return err
 	}
