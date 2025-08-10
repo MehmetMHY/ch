@@ -642,16 +642,37 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 	// Extract words from content
 	words := m.extractWords(content)
 
-	// Calculate how many files per extension to ensure even distribution
-	filesPerExtension := 20000 / len(extensions)
+	// Generate random extensions for edge cases (1-5 characters) - 2500 unique ones (10% of total)
+	// Evenly distribute lengths: 500 each of 1,2,3,4,5 character extensions
+	randomExtCount := 2500
+	randomExtensions := make([]string, randomExtCount)
 
-	// If we have enough words, generate 95% word-based options
+	extIndex := 0
+	for length := 1; length <= 5; length++ {
+		for count := 0; count < 500 && extIndex < randomExtCount; count++ {
+			extChars := make([]byte, length)
+			for j := range extChars {
+				extChars[j] = byte('a' + rand.Intn(26)) // random lowercase letter
+			}
+			randomExt := "." + string(extChars)
+			randomExtensions[extIndex] = randomExt
+			extIndex++
+		}
+	}
+
+	// Calculate distribution
+	randomExtTargetCount := randomExtCount              // 2500 files with random extensions (10%)
+	knownExtTargetCount := 25000 - randomExtTargetCount // 22500 files with known extensions (90%)
+
+	// Combine known extensions with random ones for fallback
+	allExtensions := append(extensions, randomExtensions...)
+
+	// If we have enough words, generate word-based options
 	if len(words) >= 5 {
-		// Generate word-based combinations evenly across all extensions
+		// Generate 90% from known extensions
+		perKnownExt := knownExtTargetCount / len(extensions)
 		for _, ext := range extensions {
-			// Generate 95% word-based for this extension
-			wordBasedCount := int(float64(filesPerExtension) * 0.95)
-			for i := 0; i < wordBasedCount && len(options) < 19000; i++ {
+			for i := 0; i < perKnownExt && len(options) < knownExtTargetCount; i++ {
 				numWords := 3 + rand.Intn(3) // 3, 4, or 5 words
 				selectedWords := m.pickRandomWords(words, numWords)
 				filename := strings.Join(selectedWords, "_") + ext
@@ -667,9 +688,28 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 			}
 		}
 
-		// Add remaining slots with ch_<uuid> options evenly distributed
-		for len(options) < 20000 {
-			ext := extensions[rand.Intn(len(extensions))]
+		// Generate 10% from random extensions (1 per extension)
+		for _, ext := range randomExtensions {
+			if len(options) >= 25000 {
+				break
+			}
+			numWords := 3 + rand.Intn(3) // 3, 4, or 5 words
+			selectedWords := m.pickRandomWords(words, numWords)
+			filename := strings.Join(selectedWords, "_") + ext
+
+			// Check if unique and doesn't exist
+			if !seenNames[filename] {
+				fullPath := filepath.Join(currentDir, filename)
+				if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+					options = append(options, filename)
+					seenNames[filename] = true
+				}
+			}
+		}
+
+		// Fill any remaining slots with ch_<uuid> options
+		for len(options) < 25000 {
+			ext := allExtensions[rand.Intn(len(allExtensions))]
 			filename := fmt.Sprintf("ch_%s%s", uuid.New().String()[:8], ext)
 			fullPath := filepath.Join(currentDir, filename)
 			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
@@ -677,14 +717,26 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 			}
 		}
 	} else {
-		// Not enough words, distribute ch_<uuid> format evenly across extensions
+		// Not enough words, distribute ch_<uuid> format across all extensions (90% known, 10% random)
+		// First fill with known extensions
+		perKnownExt := knownExtTargetCount / len(extensions)
 		for _, ext := range extensions {
-			for i := 0; i < filesPerExtension && len(options) < 20000; i++ {
+			for i := 0; i < perKnownExt && len(options) < knownExtTargetCount; i++ {
 				filename := fmt.Sprintf("ch_%s%s", uuid.New().String()[:8], ext)
 				fullPath := filepath.Join(currentDir, filename)
 				if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 					options = append(options, filename)
 				}
+			}
+		}
+
+		// Then fill remaining with random extensions
+		for len(options) < 25000 && len(options)-knownExtTargetCount < randomExtCount {
+			ext := randomExtensions[len(options)-knownExtTargetCount]
+			filename := fmt.Sprintf("ch_%s%s", uuid.New().String()[:8], ext)
+			fullPath := filepath.Join(currentDir, filename)
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				options = append(options, filename)
 			}
 		}
 	}
