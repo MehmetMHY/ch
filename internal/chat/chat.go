@@ -585,6 +585,15 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 	currentDir, _ := os.Getwd()
 	seenNames := make(map[string]bool)
 
+	// First priority: add cha_<uuid>.txt as the very first suggestion
+	chatID := uuid.New().String()
+	firstOption := fmt.Sprintf("cha_%s.txt", chatID)
+	fullPath := filepath.Join(currentDir, firstOption)
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		options = append(options, firstOption)
+		seenNames[firstOption] = true
+	}
+
 	// ALL possible text file extensions
 	extensions := []string{
 		// Programming languages
@@ -662,7 +671,7 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 
 	// Calculate distribution
 	randomExtTargetCount := randomExtCount              // 2500 files with random extensions (10%)
-	knownExtTargetCount := 25000 - randomExtTargetCount // 22500 files with known extensions (90%)
+	knownExtTargetCount := 20000 - randomExtTargetCount // 17500 files with known extensions (90%)
 
 	// Combine known extensions with random ones for fallback
 	allExtensions := append(extensions, randomExtensions...)
@@ -690,7 +699,7 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 
 		// Generate 10% from random extensions (1 per extension)
 		for _, ext := range randomExtensions {
-			if len(options) >= 25000 {
+			if len(options) >= 20000 {
 				break
 			}
 			numWords := 3 + rand.Intn(3) // 3, 4, or 5 words
@@ -708,7 +717,7 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 		}
 
 		// Fill any remaining slots with ch_<uuid> options
-		for len(options) < 25000 {
+		for len(options) < 20000 {
 			ext := allExtensions[rand.Intn(len(allExtensions))]
 			filename := fmt.Sprintf("ch_%s%s", uuid.New().String()[:8], ext)
 			fullPath := filepath.Join(currentDir, filename)
@@ -731,7 +740,7 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 		}
 
 		// Then fill remaining with random extensions
-		for len(options) < 25000 && len(options)-knownExtTargetCount < randomExtCount {
+		for len(options) < 20000 && len(options)-knownExtTargetCount < randomExtCount {
 			ext := randomExtensions[len(options)-knownExtTargetCount]
 			filename := fmt.Sprintf("ch_%s%s", uuid.New().String()[:8], ext)
 			fullPath := filepath.Join(currentDir, filename)
@@ -784,16 +793,45 @@ func (m *Manager) extractWords(content string) []string {
 	return unique
 }
 
-// pickRandomWords selects n random words from the slice
+// pickRandomWords selects n random words from the slice without duplicates
 func (m *Manager) pickRandomWords(words []string, n int) []string {
 	if len(words) == 0 {
 		return []string{}
 	}
 
-	// If we need more words than available, allow repetition
-	result := make([]string, n)
-	for i := 0; i < n; i++ {
-		result[i] = words[rand.Intn(len(words))]
+	// Create a map to track used words and avoid duplicates
+	used := make(map[string]bool)
+	result := make([]string, 0, n)
+
+	// Try to pick unique words first
+	maxAttempts := n * 10 // Prevent infinite loops
+	attempts := 0
+
+	for len(result) < n && attempts < maxAttempts {
+		word := words[rand.Intn(len(words))]
+		if !used[word] {
+			used[word] = true
+			result = append(result, word)
+		}
+		attempts++
+	}
+
+	// If we couldn't find enough unique words, fill the remaining slots
+	// by cycling through available words (still avoiding immediate repeats)
+	for len(result) < n {
+		for _, word := range words {
+			if len(result) >= n {
+				break
+			}
+			// Only add if it's not the same as the last word added
+			if len(result) == 0 || result[len(result)-1] != word {
+				result = append(result, word)
+			}
+		}
+		// If we still can't fill it, break to avoid infinite loop
+		if len(result) == 0 {
+			break
+		}
 	}
 
 	return result
