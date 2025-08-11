@@ -16,6 +16,7 @@ import (
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/chzyer/readline"
 	"github.com/google/uuid"
+	"github.com/tiktoken-go/tokenizer"
 )
 
 func main() {
@@ -34,7 +35,9 @@ func main() {
 		platformFlag   = flag.String("p", "", "Switch platform (leave empty for interactive selection)")
 		modelFlag      = flag.String("m", "", "Specify model to use")
 		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
+		tokenFlag      = flag.String("t", "", "Count tokens in file")
 	)
+	flag.StringVar(tokenFlag, "token", "", "Count tokens in file")
 
 	flag.Parse()
 	remainingArgs := flag.Args()
@@ -97,6 +100,15 @@ func main() {
 		err := handleExportCodeBlocks(chatManager, terminal)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("Error exporting code blocks: %v", err))
+		}
+		return
+	}
+
+	// handle token counting flag
+	if *tokenFlag != "" {
+		err := handleTokenCount(*tokenFlag, *modelFlag, terminal, state)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("Error counting tokens: %v", err))
 		}
 		return
 	}
@@ -618,6 +630,62 @@ func handleExportChatInteractive(chatManager *chat.Manager, terminal *ui.Termina
 	if filePath != "" {
 		fmt.Println(filePath)
 	}
+
+	return nil
+}
+
+func handleTokenCount(filePath string, model string, terminal *ui.Terminal, state *types.AppState) error {
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("file does not exist: %s", filePath)
+	}
+
+	// Read file content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("error reading file: %v", err)
+	}
+
+	// Determine model for tokenization
+	targetModel := model
+	if targetModel == "" {
+		targetModel = state.Config.CurrentModel
+		if targetModel == "" {
+			targetModel = state.Config.DefaultModel
+		}
+	}
+
+	// Map model names to tokenizer encodings
+	var encoding tokenizer.Encoding
+	switch {
+	case strings.Contains(strings.ToLower(targetModel), "gpt-4"):
+		encoding = tokenizer.Cl100kBase
+	case strings.Contains(strings.ToLower(targetModel), "gpt-3.5"):
+		encoding = tokenizer.Cl100kBase
+	case strings.Contains(strings.ToLower(targetModel), "gpt-2"):
+		encoding = tokenizer.R50kBase
+	case strings.Contains(strings.ToLower(targetModel), "claude"):
+		encoding = tokenizer.Cl100kBase // Use cl100k_base as approximation for Claude
+	default:
+		encoding = tokenizer.Cl100kBase // Default to cl100k_base
+	}
+
+	// Get tokenizer
+	enc, err := tokenizer.Get(encoding)
+	if err != nil {
+		return fmt.Errorf("error getting tokenizer: %v", err)
+	}
+
+	// Encode and count tokens
+	tokens, _, err := enc.Encode(string(content))
+	if err != nil {
+		return fmt.Errorf("error encoding text: %v", err)
+	}
+
+	// Print results with colors matching the project's style
+	fmt.Printf("\033[96m%s\033[0m %s\n", "File:", filePath)
+	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Model:", targetModel)
+	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "Tokens:", len(tokens))
 
 	return nil
 }

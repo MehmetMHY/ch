@@ -71,6 +71,7 @@ ch "What are the key features of Go programming language?"
 - **Smart File Handling**: Load files/directories with intelligent text detection
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
+- **Token Counting**: Estimate token usage for files with model-aware tokenization
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
 - **Chat Backtracking**: Revert to any point in conversation history
@@ -168,6 +169,10 @@ ch -m gpt-4o "Create a REST API in Python"
 
 # export code blocks to files
 ch -e "Write a Python script to sort a list"
+
+# count tokens in files
+ch -t ./README.md
+ch -m "gpt-4" -t ./main.go
 
 # piping support
 cat main.py | ch "What does this code do?"
@@ -284,6 +289,20 @@ make dev
 - Test your changes thoroughly
 - Update documentation as needed
 - To add new slow models, update patterns in `internal/platform/platform.go`
+
+## Uninstall
+
+To completely remove Ch from your system:
+
+```bash
+# Remove the binary and directory
+sudo rm -f /usr/local/bin/ch
+rm -rf ~/.ch
+
+# On Android/Termux, use:
+rm -f $PREFIX/bin/ch
+rm -rf ~/.ch
+```
 
 ## License
 
