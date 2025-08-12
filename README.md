@@ -105,9 +105,6 @@ The installer automatically:
 - Creates global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux)
 - Configures PATH if needed
 
-**Android/Termux Support:**
-The installer now fully supports Android devices through Termux. It automatically detects the Termux environment and uses the `pkg` package manager to install dependencies.
-
 ## Configuration
 
 ### API Keys
@@ -130,8 +127,11 @@ export XAI_API_KEY="your-xai-key"
 Customize default platform and model:
 
 ```bash
-export CH_DEFAULT_PLATFORM="groq"        # default: "openai"
-export CH_DEFAULT_MODEL="llama3-8b-8192" # default: "gpt-4o-mini"
+# default: openai
+export CH_DEFAULT_PLATFORM="groq"
+
+# default: gpt-4o-mini
+export CH_DEFAULT_MODEL="llama3-8b-8192"
 ```
 
 ### Local & Open-Source Setup (Ollama)
@@ -139,14 +139,9 @@ export CH_DEFAULT_MODEL="llama3-8b-8192" # default: "gpt-4o-mini"
 Ch supports local models via Ollama, allowing you to run it without relying on third-party services. This provides a completely private, open-source, and offline-capable environment.
 
 1.  **Install Ollama**: Follow the official instructions at [ollama.com](https://ollama.com).
-2.  **Pull a model**:
-    ```bash
-    ollama pull llama3
-    ```
-3.  **Run Ch with Ollama**:
-    ```bash
-    ch -p ollama "What is the capital of France?"
-    ```
+2.  **Pull a model**: `ollama pull llama3`
+
+3.  **Run Ch with Ollama**: `ch -p ollama "What is the capital of France?"`
 
 Since Ollama runs locally, no API key is required.
 
@@ -252,17 +247,18 @@ cd ch
 ### Build Options
 
 ```bash
-./build.sh              # build the binary
-./build.sh -u           # update dependencies and build
-./build.sh -h           # show help
+# using the custom Bash Script
+./build.sh     # build the binary
+./build.sh -u  # update dependencies & build
+./build.sh -h  # show help
 
-# Available Make Commands
-make install      # install to $GOPATH/bin
-make clean        # clean build artifacts
-make test         # run tests
-make lint         # run linter
-make fmt          # format code
-make dev          # build and run in development mode
+# using the Make command
+make install   # install to $GOPATH/bin
+make clean     # clean build artifacts
+make test      # run tests
+make lint      # run linter
+make fmt       # format code
+make dev       # build and run in dev mode
 ```
 
 ## Contributing
@@ -295,11 +291,11 @@ make dev
 To completely remove Ch from your system:
 
 ```bash
-# Remove the binary and directory
+# uninstall commands for most unix-based systems
 sudo rm -f /usr/local/bin/ch
 rm -rf ~/.ch
 
-# On Android/Termux, use:
+# uninstall commands for android/termux systems
 rm -f $PREFIX/bin/ch
 rm -rf ~/.ch
 ```
