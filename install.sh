@@ -15,6 +15,67 @@ error() {
 	exit 1
 }
 
+uninstall_ch() {
+	log "Ch Uninstaller"
+	echo
+
+	local os
+	os=$(detect_os)
+
+	if [[ ! -d "$CH_HOME" ]]; then
+		error "Ch is not installed at $CH_HOME"
+	fi
+
+	echo -e "\033[93mThis will remove the following:\033[0m"
+	echo -e "  - Ch installation directory: $CH_HOME"
+
+	if [[ "$os" == "android" ]]; then
+		echo -e "  - Symlink: $PREFIX/bin/ch"
+	else
+		echo -e "  - Symlink: /usr/local/bin/ch (if exists)"
+	fi
+
+	echo
+	echo -n -e "\033[91mAre you sure you want to uninstall Ch? (y/N): \033[0m"
+	read -r response
+
+	if [[ ! "$response" =~ ^[Yy]$ ]]; then
+		log "Uninstall cancelled"
+		exit 0
+	fi
+
+	log "Removing Ch installation..."
+
+	# Remove symlink
+	if [[ "$os" == "android" ]]; then
+		if [[ -L "$PREFIX/bin/ch" ]]; then
+			rm -f "$PREFIX/bin/ch"
+			log "Removed symlink: $PREFIX/bin/ch"
+		fi
+	else
+		if [[ -L "/usr/local/bin/ch" ]]; then
+			if [[ -w "/usr/local/bin" ]]; then
+				rm -f "/usr/local/bin/ch"
+			else
+				if command -v sudo >/dev/null 2>&1; then
+					sudo rm -f "/usr/local/bin/ch"
+				else
+					log "Warning: Could not remove /usr/local/bin/ch (no sudo access)"
+				fi
+			fi
+			log "Removed symlink: /usr/local/bin/ch"
+		fi
+	fi
+
+	# Remove installation directory
+	rm -rf "$CH_HOME"
+	log "Removed installation directory: $CH_HOME"
+
+	echo
+	echo -e "\033[92m✓ Ch has been successfully uninstalled\033[0m"
+	exit 0
+}
+
 check_go() {
 	if ! command -v go >/dev/null 2>&1; then
 		error "Go 1.21+ is required but not installed"
@@ -268,9 +329,111 @@ _install_ch_from_repo() {
 	print_success
 }
 
+build_only() {
+	log "Building Ch (local build only)..."
+	check_go
+
+	# Check if Makefile exists
+	if [[ ! -f "Makefile" ]]; then
+		error "Makefile not found. Please run from the Ch repository root."
+	fi
+
+	log "Downloading dependencies..."
+	go mod download || error "Failed to download Go modules"
+
+	log "Building project..."
+	make build || error "Build failed"
+
+	echo
+	echo -e "\033[92m✓ Build complete!\033[0m"
+	echo -e "Binary location: \033[90m./bin/ch\033[0m"
+}
+
+update_deps() {
+	log "Updating dependencies..."
+	go get -u ./... || error "Failed to update dependencies"
+	go mod tidy || error "Failed to tidy modules"
+	log "Dependencies updated successfully"
+}
+
+show_help() {
+	echo "Usage: $0 [OPTIONS]"
+	echo ""
+	echo "Ch setup script for installation, building, and maintenance"
+	echo ""
+	echo "Options:"
+	echo "  -u, --uninstall     Uninstall Ch from the system"
+	echo "  -b, --build         Build Ch locally (requires local repository)"
+	echo "  -d, --update-deps   Update Go dependencies before building (local only)"
+	echo "  -h, --help          Show this help message"
+	echo ""
+	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
+	echo ""
+	echo "Note: Build options (-b, -d) only work when run locally from the repository,"
+	echo "      not through curl/wget installation."
+}
+
 main() {
+	local build_only_flag=false
+	local update_deps_flag=false
+	local is_remote_install=false
+
+	# Check if we're being piped from curl/wget
+	if [[ ! -t 0 ]] || [[ "${BASH_SOURCE[0]}" == "" ]]; then
+		is_remote_install=true
+	fi
+
+	# Parse command line arguments
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		-u | --uninstall)
+			uninstall_ch
+			;;
+		-b | --build)
+			if [[ "$is_remote_install" == true ]]; then
+				error "Build option is only available when running locally from the repository"
+			fi
+			build_only_flag=true
+			;;
+		-d | --update-deps)
+			if [[ "$is_remote_install" == true ]]; then
+				error "Update deps option is only available when running locally from the repository"
+			fi
+			update_deps_flag=true
+			;;
+		-h | --help)
+			show_help
+			exit 0
+			;;
+		*)
+			error "Unknown option: $1. Use -h or --help to see available options."
+			;;
+		esac
+		shift
+	done
+
+	# Handle build-only mode
+	if [[ "$build_only_flag" == true ]]; then
+		if [[ ! -f "go.mod" ]] || [[ ! -f "cmd/ch/main.go" ]]; then
+			error "Build option requires running from the Ch repository root directory"
+		fi
+
+		if [[ "$update_deps_flag" == true ]]; then
+			update_deps
+		fi
+
+		build_only
+		exit 0
+	fi
+
+	# Installation logic (default behavior)
 	if [ -f "go.mod" ] && [ -f "cmd/ch/main.go" ] && [ -d ".git" ]; then
 		log "Running installer from existing local repository."
+
+		if [[ "$update_deps_flag" == true ]]; then
+			update_deps
+		fi
+
 		check_git_and_pull
 		_install_ch_from_repo
 	else

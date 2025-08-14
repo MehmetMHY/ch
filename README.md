@@ -97,6 +97,16 @@ cd ch
 ./install.sh
 ```
 
+**Uninstall:**
+
+```bash
+# run installer with the uninstall flag
+curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash -s -- --uninstall
+
+# or if you have the installer script locally
+./install.sh --uninstall
+```
+
 The installer automatically:
 
 - Checks for Go 1.21+ and dependencies (fzf)
@@ -240,19 +250,22 @@ Switch platforms during conversation:
 
 ```bash
 git clone https://github.com/MehmetMHY/ch.git
+
 cd ch
-./build.sh
+
+# build locally without installing
+./install.sh -b
 ```
 
 ### Build Options
 
 ```bash
-# using the custom Bash Script
-./build.sh     # build the binary
-./build.sh -u  # update dependencies & build
-./build.sh -h  # show help
+# using the install script (local build options)
+./install.sh -b     # build locally without installing
+./install.sh -d -b  # update dependencies and build
+./install.sh -h     # show help with all options
 
-# using the Make command
+# using Make directly
 make install   # install to $GOPATH/bin
 make clean     # clean build artifacts
 make test      # run tests
@@ -273,8 +286,12 @@ Contributions are welcome! Here's how to get started:
 
 ```bash
 git clone https://github.com/MehmetMHY/ch.git
+
 cd ch
-./build.sh -u
+
+# update dependencies and build
+./install.sh -d -b
+
 make dev
 ```
 
@@ -288,14 +305,14 @@ make dev
 
 ## Uninstall
 
-To completely remove Ch from your system:
+Ch can be uninstalled using the install script's uninstall option (see [Installation](#installation) section) or manually:
 
 ```bash
-# uninstall commands for most unix-based systems
+# manual uninstall for Unix-based systems
 sudo rm -f /usr/local/bin/ch
 rm -rf ~/.ch
 
-# uninstall commands for android/termux systems
+# manual uninstall for Android/Termux systems
 rm -f $PREFIX/bin/ch
 rm -rf ~/.ch
 ```
