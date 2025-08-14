@@ -510,20 +510,43 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no content to save")
 	}
 
-	// Generate filename options and let user select
-	filenameOptions := m.generateFilenameOptions(editedContent)
-
-	selectedFilename, err := terminal.FzfSelect(filenameOptions, "Select filename for chat export: ")
+	// Get all files in current directory (including subdirectories) and add option to create new file
+	allFiles, err := m.getAllFilesInCurrentDir()
 	if err != nil {
-		return "", fmt.Errorf("filename selection failed: %v", err)
+		return "", fmt.Errorf("failed to get current directory files: %v", err)
 	}
 
-	if selectedFilename == "" {
-		// User cancelled
+	// Create the file selection options - add [NEW FILE] at the top like the codedump [NONE] option
+	var fileOptions []string
+	fileOptions = append(fileOptions, "[NEW FILE]")
+	if len(allFiles) > 0 {
+		fileOptions = append(fileOptions, allFiles...)
+	}
+
+	selectedOption, err := terminal.FzfSelect(fileOptions, "Select existing file or create new file: ")
+	if err != nil {
+		return "", fmt.Errorf("file selection failed: %v", err)
+	}
+
+	if selectedOption == "" {
 		return "", fmt.Errorf("export cancelled")
 	}
 
-	filename := selectedFilename
+	var filename string
+	if selectedOption == "[NEW FILE]" {
+		// Generate filename options and let user select
+		filenameOptions := m.generateFilenameOptions(editedContent)
+		selectedFilename, err := terminal.FzfSelect(filenameOptions, "Select filename for chat export: ")
+		if err != nil {
+			return "", fmt.Errorf("filename selection failed: %v", err)
+		}
+		if selectedFilename == "" {
+			return "", fmt.Errorf("export cancelled")
+		}
+		filename = selectedFilename
+	} else {
+		filename = selectedOption
+	}
 
 	// Save to file
 	currentDir, err := os.Getwd()
@@ -835,4 +858,52 @@ func (m *Manager) pickRandomWords(words []string, n int) []string {
 	}
 
 	return result
+}
+
+// getAllFilesInCurrentDir returns all files in the current directory and subdirectories
+func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current directory: %v", err)
+	}
+
+	var files []string
+
+	err = filepath.WalkDir(currentDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // Skip files we can't access
+		}
+
+		// Skip the root directory itself
+		if path == currentDir {
+			return nil
+		}
+
+		// Get relative path from current directory
+		relPath, err := filepath.Rel(currentDir, path)
+		if err != nil {
+			return nil // Skip if we can't get relative path
+		}
+
+		// Skip hidden files and directories (starting with .)
+		if strings.HasPrefix(filepath.Base(relPath), ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Only include files, not directories
+		if !d.IsDir() {
+			files = append(files, relPath)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk directory: %v", err)
+	}
+
+	return files, nil
 }
