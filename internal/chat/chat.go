@@ -516,11 +516,33 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("failed to get current directory files: %v", err)
 	}
 
-	// Create the file selection options - add [NEW FILE] at the top like the codedump [NONE] option
+	// Extract loaded files from chat history to prioritize them
+	loadedFiles := m.extractLoadedFilesFromHistory()
+
+	// Create the file selection options with smart ordering:
+	// 1. [NEW FILE] at the very top
+	// 2. Recently loaded files (if any)
+	// 3. All other files
 	var fileOptions []string
 	fileOptions = append(fileOptions, "[NEW FILE]")
+	
+	// Add loaded files right after [NEW FILE]
+	if len(loadedFiles) > 0 {
+		fileOptions = append(fileOptions, loadedFiles...)
+	}
+	
+	// Add remaining files, excluding already added loaded files
 	if len(allFiles) > 0 {
-		fileOptions = append(fileOptions, allFiles...)
+		loadedSet := make(map[string]bool)
+		for _, file := range loadedFiles {
+			loadedSet[file] = true
+		}
+		
+		for _, file := range allFiles {
+			if !loadedSet[file] {
+				fileOptions = append(fileOptions, file)
+			}
+		}
 	}
 
 	selectedOption, err := terminal.FzfSelect(fileOptions, "Save to file: ")
@@ -1082,4 +1104,75 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	}
 
 	return files, nil
+}
+
+// extractLoadedFilesFromHistory extracts all files that have been loaded from the chat history
+// Returns them in reverse chronological order (most recently loaded first)
+func (m *Manager) extractLoadedFilesFromHistory() []string {
+	var loadedFiles []string
+	seen := make(map[string]bool)
+
+	// Go through chat history in reverse order to prioritize more recent files
+	for i := len(m.state.ChatHistory) - 1; i >= 0; i-- {
+		entry := m.state.ChatHistory[i]
+		
+		if entry.User != "" {
+			// Check for loaded content patterns
+			if strings.Contains(entry.User, "File: ") || strings.Contains(entry.User, "Loaded: ") {
+				lines := strings.Split(entry.User, "\n")
+				for _, line := range lines {
+					if strings.HasPrefix(line, "File: ") {
+						filePath := strings.TrimPrefix(line, "File: ")
+						filePath = strings.TrimSpace(filePath)
+						if filePath != "" && !seen[filePath] {
+							// Check if file still exists in current directory
+							if m.fileExistsInCurrentDir(filePath) {
+								loadedFiles = append(loadedFiles, filePath)
+								seen[filePath] = true
+							}
+						}
+					} else if strings.HasPrefix(line, "Loaded: ") {
+						loadedContent := strings.TrimPrefix(line, "Loaded: ")
+						// Split by comma and process each file
+						files := strings.Split(loadedContent, ", ")
+						for _, file := range files {
+							file = strings.TrimSpace(file)
+							if file != "" && !seen[file] {
+								// Check if file still exists in current directory
+								if m.fileExistsInCurrentDir(file) {
+									loadedFiles = append(loadedFiles, file)
+									seen[file] = true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	return loadedFiles
+}
+
+// fileExistsInCurrentDir checks if a file exists in the current directory structure
+func (m *Manager) fileExistsInCurrentDir(filePath string) bool {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	
+	// Try both as relative path and full path from current directory
+	fullPath := filepath.Join(currentDir, filePath)
+	if _, err := os.Stat(fullPath); err == nil {
+		return true
+	}
+	
+	// Also try as absolute path if it starts with current directory
+	if filepath.IsAbs(filePath) && strings.HasPrefix(filePath, currentDir) {
+		if _, err := os.Stat(filePath); err == nil {
+			return true
+		}
+	}
+	
+	return false
 }
