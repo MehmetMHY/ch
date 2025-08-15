@@ -3,12 +3,10 @@
 <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.21+-blue.svg" alt="Go 1.21+"></a>
 
-⚠️ This project is actively developed and may have breaking changes. For a stable version, see the original **[Cha](https://github.com/MehmetMHY/cha/)**!
+**Check out [Cha](https://github.com/MehmetMHY/cha/)!**
 
 ## Table of Contents
 
-- [Title](#ch)
-- [Table of Contents](#table-of-contents)
 - [Overview](#overview)
 - [Vision](#vision)
 - [Quick Start](#quick-start)
