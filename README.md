@@ -190,21 +190,19 @@ ls -la | ch "Summarize this directory"
 
 When in interactive mode (`ch`), use these commands:
 
-| Command | Description                          |
-| ------- | ------------------------------------ | ----------------------------- |
-| `!q`    | Exit interface                       |
-| `!h`    | Interactive help menu                |
-| `!m`    | Switch models (with fuzzy finder)    |
-| `!p`    | Switch platforms (with fuzzy finder) |
-| `!c`    | Clear chat history                   |
-| `!t`    | Text editor input mode               |
-| `!b`    | Backtrack to previous message        |
-| `!l`    | Load files/directories recursively   |
-| `!d`    | Generate code dump                   |
-| `!e`    | Export selected chat entries         |
-| `!x`    | Record a shell session for context   |
-| `\`     | Multi-line input mode                |
-| `       | `                                    | View and display chat history |
+- **`!q`** - Exit interface
+- **`!h`** - Interactive help menu
+- **`!m`** - Switch models (with fuzzy finder)
+- **`!p`** - Switch platforms (with fuzzy finder)
+- **`!c`** - Clear chat history
+- **`!t`** - Text editor input mode
+- **`!b`** - Backtrack to previous message
+- **`!l`** - Load files/directories recursively
+- **`!d`** - Generate code dump
+- **`!e`** - Export selected chat entries
+- **`!x`** - Record a shell session for context
+- **`\`** - Multi-line input mode
+- **`|`** - View and display chat history
 
 ### Advanced Features
 
