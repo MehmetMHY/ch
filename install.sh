@@ -26,7 +26,7 @@ uninstall_ch() {
 		error "Ch is not installed at $CH_HOME"
 	fi
 
-	echo -e "\033[93mThis will remove the following:\033[0m"
+	echo -e "\033[93mRemoving the following:\033[0m"
 	echo -e "  - Ch installation directory: $CH_HOME"
 
 	if [[ "$os" == "android" ]]; then
@@ -35,18 +35,8 @@ uninstall_ch() {
 		echo -e "  - Symlink: /usr/local/bin/ch (if exists)"
 	fi
 
-	echo
-	echo -n -e "\033[91mAre you sure you want to uninstall Ch? (y/N): \033[0m"
-	read -r response
-
-	if [[ ! "$response" =~ ^[Yy]$ ]]; then
-		log "Uninstall cancelled"
-		exit 0
-	fi
-
 	log "Removing Ch installation..."
 
-	# Remove symlink
 	if [[ "$os" == "android" ]]; then
 		if [[ -L "$PREFIX/bin/ch" ]]; then
 			rm -f "$PREFIX/bin/ch"
@@ -67,7 +57,6 @@ uninstall_ch() {
 		fi
 	fi
 
-	# Remove installation directory
 	rm -rf "$CH_HOME"
 	log "Removed installation directory: $CH_HOME"
 
@@ -92,7 +81,6 @@ detect_os() {
 	if [[ "$OSTYPE" == "darwin"* ]]; then
 		echo "macos"
 	elif [[ "$OSTYPE" == "linux-gnu"* ]] || [[ "$OSTYPE" == "linux-android"* ]]; then
-		# Check if we're in Termux/Android environment
 		if [[ -n "${TERMUX_VERSION:-}" ]] || [[ -d "/data/data/com.termux" ]]; then
 			echo "android"
 		else
@@ -124,11 +112,6 @@ install_dependencies() {
 	fi
 
 	log "The following dependencies are missing: ${missing_deps[*]}"
-	echo -n -e "\033[93mDo you want to install them? (y/N): \033[0m"
-	read -r response
-	if [[ ! "$response" =~ ^[Yy]$ ]]; then
-		error "Installation aborted. Please install dependencies manually."
-	fi
 
 	case "$os" in
 	"macos")
@@ -197,22 +180,13 @@ build_ch() {
 	log "Creating installation directory $CH_HOME"
 	mkdir -p "$BIN_DIR" || error "Failed to create directory $BIN_DIR"
 
-	# Create the tmp directory that the Go application uses
 	log "Creating application temp directory"
 	mkdir -p "$CH_HOME/tmp" || error "Failed to create directory $CH_HOME/tmp"
 
 	if [[ -d "$CH_HOME" ]]; then
-		echo -e "\033[93mAn existing Ch installation was found.\033[0m"
-		echo -n -e "\033[91mDo you want to remove it and reinstall/update? (Y/n): \033[0m"
-		read -r response
-		if [[ ! "$response" =~ ^[Nn]$ ]]; then
-			log "Removing existing installation..."
-			rm -rf "$CH_HOME"
-			mkdir -p "$BIN_DIR"
-		else
-			log "Update aborted. Keeping existing installation."
-			exit 0
-		fi
+		log "Removing existing Ch installation..."
+		rm -rf "$CH_HOME"
+		mkdir -p "$BIN_DIR"
 	fi
 
 	log "Building Ch..."
@@ -266,7 +240,7 @@ create_symlink() {
 				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
 				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
 				log "  3. Using the full path: $source_path"
-				return 0 # Don't error out, just continue
+				return 0
 			fi
 			if [[ $? -ne 0 ]]; then
 				log "Failed to create symlink in $target_dir"
@@ -274,7 +248,7 @@ create_symlink() {
 				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
 				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
 				log "  3. Using the full path: $source_path"
-				return 0 # Don't error out, just continue
+				return 0
 			fi
 			log "Symlink created with sudo: $symlink_path -> $source_path"
 		fi
@@ -333,7 +307,6 @@ build_only() {
 	log "Building Ch (local build only)..."
 	check_go
 
-	# Check if Makefile exists
 	if [[ ! -f "Makefile" ]]; then
 		error "Makefile not found. Please run from the Ch repository root."
 	fi
@@ -378,12 +351,10 @@ main() {
 	local update_deps_flag=false
 	local is_remote_install=false
 
-	# Check if we're being piped from curl/wget
 	if [[ ! -t 0 ]] || [[ "${BASH_SOURCE[0]}" == "" ]]; then
 		is_remote_install=true
 	fi
 
-	# Parse command line arguments
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		-u | --uninstall)
@@ -412,7 +383,6 @@ main() {
 		shift
 	done
 
-	# Handle build-only mode
 	if [[ "$build_only_flag" == true ]]; then
 		if [[ ! -f "go.mod" ]] || [[ ! -f "cmd/ch/main.go" ]]; then
 			error "Build option requires running from the Ch repository root directory"
@@ -426,7 +396,6 @@ main() {
 		exit 0
 	fi
 
-	# Installation logic (default behavior)
 	if [ -f "go.mod" ] && [ -f "cmd/ch/main.go" ] && [ -d ".git" ]; then
 		log "Running installer from existing local repository."
 
