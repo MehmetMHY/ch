@@ -489,7 +489,21 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 
 		if entry.User != "" {
 			contentBuilder.WriteString("USER:\n")
-			contentBuilder.WriteString(entry.User)
+
+			// Check if this is a file loading entry and try to get the actual content
+			if strings.HasPrefix(entry.User, "Loaded: ") {
+				actualContent := m.getLoadedContentForHistoryEntry(entry)
+				if actualContent != "" {
+					// Clean up excessive newlines from loaded content
+					cleanedContent := m.cleanupLoadedContent(actualContent)
+					contentBuilder.WriteString(cleanedContent)
+				} else {
+					contentBuilder.WriteString(entry.User)
+				}
+			} else {
+				contentBuilder.WriteString(entry.User)
+			}
+
 			contentBuilder.WriteString("\n\n")
 		}
 
@@ -1175,4 +1189,78 @@ func (m *Manager) fileExistsInCurrentDir(filePath string) bool {
 	}
 
 	return false
+}
+
+// getLoadedContentForHistoryEntry attempts to retrieve the actual loaded file content
+// for a history entry that contains "Loaded: ..." by matching it with the corresponding message
+func (m *Manager) getLoadedContentForHistoryEntry(historyEntry types.ChatHistory) string {
+	// Find the corresponding message in the chat messages that contains the actual content
+	// The loaded content should be in a message that was added around the same time
+
+	// Look for user messages that contain "File: " patterns (actual loaded content)
+	for _, message := range m.state.Messages {
+		if message.Role == "user" && (strings.Contains(message.Content, "File: ") || strings.Contains(message.Content, "\nFile: ")) {
+			// Check if this message content contains files mentioned in the history entry
+			if m.messageContainsLoadedFiles(message.Content, historyEntry.User) {
+				return message.Content
+			}
+		}
+	}
+
+	return "" // Return empty if we can't find the actual content
+}
+
+// messageContainsLoadedFiles checks if a message content contains files mentioned in a "Loaded: ..." history entry
+func (m *Manager) messageContainsLoadedFiles(messageContent, historyEntry string) bool {
+	if !strings.HasPrefix(historyEntry, "Loaded: ") {
+		return false
+	}
+
+	// Extract file list from "Loaded: file1, file2, ..."
+	loadedFilesList := strings.TrimPrefix(historyEntry, "Loaded: ")
+	files := strings.Split(loadedFilesList, ", ")
+
+	// Check if the message content contains references to these files
+	matchCount := 0
+	for _, file := range files {
+		file = strings.TrimSpace(file)
+		if file != "" {
+			// Look for "File: <filename>" pattern in the message content
+			filePattern := "File: " + file
+			if strings.Contains(messageContent, filePattern) {
+				matchCount++
+			}
+		}
+	}
+
+	// Consider it a match if we find references to at least half of the loaded files
+	// (to handle cases where some files might have been deleted or renamed)
+	return len(files) > 0 && matchCount >= (len(files)+1)/2
+}
+
+// cleanupLoadedContent removes excessive newlines from loaded file content for cleaner exports
+func (m *Manager) cleanupLoadedContent(content string) string {
+	// Remove excessive trailing newlines that loadTextFile adds
+	content = strings.TrimRight(content, "\n")
+
+	// Replace multiple consecutive newlines (more than 2) with just 2 newlines
+	// This preserves intentional spacing while removing excessive gaps
+	lines := strings.Split(content, "\n")
+	var cleanedLines []string
+	emptyLineCount := 0
+
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			emptyLineCount++
+			// Allow max 2 consecutive empty lines
+			if emptyLineCount <= 2 {
+				cleanedLines = append(cleanedLines, line)
+			}
+		} else {
+			emptyLineCount = 0
+			cleanedLines = append(cleanedLines, line)
+		}
+	}
+
+	return strings.Join(cleanedLines, "\n")
 }
