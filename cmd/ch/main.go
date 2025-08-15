@@ -431,6 +431,13 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		}
 		return true
 
+	case input == config.ListHistory:
+		err := handleListHistory(chatManager, terminal, state)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("Error listing history: %v", err))
+		}
+		return true
+
 	case input == config.MultiLine:
 		var lines []string
 		terminal.PrintInfo("Multi-line mode (end with '\\' on a new line)")
@@ -506,7 +513,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 }
 
 func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
-	files, err := terminal.GetCurrentDirFiles()
+	files, err := terminal.GetCurrentDirFilesRecursive()
 	if err != nil {
 		terminal.PrintError(fmt.Sprintf("Error reading directory: %v", err))
 		return true
@@ -632,6 +639,10 @@ func handleExportChatInteractive(chatManager *chat.Manager, terminal *ui.Termina
 	}
 
 	return nil
+}
+
+func handleListHistory(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) error {
+	return chatManager.ListChatHistory(terminal)
 }
 
 func handleTokenCount(filePath string, model string, terminal *ui.Terminal, state *types.AppState) error {

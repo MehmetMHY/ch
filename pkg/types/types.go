@@ -55,6 +55,7 @@ type Config struct {
 	LoadHistory     string
 	EditorAlias     string
 	MultiLine       string
+	ListHistory     string
 	PreferredEditor string
 	CurrentPlatform string
 	Platforms       map[string]Platform

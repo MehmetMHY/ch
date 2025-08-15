@@ -860,6 +860,182 @@ func (m *Manager) pickRandomWords(words []string, n int) []string {
 	return result
 }
 
+// ListChatHistory provides an interactive view of the chat history with fzf
+func (m *Manager) ListChatHistory(terminal *ui.Terminal) error {
+	if len(m.state.ChatHistory) <= 1 {
+		return fmt.Errorf("no chat history to display")
+	}
+
+	// Prepare chat history entries for fzf selection
+	var items []string
+	var entryContents []string
+
+	// Add [ALL] option at the top
+	items = append(items, "[ALL]")
+	entryContents = append(entryContents, "") // Placeholder for ALL option
+
+	for i, entry := range m.state.ChatHistory {
+		if i == 0 {
+			continue // Skip system prompt
+		}
+
+		// Handle loaded files (when User starts with specific patterns)
+		if entry.User != "" {
+			// Check if this is loaded content by looking for file patterns or "Loaded: " prefix
+			if strings.Contains(entry.User, "File: ") || strings.Contains(entry.User, "Loaded: ") {
+				lines := strings.Split(entry.User, "\n")
+				for _, line := range lines {
+					if strings.HasPrefix(line, "File: ") {
+						filePath := strings.TrimPrefix(line, "File: ")
+						preview := filePath
+						if len(preview) > 80 {
+							preview = preview[:80] + "..."
+						}
+						items = append(items, fmt.Sprintf("[FILE] %d: %s", i, preview))
+						entryContents = append(entryContents, strings.TrimPrefix(line, "File: "))
+					} else if strings.HasPrefix(line, "Loaded: ") {
+						loadedContent := strings.TrimPrefix(line, "Loaded: ")
+						// Split by comma and create separate entries for each file
+						files := strings.Split(loadedContent, ", ")
+						for _, file := range files {
+							file = strings.TrimSpace(file)
+							if file != "" {
+								preview := file
+								if len(preview) > 80 {
+									preview = preview[:80] + "..."
+								}
+								items = append(items, fmt.Sprintf("[FILE] %d: %s", i, preview))
+								entryContents = append(entryContents, file)
+							}
+						}
+					}
+				}
+			} else {
+				// Regular user message
+				userPreview := strings.Split(entry.User, "\n")[0]
+				if len(userPreview) > 80 {
+					userPreview = userPreview[:80] + "..."
+				}
+				items = append(items, fmt.Sprintf("[USER] %d: %s", i, userPreview))
+				entryContents = append(entryContents, entry.User)
+			}
+		}
+
+		if entry.Bot != "" {
+			// Bot response
+			botPreview := strings.Split(entry.Bot, "\n")[0]
+			if len(botPreview) > 80 {
+				botPreview = botPreview[:80] + "..."
+			}
+			items = append(items, fmt.Sprintf("[BOT] %d: %s", i, botPreview))
+			entryContents = append(entryContents, entry.Bot)
+		}
+	}
+
+	if len(items) <= 1 { // Only [ALL] option
+		return fmt.Errorf("no chat history entries to display")
+	}
+
+	// Use exact matching fzf for selection
+	selectedItems, err := terminal.FzfMultiSelectExact(items, "Select entries: ")
+	if err != nil {
+		return fmt.Errorf("selection cancelled or failed: %v", err)
+	}
+
+	if len(selectedItems) == 0 {
+		return fmt.Errorf("no entries selected")
+	}
+
+	// Check if [ALL] was selected
+	showAll := false
+	for _, item := range selectedItems {
+		if strings.HasPrefix(item, "[ALL]") {
+			showAll = true
+			break
+		}
+	}
+
+	if showAll {
+		// Show all entries
+		var lastPlatform, lastModel string
+		for i, entry := range m.state.ChatHistory {
+			if i == 0 {
+				continue // Skip system prompt
+			}
+
+			// Only print platform/model info if it changed
+			if entry.Platform != lastPlatform || entry.Model != lastModel {
+				fmt.Printf("\033[91mUSING: %s/%s\033[0m\n", entry.Platform, entry.Model)
+				lastPlatform = entry.Platform
+				lastModel = entry.Model
+			}
+
+			if entry.User != "" {
+				// Check if this is loaded content
+				if strings.Contains(entry.User, "File: ") || strings.Contains(entry.User, "Loaded: ") {
+					lines := strings.Split(entry.User, "\n")
+					for _, line := range lines {
+						if strings.HasPrefix(line, "File: ") {
+							fmt.Printf("\033[93mFILE:\033[0m %s\n", strings.TrimPrefix(line, "File: "))
+						} else if strings.HasPrefix(line, "Loaded: ") {
+							loadedContent := strings.TrimPrefix(line, "Loaded: ")
+							// Split by comma and display each file on separate line
+							files := strings.Split(loadedContent, ", ")
+							for _, file := range files {
+								file = strings.TrimSpace(file)
+								if file != "" {
+									fmt.Printf("\033[93mFILE:\033[0m %s\n", file)
+								}
+							}
+						} else if strings.TrimSpace(line) != "" {
+							fmt.Printf("%s\n", line)
+						}
+					}
+				} else {
+					fmt.Printf("\033[94mUSER:\033[0m %s\n", entry.User)
+				}
+			}
+
+			if entry.Bot != "" {
+				// Check if this is a platform/model switch message
+				if (strings.Contains(entry.Bot, "Switched from") && strings.Contains(entry.Bot, "to")) || strings.Contains(entry.Bot, "Switched model from") {
+					// For model switches, show the old model info
+					if strings.Contains(entry.Bot, "Switched model from") {
+						// Extract old model from message like "Switched model from gpt-4o-mini to gpt-4.1-mini"
+						parts := strings.Split(entry.Bot, " from ")
+						if len(parts) > 1 {
+							modelPart := strings.Split(parts[1], " to ")
+							if len(modelPart) > 0 {
+								oldModel := strings.TrimSpace(modelPart[0])
+								fmt.Printf("\033[91mCHANGED: %s/%s\033[0m\n", entry.Platform, oldModel)
+							}
+						}
+					}
+					// Skip printing the bot message for switches
+				} else {
+					fmt.Printf("\033[92mBOT:\033[0m %s\n", entry.Bot)
+				}
+			}
+		}
+	} else {
+		// Show selected entries
+		for _, selectedItem := range selectedItems {
+			// Find the corresponding content and print it without the label
+			for i, item := range items {
+				if item == selectedItem && i > 0 { // Skip [ALL] option
+					content := entryContents[i]
+					if content != "" {
+						fmt.Printf("\033[93m%s\033[0m\n", content)
+					}
+					break
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // getAllFilesInCurrentDir returns all files in the current directory and subdirectories
 func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	currentDir, err := os.Getwd()

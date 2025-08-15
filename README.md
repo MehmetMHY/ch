@@ -68,9 +68,10 @@ ch "What are the key features of Go programming language?"
 - **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
-- **Smart File Handling**: Load files/directories with intelligent text detection
+- **Smart File Handling**: Load files/directories recursively with intelligent text detection
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
+- **Chat History Viewer**: Interactive display of conversation history with filtering and search
 - **Token Counting**: Estimate token usage for files with model-aware tokenization
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
@@ -190,7 +191,7 @@ ls -la | ch "Summarize this directory"
 When in interactive mode (`ch`), use these commands:
 
 | Command | Description                          |
-| ------- | ------------------------------------ |
+| ------- | ------------------------------------ | ----------------------------- |
 | `!q`    | Exit interface                       |
 | `!h`    | Interactive help menu                |
 | `!m`    | Switch models (with fuzzy finder)    |
@@ -198,11 +199,12 @@ When in interactive mode (`ch`), use these commands:
 | `!c`    | Clear chat history                   |
 | `!t`    | Text editor input mode               |
 | `!b`    | Backtrack to previous message        |
-| `!l`    | Load files/directories               |
+| `!l`    | Load files/directories recursively   |
 | `!d`    | Generate code dump                   |
 | `!e`    | Export selected chat entries         |
 | `!x`    | Record a shell session for context   |
 | `\`     | Multi-line input mode                |
+| `       | `                                    | View and display chat history |
 
 ### Advanced Features
 
@@ -216,7 +218,14 @@ When in interactive mode (`ch`), use these commands:
 
 1. Select chat entries with fzf
 2. Edit content in your preferred editor
-3. Save to timestamped file
+3. Choose existing file or create new file with suggested names
+
+**Chat History Viewer (`|`):**
+
+1. Browse complete conversation history with exact search
+2. Filter by user messages, bot responses, or loaded files
+3. Display individual entries or complete formatted history
+4. Shows platform/model changes and file loading events
 
 ## Platform Compatibility
 

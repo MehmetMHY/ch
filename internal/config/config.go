@@ -44,6 +44,7 @@ func DefaultConfig() *types.Config {
 		LoadHistory:     "!r",
 		EditorAlias:     "!v",
 		MultiLine:       "\\",
+		ListHistory:     "|",
 		PreferredEditor: "hx",
 		CurrentPlatform: defaultPlatform,
 		Platforms: map[string]types.Platform{

@@ -215,6 +215,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - Export selected chat entries to a file\n", t.config.ExportChat)
 	fmt.Printf("  %s - Record a shell session and use it as context\n", t.config.ShellRecord)
 	fmt.Printf("  %s - Multi-line input mode (end with '\\')\n", t.config.MultiLine)
+	fmt.Printf("  %s - List and display chat history\n", t.config.ListHistory)
 }
 
 // RecordShellSession records the entire shell session and returns the content as a string.
@@ -335,11 +336,6 @@ func (t *Terminal) ShowHelpFzf() string {
 }
 
 func (t *Terminal) processHelpSelection(selected string, options []string) string {
-	// Only process lines that start with ! (commands)
-	if !strings.HasPrefix(selected, "!") {
-		return ""
-	}
-
 	// If line contains [ or ], just print it in yellow and return
 	if strings.Contains(selected, "[") || strings.Contains(selected, "]") {
 		fmt.Printf("\033[93m%s\033[0m\n", selected)
@@ -350,7 +346,8 @@ func (t *Terminal) processHelpSelection(selected string, options []string) strin
 	parts := strings.Fields(selected)
 	if len(parts) > 0 {
 		command := parts[0]
-		if strings.HasPrefix(command, "!") {
+		// Handle commands that start with ! or single character commands like 'l'
+		if strings.HasPrefix(command, "!") || len(command) == 1 {
 			return command
 		}
 	}
@@ -374,6 +371,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - Export selected chat entries to a file", t.config.ExportChat),
 		fmt.Sprintf("%s - Record a shell session and use it as context", t.config.ShellRecord),
 		fmt.Sprintf("%s - Multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
+		fmt.Sprintf("%s - List and display chat history", t.config.ListHistory),
 	}
 
 	return options
@@ -394,6 +392,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - Export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s - Record shell session\033[0m\n", t.config.ShellRecord)
 	fmt.Printf("\033[93m%s - Multi-line input\033[0m\n", t.config.MultiLine)
+	fmt.Printf("\033[93m%s - List chat history\033[0m\n", t.config.ListHistory)
 }
 
 // ShowLoadingAnimation displays a loading animation
@@ -424,6 +423,23 @@ func (t *Terminal) FzfSelect(items []string, prompt string) (string, error) {
 // FzfMultiSelect provides a fuzzy finder interface for multiple selections
 func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, error) {
 	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down"}
+	inputText := strings.Join(items, "\n")
+
+	result, err := t.runFzfSSHSafe(fzfArgs, inputText)
+	if err != nil {
+		return nil, err
+	}
+
+	if result == "" {
+		return []string{}, nil
+	}
+
+	return strings.Split(result, "\n"), nil
+}
+
+// FzfMultiSelectExact provides an exact matching fuzzy finder interface for multiple selections
+func (t *Terminal) FzfMultiSelectExact(items []string, prompt string) ([]string, error) {
+	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down", "--exact"}
 	inputText := strings.Join(items, "\n")
 
 	result, err := t.runFzfSSHSafe(fzfArgs, inputText)
@@ -634,6 +650,56 @@ func (t *Terminal) GetCurrentDirFiles() ([]string, error) {
 		} else {
 			items = append(items, entry.Name())
 		}
+	}
+
+	return items, nil
+}
+
+// GetCurrentDirFilesRecursive returns all files and directories in the current directory and subdirectories
+func (t *Terminal) GetCurrentDirFilesRecursive() ([]string, error) {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current directory: %v", err)
+	}
+
+	var items []string
+
+	err = filepath.WalkDir(currentDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // Skip files we can't access
+		}
+
+		// Skip the root directory itself
+		if path == currentDir {
+			return nil
+		}
+
+		// Get relative path from current directory
+		relPath, err := filepath.Rel(currentDir, path)
+		if err != nil {
+			return nil // Skip if we can't get relative path
+		}
+
+		// Skip hidden files and directories (starting with .)
+		if strings.HasPrefix(filepath.Base(relPath), ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Add directories with trailing slash and files as-is
+		if d.IsDir() {
+			items = append(items, relPath+"/")
+		} else {
+			items = append(items, relPath)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk directory: %v", err)
 	}
 
 	return items, nil
