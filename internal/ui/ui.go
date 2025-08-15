@@ -171,14 +171,14 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  ch [-h] [-d [DIRECTORY]] [-p [PLATFORM]] [-m MODEL] [-w URL/TEXT] [-e] [query]\n")
 	fmt.Println("")
 	fmt.Println("Positional arguments:")
-	fmt.Println("  query                 Query to send to the AI model")
+	fmt.Println("  query                 query to send to the AI model")
 	fmt.Println("")
 	fmt.Println("Options:")
-	fmt.Println("  -h, --help           Show this help message and exit")
-	fmt.Println("  -d [DIRECTORY]       Generate codedump file (optionally specify directory path)")
-	fmt.Println("  -p [PLATFORM]        Switch platform (leave empty for interactive selection)")
-	fmt.Println("  -m MODEL             Specify model to use")
-	fmt.Println("  -e, --export         Export code blocks from the last response")
+	fmt.Println("  -h, --help           show this help message and exit")
+	fmt.Println("  -d [DIRECTORY]       generate codedump file (optionally specify directory path)")
+	fmt.Println("  -p [PLATFORM]        switch platform (leave empty for interactive selection)")
+	fmt.Println("  -m MODEL             specify model to use")
+	fmt.Println("  -e, --export         export code blocks from the last response")
 	fmt.Println("")
 	fmt.Println("Examples:")
 	fmt.Println("  ch \"What is artificial intelligence?\"")
@@ -202,20 +202,20 @@ func (t *Terminal) ShowHelp() {
 	}
 	fmt.Println("")
 	fmt.Println("Interactive Commands:")
-	fmt.Printf("  %s - Exit interface\n", t.config.ExitKey)
-	fmt.Printf("  %s - Switch models\n", t.config.ModelSwitch)
-	fmt.Printf("  %s - Text editor input mode\n", t.config.EditorInput)
-	fmt.Printf("  %s - Clear chat history\n", t.config.ClearHistory)
-	fmt.Printf("  %s - Backtrack to a previous message\n", t.config.Backtrack)
-	fmt.Printf("  %s - Help page\n", t.config.HelpKey)
-	fmt.Printf("  %s - Switch platforms (interactive)\n", t.config.PlatformSwitch)
-	fmt.Printf("  %s [platform] - Switch to specific platform\n", t.config.PlatformSwitch)
-	fmt.Printf("  %s - Load files/dirs from current dir\n", t.config.LoadFiles)
-	fmt.Printf("  %s - Generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
-	fmt.Printf("  %s - Export selected chat entries to a file\n", t.config.ExportChat)
-	fmt.Printf("  %s - Record a shell session and use it as context\n", t.config.ShellRecord)
-	fmt.Printf("  %s - Multi-line input mode (end with '\\')\n", t.config.MultiLine)
-	fmt.Printf("  %s - List and display chat history\n", t.config.ListHistory)
+	fmt.Printf("  %s - exit interface\n", t.config.ExitKey)
+	fmt.Printf("  %s - switch models\n", t.config.ModelSwitch)
+	fmt.Printf("  %s - text editor input mode\n", t.config.EditorInput)
+	fmt.Printf("  %s - clear chat history\n", t.config.ClearHistory)
+	fmt.Printf("  %s - backtrack to a previous message\n", t.config.Backtrack)
+	fmt.Printf("  %s - help page\n", t.config.HelpKey)
+	fmt.Printf("  %s - switch platforms (interactive)\n", t.config.PlatformSwitch)
+	fmt.Printf("  %s [platform] - switch to specific platform\n", t.config.PlatformSwitch)
+	fmt.Printf("  %s - load files/dirs from current dir\n", t.config.LoadFiles)
+	fmt.Printf("  %s - generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
+	fmt.Printf("  %s - export selected chat entries to a file\n", t.config.ExportChat)
+	fmt.Printf("  %s - record a shell session and use it as context\n", t.config.ShellRecord)
+	fmt.Printf("  %s - multi-line input mode (end with '\\')\n", t.config.MultiLine)
+	fmt.Printf("  %s - list and display chat history\n", t.config.ListHistory)
 }
 
 // RecordShellSession records the entire shell session and returns the content as a string.
@@ -238,7 +238,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	}
 	defer os.Remove(tempFile.Name()) // Clean up the temp file
 
-	t.PrintError(fmt.Sprintf("Starting shell session in %s (CTRL-D to exit)", shell))
+	t.PrintInfo(fmt.Sprintf("starting shell session in %s (CTRL-D to exit)", shell))
 
 	// Use the 'script' command to record the session with cross-platform compatibility
 	// The issue is that different Unix systems expect different syntax:
@@ -276,7 +276,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 		}
 	}
 
-	t.PrintError("Shell session ended")
+	t.PrintInfo("shell session ended")
 
 	// Read the recorded content from the temporary file
 	content, err := ioutil.ReadFile(tempFile.Name())
@@ -294,7 +294,7 @@ func (t *Terminal) ShowHelpFzf() string {
 
 	fzfArgs := []string{
 		"--reverse", "--height=40%", "--border",
-		"--prompt=Select an option: ", "--multi",
+		"--prompt=Option: ", "--multi",
 		"--header", fmt.Sprintf("Chatting on %s with %s", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel),
 	}
 	inputText := strings.Join(options, "\n")
@@ -358,20 +358,20 @@ func (t *Terminal) processHelpSelection(selected string, options []string) strin
 // getInteractiveHelpOptions returns a slice of strings containing the help information.
 func (t *Terminal) getInteractiveHelpOptions() []string {
 	options := []string{
-		"[ALL] - Show all help options",
-		fmt.Sprintf("%s - Exit interface", t.config.ExitKey),
-		fmt.Sprintf("%s - Switch models", t.config.ModelSwitch),
-		fmt.Sprintf("%s - Text editor input mode", t.config.EditorInput),
-		fmt.Sprintf("%s - Clear chat history", t.config.ClearHistory),
-		fmt.Sprintf("%s - Backtrack to a previous message", t.config.Backtrack),
-		fmt.Sprintf("%s - Help page", t.config.HelpKey),
-		fmt.Sprintf("%s - Switch platforms (interactive)", t.config.PlatformSwitch),
-		fmt.Sprintf("%s - Load files/dirs from current dir", t.config.LoadFiles),
-		fmt.Sprintf("%s - Generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
-		fmt.Sprintf("%s - Export selected chat entries to a file", t.config.ExportChat),
-		fmt.Sprintf("%s - Record a shell session and use it as context", t.config.ShellRecord),
-		fmt.Sprintf("%s - Multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
-		fmt.Sprintf("%s - List and display chat history", t.config.ListHistory),
+		"[ALL] - show all help options",
+		fmt.Sprintf("%s - exit interface", t.config.ExitKey),
+		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
+		fmt.Sprintf("%s - text editor input mode", t.config.EditorInput),
+		fmt.Sprintf("%s - clear chat history", t.config.ClearHistory),
+		fmt.Sprintf("%s - backtrack to a previous message", t.config.Backtrack),
+		fmt.Sprintf("%s - help page", t.config.HelpKey),
+		fmt.Sprintf("%s - switch platforms (interactive)", t.config.PlatformSwitch),
+		fmt.Sprintf("%s - load files/dirs from current dir", t.config.LoadFiles),
+		fmt.Sprintf("%s - generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
+		fmt.Sprintf("%s - export selected chat entries to a file", t.config.ExportChat),
+		fmt.Sprintf("%s - record a shell session and use it as context", t.config.ShellRecord),
+		fmt.Sprintf("%s - multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
+		fmt.Sprintf("%s - list and display chat history", t.config.ListHistory),
 	}
 
 	return options
@@ -380,19 +380,19 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 // PrintTitle displays the current session information
 func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93mChatting on %s with %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
-	fmt.Printf("\033[93m%s - Exit interface\033[0m\n", t.config.ExitKey)
-	fmt.Printf("\033[93m%s - Switch models\033[0m\n", t.config.ModelSwitch)
-	fmt.Printf("\033[93m%s - Switch platforms\033[0m\n", t.config.PlatformSwitch)
-	fmt.Printf("\033[93m%s - Text editor input\033[0m\n", t.config.EditorInput)
-	fmt.Printf("\033[93m%s - Clear history\033[0m\n", t.config.ClearHistory)
-	fmt.Printf("\033[93m%s - Backtrack\033[0m\n", t.config.Backtrack)
-	fmt.Printf("\033[93m%s - Help page\033[0m\n", t.config.HelpKey)
-	fmt.Printf("\033[93m%s - Load files/dirs\033[0m\n", t.config.LoadFiles)
-	fmt.Printf("\033[93m%s - Generate codedump\033[0m\n", t.config.CodeDump)
-	fmt.Printf("\033[93m%s - Export chat\033[0m\n", t.config.ExportChat)
-	fmt.Printf("\033[93m%s - Record shell session\033[0m\n", t.config.ShellRecord)
-	fmt.Printf("\033[93m%s - Multi-line input\033[0m\n", t.config.MultiLine)
-	fmt.Printf("\033[93m%s - List chat history\033[0m\n", t.config.ListHistory)
+	fmt.Printf("\033[93m%s - exit interface\033[0m\n", t.config.ExitKey)
+	fmt.Printf("\033[93m%s - switch models\033[0m\n", t.config.ModelSwitch)
+	fmt.Printf("\033[93m%s - switch platforms\033[0m\n", t.config.PlatformSwitch)
+	fmt.Printf("\033[93m%s - text editor input\033[0m\n", t.config.EditorInput)
+	fmt.Printf("\033[93m%s - clear history\033[0m\n", t.config.ClearHistory)
+	fmt.Printf("\033[93m%s - backtrack\033[0m\n", t.config.Backtrack)
+	fmt.Printf("\033[93m%s - help page\033[0m\n", t.config.HelpKey)
+	fmt.Printf("\033[93m%s - load files/dirs\033[0m\n", t.config.LoadFiles)
+	fmt.Printf("\033[93m%s - generate codedump\033[0m\n", t.config.CodeDump)
+	fmt.Printf("\033[93m%s - export chat\033[0m\n", t.config.ExportChat)
+	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
+	fmt.Printf("\033[93m%s - multi-line input\033[0m\n", t.config.MultiLine)
+	fmt.Printf("\033[93m%s - list chat history\033[0m\n", t.config.ListHistory)
 }
 
 // ShowLoadingAnimation displays a loading animation
@@ -759,7 +759,7 @@ func (t *Terminal) CodeDumpFromDir(targetDir string) (string, error) {
 	fzfOptions := append([]string{"[NONE]"}, allFiles...)
 
 	// Use fzf to let user exclude files/directories
-	excludedItems, err := t.FzfMultiSelect(fzfOptions, "Select files/directories to EXCLUDE from codedump (TAB to select multiple): ")
+	excludedItems, err := t.FzfMultiSelect(fzfOptions, "Exclude from dump (TAB=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("failed to get exclusions: %v", err)
 	}
@@ -806,7 +806,7 @@ func (t *Terminal) CodeDumpFromDirForCLI(targetDir string) (string, error) {
 	fzfOptions := append([]string{"[NONE]"}, allFiles...)
 
 	// Use CLI-specific fzf that detects cancellation
-	excludedItems, err := t.FzfMultiSelectForCLI(fzfOptions, "Select files/directories to EXCLUDE from codedump (TAB to select multiple): ")
+	excludedItems, err := t.FzfMultiSelectForCLI(fzfOptions, "Exclude from dump (TAB=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("failed to get exclusions: %v", err)
 	}

@@ -226,7 +226,7 @@ func (m *Manager) ExportLastResponse() (string, error) {
 // It returns the number of messages that were backtracked.
 func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 	if len(m.state.ChatHistory) <= 1 {
-		return 0, fmt.Errorf("No history to backtrack")
+		return 0, fmt.Errorf("no history to backtrack")
 	}
 
 	var items []string
@@ -246,7 +246,7 @@ func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 		items[i], items[j] = items[j], items[i]
 	}
 
-	selected, err := terminal.FzfSelect(items, "Select a message to backtrack to: ")
+	selected, err := terminal.FzfSelect(items, "Backtrack to: ")
 	if err != nil {
 		return 0, fmt.Errorf("fzf selection failed: %v", err)
 	}
@@ -380,7 +380,7 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 		// Generate filename options and let user select
 		filenameOptions := m.generateFilenameOptions(code)
 
-		prompt := fmt.Sprintf("Select filename for code block %d/%d: ", i+1, len(matches))
+		prompt := fmt.Sprintf("File %d/%d: ", i+1, len(matches))
 		selectedFilename, err := terminal.FzfSelect(filenameOptions, prompt)
 		if err != nil {
 			return filePaths, fmt.Errorf("filename selection failed: %v", err)
@@ -440,7 +440,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	}
 
 	// Use fzf for selection
-	selectedItems, err := terminal.FzfMultiSelect(items, "Select chat entries to export (TAB for multiple): ")
+	selectedItems, err := terminal.FzfMultiSelect(items, "Export entries (TAB=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled or failed: %v", err)
 	}
@@ -523,7 +523,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		fileOptions = append(fileOptions, allFiles...)
 	}
 
-	selectedOption, err := terminal.FzfSelect(fileOptions, "Select existing file or create new file: ")
+	selectedOption, err := terminal.FzfSelect(fileOptions, "Save to file: ")
 	if err != nil {
 		return "", fmt.Errorf("file selection failed: %v", err)
 	}
@@ -536,7 +536,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	if selectedOption == "[NEW FILE]" {
 		// Generate filename options and let user select
 		filenameOptions := m.generateFilenameOptions(editedContent)
-		selectedFilename, err := terminal.FzfSelect(filenameOptions, "Select filename for chat export: ")
+		selectedFilename, err := terminal.FzfSelect(filenameOptions, "Export file: ")
 		if err != nil {
 			return "", fmt.Errorf("filename selection failed: %v", err)
 		}
@@ -937,7 +937,7 @@ func (m *Manager) ListChatHistory(terminal *ui.Terminal) error {
 	}
 
 	// Use exact matching fzf for selection
-	selectedItems, err := terminal.FzfMultiSelectExact(items, "Select entries: ")
+	selectedItems, err := terminal.FzfMultiSelectExact(items, "Entries: ")
 	if err != nil {
 		return fmt.Errorf("selection cancelled or failed: %v", err)
 	}

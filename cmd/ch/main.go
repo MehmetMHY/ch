@@ -80,14 +80,14 @@ func main() {
 			if strings.Contains(err.Error(), "user cancelled") {
 				return // Exit silently without creating file
 			}
-			terminal.PrintError(fmt.Sprintf("Error generating codedump: %v", err))
+			terminal.PrintError(fmt.Sprintf("error generating codedump: %v", err))
 			return
 		}
 
 		filename := fmt.Sprintf("code_dump_%s.txt", uuid.New().String())
 		err = os.WriteFile(filename, []byte(codedump), 0644)
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error writing codedump file: %v", err))
+			terminal.PrintError(fmt.Sprintf("error writing codedump file: %v", err))
 			return
 		}
 
@@ -99,7 +99,7 @@ func main() {
 	if *exportCodeFlag {
 		err := handleExportCodeBlocks(chatManager, terminal)
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error exporting code blocks: %v", err))
+			terminal.PrintError(fmt.Sprintf("error exporting code blocks: %v", err))
 		}
 		return
 	}
@@ -108,7 +108,7 @@ func main() {
 	if *tokenFlag != "" {
 		err := handleTokenCount(*tokenFlag, *modelFlag, terminal, state)
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error counting tokens: %v", err))
+			terminal.PrintError(fmt.Sprintf("error counting tokens: %v", err))
 		}
 		return
 	}
@@ -135,7 +135,7 @@ func main() {
 	// initialize platform client
 	err := platformManager.Initialize()
 	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Failed to initialize client: %v", err))
+		terminal.PrintError(fmt.Sprintf("failed to initialize client: %v", err))
 		return
 	}
 
@@ -295,19 +295,19 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 
 	case input == config.ClearHistory:
 		chatManager.ClearHistory()
-		terminal.PrintInfo("History cleared")
+		terminal.PrintInfo("history cleared")
 		return true
 
 	case input == config.ModelSwitch:
 		models, err := platformManager.ListModels()
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error fetching models: %v", err))
+			terminal.PrintError(fmt.Sprintf("error fetching models: %v", err))
 			return true
 		}
 
-		selectedModel, err := terminal.FzfSelect(models, "Select a model: ")
+		selectedModel, err := terminal.FzfSelect(models, "Model: ")
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error selecting model: %v", err))
+			terminal.PrintError(fmt.Sprintf("error selecting model: %v", err))
 			return true
 		}
 
@@ -338,7 +338,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 			chatManager.SetCurrentModel(result["picked_model"].(string))
 			err = platformManager.Initialize()
 			if err != nil {
-				terminal.PrintError(fmt.Sprintf("Error initializing client: %v", err))
+				terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
 			} else {
 				terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
 				chatManager.AddToHistory(config.PlatformSwitch, fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
@@ -358,7 +358,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 			chatManager.SetCurrentModel(result["picked_model"].(string))
 			err = platformManager.Initialize()
 			if err != nil {
-				terminal.PrintError(fmt.Sprintf("Error initializing client: %v", err))
+				terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
 			} else {
 				terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
 				chatManager.AddToHistory(fmt.Sprintf("%s %s", config.PlatformSwitch, platformName), fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
@@ -418,7 +418,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 	case input == config.ExportChat:
 		err := handleExportChatInteractive(chatManager, terminal, state)
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error exporting chat: %v", err))
+			terminal.PrintError(fmt.Sprintf("error exporting chat: %v", err))
 		}
 		return true
 
@@ -427,20 +427,20 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		if err != nil {
 			terminal.PrintError(err.Error())
 		} else {
-			terminal.PrintInfo(fmt.Sprintf("Backtracked by %d", backtrackedCount))
+			terminal.PrintInfo(fmt.Sprintf("backtracked by %d", backtrackedCount))
 		}
 		return true
 
 	case input == config.ListHistory:
 		err := handleListHistory(chatManager, terminal, state)
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error listing history: %v", err))
+			terminal.PrintError(fmt.Sprintf("error listing history: %v", err))
 		}
 		return true
 
 	case input == config.MultiLine:
 		var lines []string
-		terminal.PrintInfo("Multi-line mode (end with '\\' on a new line)")
+		terminal.PrintInfo("multi-line mode (end with '\\' on a new line)")
 
 		// Create a new readline instance for multi-line input
 		multiLineRl, err := readline.NewEx(&readline.Config{
@@ -448,7 +448,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 			HistoryFile: "/dev/null", // Disable history for multi-line
 		})
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Error creating multi-line input: %v", err))
+			terminal.PrintError(fmt.Sprintf("error creating multi-line input: %v", err))
 			return true
 		}
 		defer multiLineRl.Close()
@@ -515,18 +515,18 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
 	files, err := terminal.GetCurrentDirFilesRecursive()
 	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Error reading directory: %v", err))
+		terminal.PrintError(fmt.Sprintf("error reading directory: %v", err))
 		return true
 	}
 
 	if len(files) == 0 {
-		terminal.PrintError("No files found in current directory")
+		terminal.PrintError("no files found in current directory")
 		return true
 	}
 
-	selections, err := terminal.FzfMultiSelect(files, "Select files/directories: ")
+	selections, err := terminal.FzfMultiSelect(files, "Files: ")
 	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Error selecting files: %v", err))
+		terminal.PrintError(fmt.Sprintf("error selecting files: %v", err))
 		return true
 	}
 
@@ -536,7 +536,7 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 
 	content, err := terminal.LoadFileContent(selections)
 	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Error loading content: %v", err))
+		terminal.PrintError(fmt.Sprintf("error loading content: %v", err))
 		return true
 	}
 
@@ -552,7 +552,7 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 func handleCodeDump(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
 	codedump, err := terminal.CodeDump()
 	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Error generating codedump: %v", err))
+		terminal.PrintError(fmt.Sprintf("error generating codedump: %v", err))
 		return true
 	}
 
@@ -567,7 +567,7 @@ func handleCodeDump(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
 	sessionContent, err := terminal.RecordShellSession()
 	if err != nil {
-		terminal.PrintError(fmt.Sprintf("Error recording shell session: %v", err))
+		terminal.PrintError(fmt.Sprintf("error recording shell session: %v", err))
 		return true
 	}
 
@@ -589,7 +589,7 @@ func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *
 		chatManager.AddUserMessage(formattedContent)
 		chatManager.AddToHistory("Shell session loaded", "")
 	} else {
-		terminal.PrintInfo("No activity recorded in shell session")
+		terminal.PrintInfo("no activity recorded in shell session")
 	}
 
 	return true
@@ -617,7 +617,7 @@ func handleExportCodeBlocks(chatManager *chat.Manager, terminal *ui.Terminal) er
 	}
 
 	if len(filePaths) == 0 {
-		terminal.PrintInfo("No code blocks found in the last response")
+		terminal.PrintInfo("no code blocks found in the last response")
 		return nil
 	}
 

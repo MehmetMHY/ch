@@ -104,7 +104,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 			platforms = append(platforms, name)
 		}
 
-		selected, err := fzfSelector(platforms, "Select a platform: ")
+		selected, err := fzfSelector(platforms, "Platform: ")
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +149,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 			return nil, fmt.Errorf("no models found or returned in unexpected format")
 		}
 
-		selected, err := fzfSelector(modelsList, "Select a model: ")
+		selected, err := fzfSelector(modelsList, "Model: ")
 		if err != nil {
 			return nil, err
 		}
