@@ -680,12 +680,9 @@ func (t *Terminal) GetCurrentDirFilesRecursive() ([]string, error) {
 			return nil // Skip if we can't get relative path
 		}
 
-		// Skip hidden files and directories (starting with .)
-		if strings.HasPrefix(filepath.Base(relPath), ".") {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
+		// Skip certain system directories but allow hidden files
+		if d.IsDir() && (filepath.Base(relPath) == ".git" || filepath.Base(relPath) == ".svn" || filepath.Base(relPath) == ".hg") {
+			return filepath.SkipDir
 		}
 
 		// Add directories with trailing slash and files as-is

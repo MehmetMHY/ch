@@ -525,19 +525,19 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	// 3. All other files
 	var fileOptions []string
 	fileOptions = append(fileOptions, "[NEW FILE]")
-	
+
 	// Add loaded files right after [NEW FILE]
 	if len(loadedFiles) > 0 {
 		fileOptions = append(fileOptions, loadedFiles...)
 	}
-	
+
 	// Add remaining files, excluding already added loaded files
 	if len(allFiles) > 0 {
 		loadedSet := make(map[string]bool)
 		for _, file := range loadedFiles {
 			loadedSet[file] = true
 		}
-		
+
 		for _, file := range allFiles {
 			if !loadedSet[file] {
 				fileOptions = append(fileOptions, file)
@@ -1115,7 +1115,7 @@ func (m *Manager) extractLoadedFilesFromHistory() []string {
 	// Go through chat history in reverse order to prioritize more recent files
 	for i := len(m.state.ChatHistory) - 1; i >= 0; i-- {
 		entry := m.state.ChatHistory[i]
-		
+
 		if entry.User != "" {
 			// Check for loaded content patterns
 			if strings.Contains(entry.User, "File: ") || strings.Contains(entry.User, "Loaded: ") {
@@ -1150,7 +1150,7 @@ func (m *Manager) extractLoadedFilesFromHistory() []string {
 			}
 		}
 	}
-	
+
 	return loadedFiles
 }
 
@@ -1160,19 +1160,19 @@ func (m *Manager) fileExistsInCurrentDir(filePath string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	// Try both as relative path and full path from current directory
 	fullPath := filepath.Join(currentDir, filePath)
 	if _, err := os.Stat(fullPath); err == nil {
 		return true
 	}
-	
+
 	// Also try as absolute path if it starts with current directory
 	if filepath.IsAbs(filePath) && strings.HasPrefix(filePath, currentDir) {
 		if _, err := os.Stat(filePath); err == nil {
 			return true
 		}
 	}
-	
+
 	return false
 }
