@@ -191,6 +191,9 @@ func (m *Manager) ExportFullHistory() (string, error) {
 		return "", err
 	}
 
+	// Track newly created file for smart prioritization
+	m.AddRecentlyCreatedFile(fullPath)
+
 	return fullPath, nil
 }
 
@@ -218,6 +221,9 @@ func (m *Manager) ExportLastResponse() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// Track newly created file for smart prioritization
+	m.AddRecentlyCreatedFile(fullPath)
 
 	return fullPath, nil
 }
@@ -401,6 +407,9 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 			return filePaths, fmt.Errorf("failed to write file %s: %v", filename, err)
 		}
 
+		// Track newly created file for smart prioritization
+		m.AddRecentlyCreatedFile(fullPath)
+
 		filePaths = append(filePaths, fullPath)
 	}
 
@@ -413,14 +422,13 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no chat history to export")
 	}
 
-	// Prepare chat entries for fzf selection
+	// Prepare chat entries for fzf selection (newest to oldest)
 	var items []string
 	var chatEntries []types.ChatHistory
 
-	for i, entry := range m.state.ChatHistory {
-		if i == 0 {
-			continue // Skip system prompt
-		}
+	// Iterate in reverse order (newest to oldest)
+	for i := len(m.state.ChatHistory) - 1; i >= 1; i-- {
+		entry := m.state.ChatHistory[i]
 
 		if entry.User != "" || entry.Bot != "" {
 			// Create preview for fzf
@@ -535,25 +543,38 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 
 	// Create the file selection options with smart ordering:
 	// 1. [NEW FILE] at the very top
-	// 2. Recently loaded files (if any)
-	// 3. All other files
+	// 2. Recently created files (if any)
+	// 3. Recently loaded files (if any)
+	// 4. All other files
 	var fileOptions []string
 	fileOptions = append(fileOptions, "[NEW FILE]")
 
-	// Add loaded files right after [NEW FILE]
-	if len(loadedFiles) > 0 {
-		fileOptions = append(fileOptions, loadedFiles...)
+	// Add recently created files right after [NEW FILE]
+	prioritizedFiles := make(map[string]bool)
+	if len(m.state.RecentlyCreatedFiles) > 0 {
+		for _, file := range m.state.RecentlyCreatedFiles {
+			// Only include files that exist in current directory
+			if m.fileExistsInCurrentDir(file) {
+				fileOptions = append(fileOptions, file)
+				prioritizedFiles[file] = true
+			}
+		}
 	}
 
-	// Add remaining files, excluding already added loaded files
-	if len(allFiles) > 0 {
-		loadedSet := make(map[string]bool)
+	// Add loaded files after created files
+	if len(loadedFiles) > 0 {
 		for _, file := range loadedFiles {
-			loadedSet[file] = true
+			if !prioritizedFiles[file] {
+				fileOptions = append(fileOptions, file)
+				prioritizedFiles[file] = true
+			}
 		}
+	}
 
+	// Add remaining files, excluding already added prioritized files
+	if len(allFiles) > 0 {
 		for _, file := range allFiles {
-			if !loadedSet[file] {
+			if !prioritizedFiles[file] {
 				fileOptions = append(fileOptions, file)
 			}
 		}
@@ -595,6 +616,9 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to write file: %v", err)
 	}
+
+	// Track newly created file for smart prioritization
+	m.AddRecentlyCreatedFile(fullPath)
 
 	return fullPath, nil
 }
@@ -1118,6 +1142,29 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	}
 
 	return files, nil
+}
+
+// AddRecentlyCreatedFile adds a file to the recently created files list
+// Keeps the list limited to the last 10 files for performance
+func (m *Manager) AddRecentlyCreatedFile(filePath string) {
+	// Convert to relative path if in current directory
+	if currentDir, err := os.Getwd(); err == nil {
+		if rel, err := filepath.Rel(currentDir, filePath); err == nil && !strings.HasPrefix(rel, "..") {
+			filePath = rel
+		}
+	}
+
+	// Remove duplicates and add to front
+	var updatedFiles []string
+	updatedFiles = append(updatedFiles, filePath)
+
+	for _, existing := range m.state.RecentlyCreatedFiles {
+		if existing != filePath && len(updatedFiles) < 10 {
+			updatedFiles = append(updatedFiles, existing)
+		}
+	}
+
+	m.state.RecentlyCreatedFiles = updatedFiles
 }
 
 // extractLoadedFilesFromHistory extracts all files that have been loaded from the chat history

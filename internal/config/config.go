@@ -109,9 +109,10 @@ func InitializeAppState() *types.AppState {
 		ChatHistory: []types.ChatHistory{
 			{Time: time.Now().Unix(), User: config.SystemPrompt, Bot: ""},
 		},
-		IsStreaming:        false,
-		StreamingCancel:    nil,
-		IsExecutingCommand: false,
-		CommandCancel:      nil,
+		RecentlyCreatedFiles: []string{},
+		IsStreaming:          false,
+		StreamingCancel:      nil,
+		IsExecutingCommand:   false,
+		CommandCancel:        nil,
 	}
 }

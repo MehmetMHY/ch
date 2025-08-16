@@ -78,13 +78,14 @@ type ChatExport struct {
 
 // AppState holds the application's runtime state
 type AppState struct {
-	Config             *Config
-	Messages           []ChatMessage
-	ChatHistory        []ChatHistory
-	IsStreaming        bool
-	StreamingCancel    func()
-	IsExecutingCommand bool
-	CommandCancel      func()
+	Config               *Config
+	Messages             []ChatMessage
+	ChatHistory          []ChatHistory
+	RecentlyCreatedFiles []string
+	IsStreaming          bool
+	StreamingCancel      func()
+	IsExecutingCommand   bool
+	CommandCancel        func()
 }
 
 // ClientInitializer interface for creating AI clients
