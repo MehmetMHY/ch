@@ -1,8 +1,8 @@
 module github.com/MehmetMHY/ch
 
-go 1.23.0
+go 1.24.1
 
-toolchain go1.24.3
+toolchain go1.24.5
 
 require (
 	github.com/chzyer/readline v1.5.1
@@ -13,5 +13,18 @@ require (
 
 require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/frankban/quicktest v1.14.6 // indirect
+	github.com/google/btree v1.0.0 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
+	github.com/nguyenthenguyen/docx v0.0.0-20230621112118-9c8e795a11db // indirect
+	github.com/peterbourgon/diskv/v3 v3.0.1 // indirect
+	github.com/rogpeppe/fastuuid v1.2.0 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/shabbyrobe/xmlwriter v0.0.0-20200208144257-9fca06d00ffa // indirect
+	github.com/tealeg/xlsx/v3 v3.3.13 // indirect
 	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.3.8 // indirect
 )

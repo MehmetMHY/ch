@@ -36,6 +36,7 @@ func main() {
 		modelFlag      = flag.String("m", "", "Specify model to use")
 		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
 		tokenFlag      = flag.String("t", "", "Count tokens in file")
+		loadFileFlag   = flag.String("l", "", "Load and display file content (supports text, PDF, DOCX, XLSX, CSV)")
 	)
 	flag.StringVar(tokenFlag, "token", "", "Count tokens in file")
 
@@ -100,6 +101,15 @@ func main() {
 		err := handleExportCodeBlocks(chatManager, terminal)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error exporting code blocks: %v", err))
+		}
+		return
+	}
+
+	// handle load file flag
+	if *loadFileFlag != "" {
+		err := handleLoadFile(*loadFileFlag, terminal)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error loading file: %v", err))
 		}
 		return
 	}
@@ -698,5 +708,23 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Model:", targetModel)
 	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "Tokens:", len(tokens))
 
+	return nil
+}
+
+// handleLoadFile loads and displays file content
+func handleLoadFile(filePath string, terminal *ui.Terminal) error {
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("file does not exist: %s", filePath)
+	}
+
+	// Use the same loading logic as !l command
+	content, err := terminal.LoadFileContent([]string{filePath})
+	if err != nil {
+		return fmt.Errorf("failed to load file: %w", err)
+	}
+
+	// Print the content directly to stdout
+	fmt.Print(content)
 	return nil
 }

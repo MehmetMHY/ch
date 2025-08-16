@@ -62,7 +62,7 @@ ch "What are the key features of Go programming language?"
 - **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
-- **Smart File Handling**: Load files/directories recursively with intelligent text detection
+- **Smart File Handling**: Load text files, PDFs, Word docs, spreadsheets (XLSX/CSV), and directories
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
 - **Chat History Viewer**: Interactive display of conversation history with filtering and search
@@ -170,6 +170,10 @@ ch -m gpt-4o "Create a REST API in Python"
 # export code blocks to files
 ch -e "Write a Python script to sort a list"
 
+# load and display file content
+ch -l document.pdf
+ch -l spreadsheet.xlsx
+
 # count tokens in files
 ch -t ./README.md
 ch -m "gpt-4" -t ./main.go
@@ -191,7 +195,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!c`** - Clear chat history
 - **`!t`** - Text editor input mode
 - **`!b`** - Backtrack to previous message
-- **`!l`** - Load files/directories recursively
+- **`!l`** - Load files (text, PDF, DOCX, XLSX, CSV) and directories
 - **`!d`** - Generate code dump
 - **`!e`** - Export selected chat entries
 - **`!x`** - Record a shell session for context

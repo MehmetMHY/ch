@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bufio"
+	"encoding/csv"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -12,6 +13,9 @@ import (
 	"time"
 
 	"github.com/MehmetMHY/ch/pkg/types"
+	"github.com/ledongthuc/pdf"
+	"github.com/nguyenthenguyen/docx"
+	"github.com/tealeg/xlsx/v3"
 )
 
 // Terminal handles terminal-related operations
@@ -178,6 +182,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  -d [DIRECTORY]       generate codedump file (optionally specify directory path)")
 	fmt.Println("  -p [PLATFORM]        switch platform (leave empty for interactive selection)")
 	fmt.Println("  -m MODEL             specify model to use")
+	fmt.Println("  -l FILE              load and display file content (text, PDF, DOCX, XLSX, CSV)")
 	fmt.Println("  -e, --export         export code blocks from the last response")
 	fmt.Println("")
 	fmt.Println("Examples:")
@@ -185,6 +190,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  ch -p groq \"What is the meaning of life?\"")
 	fmt.Println("  ch -p groq -m llama3-8b-8192 \"Explain quantum computing\"")
 	fmt.Println("  ch -m gpt-4o \"Write a Python function to calculate fibonacci\"")
+	fmt.Println("  ch -l document.pdf                           # Load and display PDF content")
 	fmt.Println("  ch -e \"Write a Python script to sort a list\"  # Export code to file")
 	fmt.Println("  ch -d                                         # Generate codedump of current directory")
 	fmt.Println("  ch -d /path/to/project                        # Generate codedump of specific directory")
@@ -557,21 +563,44 @@ func (t *Terminal) LoadFileContent(selections []string) (string, error) {
 	return contentBuilder.String(), nil
 }
 
-// loadTextFile loads content from a text file
+// loadTextFile loads content from various file types (text, PDF, DOCX, XLSX, CSV)
 func (t *Terminal) loadTextFile(filePath string) (string, error) {
-	content, err := ioutil.ReadFile(filePath)
+	ext := strings.ToLower(filepath.Ext(filePath))
+
+	var content string
+	var err error
+
+	switch ext {
+	case ".pdf":
+		content, err = t.loadPDF(filePath)
+	case ".docx":
+		content, err = t.loadDOCX(filePath)
+	case ".xlsx":
+		content, err = t.loadXLSX(filePath)
+	case ".csv":
+		content, err = t.loadCSV(filePath)
+	default:
+		// Handle regular text files
+		fileContent, readErr := ioutil.ReadFile(filePath)
+		if readErr != nil {
+			return "", readErr
+		}
+
+		// Check if file is likely a text file by examining content
+		if !t.isTextFile(fileContent) {
+			return "", fmt.Errorf("file is not a supported file type")
+		}
+
+		content = string(fileContent)
+	}
+
 	if err != nil {
 		return "", err
 	}
 
-	// Check if file is likely a text file by examining content
-	if !t.isTextFile(content) {
-		return "", fmt.Errorf("file is not a text file")
-	}
-
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("File: %s\n", filePath))
-	result.WriteString(string(content))
+	result.WriteString(content)
 	result.WriteString("\n\n")
 
 	return result.String(), nil
@@ -604,6 +633,116 @@ func (t *Terminal) loadDirectoryContent(dirPath string) (string, error) {
 	}
 
 	return result.String(), nil
+}
+
+// loadPDF extracts text content from PDF files
+func (t *Terminal) loadPDF(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open PDF file: %w", err)
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return "", fmt.Errorf("failed to get file stats: %w", err)
+	}
+
+	reader, err := pdf.NewReader(file, stat.Size())
+	if err != nil {
+		return "", fmt.Errorf("failed to create PDF reader: %w", err)
+	}
+
+	var content strings.Builder
+	numPages := reader.NumPage()
+
+	for i := 1; i <= numPages; i++ {
+		page := reader.Page(i)
+
+		text, err := page.GetPlainText(nil)
+		if err != nil {
+			continue // Skip pages with text extraction errors
+		}
+
+		content.WriteString(text)
+		content.WriteString("\n")
+	}
+
+	return content.String(), nil
+}
+
+// loadDOCX extracts text content from DOCX files
+func (t *Terminal) loadDOCX(filePath string) (string, error) {
+	doc, err := docx.ReadDocxFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open DOCX file: %w", err)
+	}
+	defer doc.Close()
+
+	docx := doc.Editable()
+	return docx.GetContent(), nil
+}
+
+// loadXLSX extracts text content from XLSX files
+func (t *Terminal) loadXLSX(filePath string) (string, error) {
+	workbook, err := xlsx.OpenFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open XLSX file: %w", err)
+	}
+
+	var content strings.Builder
+
+	for _, sheet := range workbook.Sheets {
+		content.WriteString(fmt.Sprintf("=== Sheet: %s ===\n", sheet.Name))
+
+		err := sheet.ForEachRow(func(row *xlsx.Row) error {
+			var rowData []string
+			err := row.ForEachCell(func(cell *xlsx.Cell) error {
+				text := cell.String()
+				rowData = append(rowData, text)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+
+			// Only add non-empty rows
+			if len(strings.TrimSpace(strings.Join(rowData, ""))) > 0 {
+				content.WriteString(fmt.Sprintf("%s\n", strings.Join(rowData, " | ")))
+			}
+			return nil
+		})
+
+		if err != nil {
+			return "", fmt.Errorf("failed to read sheet %s: %w", sheet.Name, err)
+		}
+		content.WriteString("\n")
+	}
+
+	return content.String(), nil
+}
+
+// loadCSV extracts text content from CSV files
+func (t *Terminal) loadCSV(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open CSV file: %w", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return "", fmt.Errorf("failed to read CSV file: %w", err)
+	}
+
+	var content strings.Builder
+
+	for rowIndex, record := range records {
+		content.WriteString(fmt.Sprintf("Row %d: %s\n", rowIndex+1, strings.Join(record, " | ")))
+	}
+
+	return content.String(), nil
 }
 
 // isTextFile checks if content is likely from a text file
@@ -947,11 +1086,12 @@ func (t *Terminal) matchesPattern(path, pattern string) bool {
 	return path == pattern || strings.HasPrefix(path, pattern+"/")
 }
 
-// isTextFileByPath checks if a file is likely a text file based on its path and content
+// isTextFileByPath checks if a file is supported based on its path and content
 func (t *Terminal) isTextFileByPath(filePath string) bool {
 	// Check file extension first
 	ext := strings.ToLower(filepath.Ext(filePath))
-	textExtensions := map[string]bool{
+	supportedExtensions := map[string]bool{
+		// Text files
 		".txt": true, ".md": true, ".go": true, ".py": true, ".js": true,
 		".ts": true, ".jsx": true, ".tsx": true, ".html": true, ".css": true,
 		".scss": true, ".sass": true, ".json": true, ".xml": true, ".yaml": true,
@@ -963,24 +1103,29 @@ func (t *Terminal) isTextFileByPath(filePath string) bool {
 		".php": true, ".pl": true, ".pm": true, ".r": true, ".sql": true,
 		".vim": true, ".lua": true, ".rs": true, ".swift": true, ".m": true,
 		".mm": true, ".cs": true, ".vb": true, ".fs": true, ".clj": true,
+		// Document files
+		".pdf": true, ".docx": true, ".xlsx": true, ".csv": true,
 		".hs": true, ".elm": true, ".ex": true, ".exs": true, ".erl": true,
 		".hrl": true, ".dart": true, ".gradle": true, ".sbt": true,
 		".build": true, ".cmake": true, ".mk": true, ".am": true, ".in": true,
 		".ac": true, ".m4": true, ".spec": true, ".desktop": true, ".service": true,
-		".log": true, ".csv": true, ".tsv": true, ".properties": true, ".env": true,
+		".log": true, ".tsv": true, ".properties": true, ".env": true,
 	}
 
-	if textExtensions[ext] {
+	if supportedExtensions[ext] {
 		return true
 	}
 
-	// For files without extension or unknown extensions, check content
-	content, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return false
+	// For files without extension or unknown extensions, check if it's a text file
+	if ext == "" {
+		content, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			return false
+		}
+		return t.isTextFile(content)
 	}
 
-	return t.isTextFile(content)
+	return false
 }
 
 // filterExcludedFiles removes excluded files and directories from the list
