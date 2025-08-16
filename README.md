@@ -18,6 +18,7 @@
   - [Basic Usage](#basic-usage)
   - [Interactive Commands](#interactive-commands)
   - [Advanced Features](#advanced-features)
+- [Web Scraping](#web-scraping)
 - [Platform Compatibility](#platform-compatibility)
 - [Development](#development)
   - [Prerequisites](#prerequisites)
@@ -198,7 +199,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!l`** - Load files (text, PDF, DOCX, XLSX, CSV) and directories
 - **`!d`** - Generate code dump
 - **`!e`** - Export selected chat entries
-- **`!x`** - Record a shell session for context
+- **`!x`** - Record shell session or run command (`!x ls` streams output live)
 - **`\`** - Multi-line input mode
 - **`|`** - View and display chat history
 
@@ -222,6 +223,28 @@ When in interactive mode (`ch`), use these commands:
 2. Filter by user messages, bot responses, or loaded files
 3. Display individual entries or complete formatted history
 4. Shows platform/model changes and file loading events
+
+## Web Scraping
+
+Ch includes a complementary web scraping tool that provides focused content extraction without adding complexity to the main CLI. The scraper handles YouTube videos and general web pages, making it easy to provide web content as context to AI models.
+
+**Installation:**
+
+```bash
+cd scraper/
+./install.sh
+```
+
+**Usage with Ch:**
+
+```bash
+ch
+!x scrape https://example.com
+```
+
+The scraper extracts clean, structured content from web pages and YouTube videos (including metadata and subtitles), which becomes available as context in your AI conversation through Ch's shell session recording feature.
+
+For detailed usage instructions, see the [scraper README](./scraper/README.md).
 
 ## Platform Compatibility
 

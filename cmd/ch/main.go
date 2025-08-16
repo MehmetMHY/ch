@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -385,6 +387,10 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 	case input == config.ShellRecord:
 		return handleShellRecord(chatManager, terminal, state)
 
+	case strings.HasPrefix(input, config.ShellRecord+" "):
+		command := strings.TrimPrefix(input, config.ShellRecord+" ")
+		return handleShellCommand(command, chatManager, terminal, state)
+
 	case input == config.EditorInput:
 		userInput, err := chatManager.HandleTerminalInput()
 		if err != nil {
@@ -601,6 +607,113 @@ func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *
 	} else {
 		terminal.PrintInfo("no activity recorded in shell session")
 	}
+
+	return true
+}
+
+func handleShellCommand(command string, chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	if command == "" {
+		terminal.PrintError("no command specified")
+		return true
+	}
+
+	// Execute the command with live streaming
+	cmd := exec.Command("sh", "-c", command)
+
+	// Create pipes for stdout and stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("failed to create stdout pipe: %v", err))
+		return true
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("failed to create stderr pipe: %v", err))
+		return true
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		terminal.PrintError(fmt.Sprintf("failed to start command: %v", err))
+		return true
+	}
+
+	// Set up signal handling for command interruption
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	defer signal.Stop(sigChan)
+
+	// Capture output while streaming it live
+	var outputBuffer strings.Builder
+
+	// Read stdout and stderr concurrently
+	done := make(chan bool, 2)
+
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Println(line)
+			outputBuffer.WriteString(line + "\n")
+		}
+		done <- true
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Println(line)
+			outputBuffer.WriteString(line + "\n")
+		}
+		done <- true
+	}()
+
+	// Wait for either command completion or interruption
+	cmdDone := make(chan error, 1)
+	go func() {
+		cmdDone <- cmd.Wait()
+	}()
+
+	var cmdErr error
+	select {
+	case <-sigChan:
+		// Interrupt received - kill the command
+		if err := cmd.Process.Kill(); err != nil {
+			terminal.PrintError(fmt.Sprintf("failed to kill command: %v", err))
+		}
+		fmt.Println("\nCommand interrupted")
+
+		// Wait for goroutines to finish reading any remaining output
+		go func() {
+			<-done
+			<-done
+		}()
+
+		cmdErr = fmt.Errorf("command interrupted by user")
+
+	case cmdErr = <-cmdDone:
+		// Command completed normally
+		// Wait for both goroutines to finish
+		<-done
+		<-done
+	}
+
+	outputStr := outputBuffer.String()
+
+	var result string
+	if cmdErr != nil {
+		result = fmt.Sprintf("Command: %s\nError: %v\nOutput:\n%s", command, cmdErr, outputStr)
+	} else {
+		result = fmt.Sprintf("Command: %s\nOutput:\n%s", command, outputStr)
+	}
+
+	// Format the content for the chat context (uses full output)
+	formattedContent := fmt.Sprintf("The user executed the following command and here is the output:\n\n---\n%s\n---", result)
+
+	chatManager.AddUserMessage(formattedContent)
+	chatManager.AddToHistory(fmt.Sprintf("!x %s", command), "Command executed and output added to context")
 
 	return true
 }
