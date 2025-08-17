@@ -236,6 +236,14 @@ cd scraper/
 cd -
 ```
 
+**Uninstall:**
+
+```bash
+cd scraper/
+./install.sh -u
+cd -
+```
+
 **Usage with Ch:**
 
 ```bash
@@ -348,4 +356,4 @@ rm -rf ~/.ch
 
 ## License
 
-Ch is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+Ch is licensed under the GNU General Public License, Version 3. See [LICENSE](./LICENSE) for details.
