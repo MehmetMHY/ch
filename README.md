@@ -226,13 +226,21 @@ When in interactive mode (`ch`), use these commands:
 
 ## Web Scraping
 
-Ch includes a complementary web scraping tool that provides focused content extraction without adding complexity to the main CLI. The scraper handles YouTube videos and general web pages, making it easy to provide web content as context to AI models.
+Ch includes a complementary web scraping tool that provides focused content extraction without adding complexity to the main CLI. The scraper handles YouTube videos and general web pages, and includes interactive search functionality via DuckDuckGo.
 
 **Installation:**
 
 ```bash
 cd scraper/
 ./install.sh
+cd -
+```
+
+**Update dependencies:**
+
+```bash
+cd scraper/
+./install.sh -r    # or --update
 cd -
 ```
 
@@ -247,11 +255,16 @@ cd -
 **Usage with Ch:**
 
 ```bash
+# scrape specific URLs
 ch
 !x scrape https://example.com
+
+# search and interactively select URLs to scrape
+ch
+!x scrape -s "machine learning basics"
 ```
 
-The scraper extracts clean, structured content from web pages and YouTube videos (including metadata and subtitles), which becomes available as context in your AI conversation through Ch's shell session recording feature.
+The scraper extracts clean, structured content from web pages and YouTube videos (including metadata and subtitles). The search feature uses DuckDuckGo to find relevant content and lets you interactively select which URLs to scrape using fzf. All scraped content becomes available as context in your AI conversation through Ch's shell session recording feature.
 
 For detailed usage instructions, see the [scraper README](./scraper/README.md).
 

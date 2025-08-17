@@ -7,6 +7,7 @@ show_help() {
 	echo ""
 	echo "Options:"
 	echo "  -u, --uninstall     Uninstall scraper from the system"
+	echo "  -r, --update        Update all dependencies to latest versions"
 	echo "  -h, --help          Show this help message"
 	echo ""
 	echo "Default behavior: Install scraper and its dependencies"
@@ -40,6 +41,65 @@ uninstall_scraper() {
 	exit 0
 }
 
+update_dependencies() {
+	echo "Dependency Updater"
+	echo
+
+	if [[ -n "$PREFIX" ]] && command -v pkg &>/dev/null; then
+		echo "Updating Termux packages..."
+		pkg update && pkg upgrade -y yt-dlp curl lynx jq fzf python
+		echo "Updating pip packages..."
+		pip install --upgrade --break-system-packages yt-dlp ddgr
+	elif command -v brew &>/dev/null; then
+		echo "Updating Homebrew packages..."
+		brew update && brew upgrade yt-dlp curl lynx jq ddgr fzf
+	elif command -v apt &>/dev/null; then
+		echo "Updating APT packages..."
+		sudo apt update && sudo apt upgrade -y yt-dlp curl lynx jq ddgr fzf
+		echo "Updating pip packages..."
+		pip install --upgrade --break-system-packages yt-dlp ddgr
+	elif command -v pacman &>/dev/null; then
+		echo "Updating Pacman packages..."
+		sudo pacman -Syu --noconfirm yt-dlp curl lynx jq ddgr fzf
+	elif command -v yum &>/dev/null; then
+		echo "Updating YUM packages..."
+		sudo yum update -y curl lynx jq
+		echo "Updating pip packages..."
+		pip install --upgrade --break-system-packages yt-dlp ddgr
+		if command -v fzf &>/dev/null; then
+			if ! sudo yum update -y fzf 2>/dev/null; then
+				pip install --upgrade --break-system-packages fzf-bin
+			fi
+		fi
+	elif command -v dnf &>/dev/null; then
+		echo "Updating DNF packages..."
+		sudo dnf update -y curl lynx jq fzf
+		echo "Updating pip packages..."
+		pip install --upgrade --break-system-packages yt-dlp ddgr
+	elif command -v zypper &>/dev/null; then
+		echo "Updating Zypper packages..."
+		sudo zypper update -y curl lynx jq fzf
+		echo "Updating pip packages..."
+		pip install --upgrade --break-system-packages yt-dlp ddgr
+	elif command -v emerge &>/dev/null; then
+		echo "Updating Portage packages..."
+		sudo emerge --update --deep --newuse @world
+		echo "Updating pip packages..."
+		pip install --upgrade --break-system-packages yt-dlp ddgr fzf-bin
+	elif command -v xbps-install &>/dev/null; then
+		echo "Updating XBPS packages..."
+		sudo xbps-install -Syu yt-dlp curl lynx jq fzf
+		echo "Updating pip packages..."
+		pip install --upgrade --break-system-packages ddgr
+	else
+		echo "No supported package manager detected. Updating pip packages only..."
+		pip install --upgrade --break-system-packages yt-dlp ddgr fzf-bin
+	fi
+
+	echo "✓ Dependencies updated successfully!"
+	exit 0
+}
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -51,6 +111,9 @@ while [[ $# -gt 0 ]]; do
 			INSTALL_DIR="/usr/local/bin"
 		fi
 		uninstall_scraper
+		;;
+	-r | --update)
+		update_dependencies
 		;;
 	-h | --help)
 		show_help
@@ -73,7 +136,7 @@ fi
 
 if [[ -n "$PREFIX" ]] && command -v pkg &>/dev/null; then
 	echo "Detected Termux pkg..."
-	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null; then
+	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null || ! command -v ddgr &>/dev/null || ! command -v fzf &>/dev/null; then
 		echo "Updating package list..."
 		pkg update
 	fi
@@ -93,6 +156,18 @@ if [[ -n "$PREFIX" ]] && command -v pkg &>/dev/null; then
 		echo "jq not found, installing via pkg..."
 		pkg install -y jq
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via pip..."
+		if ! command -v pip &>/dev/null; then
+			echo "pip not found, installing python via pkg..."
+			pkg install -y python
+		fi
+		pip install ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, installing via pkg..."
+		pkg install -y fzf
+	fi
 elif command -v brew &>/dev/null; then
 	echo "Detected Homebrew (brew)..."
 	if ! command -v yt-dlp &>/dev/null; then
@@ -111,9 +186,17 @@ elif command -v brew &>/dev/null; then
 		echo "jq not found, installing via Homebrew..."
 		brew install jq
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via Homebrew..."
+		brew install ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, installing via Homebrew..."
+		brew install fzf
+	fi
 elif command -v apt &>/dev/null; then
 	echo "Detected APT..."
-	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null; then
+	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null || ! command -v ddgr &>/dev/null || ! command -v fzf &>/dev/null; then
 		echo "Updating package list..."
 		sudo apt update
 	fi
@@ -133,9 +216,17 @@ elif command -v apt &>/dev/null; then
 		echo "jq not found, installing via APT..."
 		sudo apt install -y jq
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via APT..."
+		sudo apt install -y ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, installing via APT..."
+		sudo apt install -y fzf
+	fi
 elif command -v pacman &>/dev/null; then
 	echo "Detected Pacman..."
-	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null; then
+	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null || ! command -v ddgr &>/dev/null || ! command -v fzf &>/dev/null; then
 		echo "Synchronizing package databases..."
 		sudo pacman -Sy --noconfirm
 	fi
@@ -155,9 +246,17 @@ elif command -v pacman &>/dev/null; then
 		echo "jq not found, installing via Pacman..."
 		sudo pacman -S --noconfirm jq
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via Pacman..."
+		sudo pacman -S --noconfirm ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, installing via Pacman..."
+		sudo pacman -S --noconfirm fzf
+	fi
 elif command -v yum &>/dev/null; then
 	echo "Detected YUM..."
-	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null; then
+	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null || ! command -v ddgr &>/dev/null || ! command -v fzf &>/dev/null; then
 		echo "Updating package list..."
 		sudo yum update -y
 	fi
@@ -177,9 +276,20 @@ elif command -v yum &>/dev/null; then
 		echo "pip not found, installing python3-pip via YUM..."
 		sudo yum install -y python3-pip
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via pip..."
+		pip install --break-system-packages ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, trying to install via EPEL or pip..."
+		if ! sudo yum install -y fzf 2>/dev/null; then
+			echo "fzf not available via YUM, installing via pip..."
+			pip install --break-system-packages fzf-bin
+		fi
+	fi
 elif command -v dnf &>/dev/null; then
 	echo "Detected DNF..."
-	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null; then
+	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null || ! command -v ddgr &>/dev/null || ! command -v fzf &>/dev/null; then
 		echo "Updating package list..."
 		sudo dnf update -y
 	fi
@@ -199,9 +309,17 @@ elif command -v dnf &>/dev/null; then
 		echo "pip not found, installing python3-pip via DNF..."
 		sudo dnf install -y python3-pip
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via pip..."
+		pip install --break-system-packages ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, installing via DNF..."
+		sudo dnf install -y fzf
+	fi
 elif command -v zypper &>/dev/null; then
 	echo "Detected Zypper..."
-	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null; then
+	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null || ! command -v ddgr &>/dev/null || ! command -v fzf &>/dev/null; then
 		echo "Refreshing repositories..."
 		sudo zypper refresh
 	fi
@@ -221,6 +339,14 @@ elif command -v zypper &>/dev/null; then
 		echo "pip not found, installing python3-pip via Zypper..."
 		sudo zypper install -y python3-pip
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via pip..."
+		pip install --break-system-packages ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, installing via Zypper..."
+		sudo zypper install -y fzf
+	fi
 elif command -v emerge &>/dev/null; then
 	echo "Detected Portage..."
 	if ! command -v curl &>/dev/null; then
@@ -239,9 +365,17 @@ elif command -v emerge &>/dev/null; then
 		echo "pip not found, installing pip via Portage..."
 		sudo emerge --ask=n dev-python/pip
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via pip..."
+		pip install --break-system-packages ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, installing via pip..."
+		pip install --break-system-packages fzf-bin
+	fi
 elif command -v xbps-install &>/dev/null; then
 	echo "Detected XBPS..."
-	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null; then
+	if ! command -v yt-dlp &>/dev/null || ! command -v curl &>/dev/null || ! command -v lynx &>/dev/null || ! command -v jq &>/dev/null || ! command -v ddgr &>/dev/null || ! command -v fzf &>/dev/null; then
 		echo "Synchronizing repositories..."
 		sudo xbps-install -S
 	fi
@@ -265,6 +399,14 @@ elif command -v xbps-install &>/dev/null; then
 		echo "pip not found, installing python3-pip via XBPS..."
 		sudo xbps-install -y python3-pip
 	fi
+	if ! command -v ddgr &>/dev/null; then
+		echo "ddgr not found, installing via pip..."
+		pip install --break-system-packages ddgr
+	fi
+	if ! command -v fzf &>/dev/null; then
+		echo "fzf not found, installing via XBPS..."
+		sudo xbps-install -y fzf
+	fi
 else
 	echo "Warning: No supported package manager (brew, apt, pkg, pacman, yum, dnf, zypper, emerge, xbps-install) detected."
 	echo "Please ensure all dependencies are installed manually."
@@ -273,6 +415,16 @@ fi
 if ! command -v yt-dlp &>/dev/null; then
 	echo "yt-dlp not found, installing via pip..."
 	pip install --break-system-packages yt-dlp
+fi
+
+if ! command -v ddgr &>/dev/null; then
+	echo "ddgr not found, installing via pip..."
+	pip install --break-system-packages ddgr
+fi
+
+if ! command -v fzf &>/dev/null; then
+	echo "fzf not found, installing via pip..."
+	pip install --break-system-packages fzf-bin
 fi
 
 if [[ ! -d "$INSTALL_DIR" ]]; then

@@ -191,7 +191,16 @@ build_ch() {
 
 	log "Building Ch..."
 	go mod download || error "Failed to download Go modules"
-	go build -o "$BIN_DIR/ch" cmd/ch/main.go || error "Failed to build Ch"
+
+	local os
+	os=$(detect_os)
+
+	if [[ "$os" == "android" ]]; then
+		log "Building for Android (disabling CGO)..."
+		CGO_ENABLED=0 go build -o "$BIN_DIR/ch" cmd/ch/main.go || error "Failed to build Ch"
+	else
+		go build -o "$BIN_DIR/ch" cmd/ch/main.go || error "Failed to build Ch"
+	fi
 }
 
 create_symlink() {
@@ -314,19 +323,27 @@ build_only() {
 	log "Downloading dependencies..."
 	go mod download || error "Failed to download Go modules"
 
-	log "Building project..."
-	make build || error "Build failed"
+	local os
+	os=$(detect_os)
+
+	if [[ "$os" == "android" ]]; then
+		log "Building for Android (disabling CGO)..."
+		CGO_ENABLED=0 make build || error "Build failed"
+	else
+		log "Building project..."
+		make build || error "Build failed"
+	fi
 
 	echo
 	echo -e "\033[92m✓ Build complete!\033[0m"
 	echo -e "Binary location: \033[90m./bin/ch\033[0m"
 }
 
-update_deps() {
-	log "Updating dependencies..."
-	go get -u ./... || error "Failed to update dependencies"
+refresh_deps() {
+	log "Refreshing dependencies..."
+	go get -u ./... || error "Failed to refresh dependencies"
 	go mod tidy || error "Failed to tidy modules"
-	log "Dependencies updated successfully"
+	log "Dependencies refreshed successfully"
 }
 
 show_help() {
@@ -337,18 +354,18 @@ show_help() {
 	echo "Options:"
 	echo "  -u, --uninstall     Uninstall Ch from the system"
 	echo "  -b, --build         Build Ch locally (requires local repository)"
-	echo "  -d, --update-deps   Update Go dependencies before building (local only)"
+	echo "  -r, --refresh-deps  Refresh Go dependencies before building (local only)"
 	echo "  -h, --help          Show this help message"
 	echo ""
 	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
 	echo ""
-	echo "Note: Build options (-b, -d) only work when run locally from the repository,"
+	echo "Note: Build options (-b, -r) only work when run locally from the repository,"
 	echo "      not through curl/wget installation."
 }
 
 main() {
 	local build_only_flag=false
-	local update_deps_flag=false
+	local refresh_deps_flag=false
 	local is_remote_install=false
 
 	if [[ ! -t 0 ]] || [[ "${BASH_SOURCE[0]}" == "" ]]; then
@@ -366,11 +383,11 @@ main() {
 			fi
 			build_only_flag=true
 			;;
-		-d | --update-deps)
+		-r | --refresh-deps)
 			if [[ "$is_remote_install" == true ]]; then
-				error "Update deps option is only available when running locally from the repository"
+				error "Refresh deps option is only available when running locally from the repository"
 			fi
-			update_deps_flag=true
+			refresh_deps_flag=true
 			;;
 		-h | --help)
 			show_help
@@ -388,8 +405,8 @@ main() {
 			error "Build option requires running from the Ch repository root directory"
 		fi
 
-		if [[ "$update_deps_flag" == true ]]; then
-			update_deps
+		if [[ "$refresh_deps_flag" == true ]]; then
+			refresh_deps
 		fi
 
 		build_only
@@ -399,8 +416,8 @@ main() {
 	if [ -f "go.mod" ] && [ -f "cmd/ch/main.go" ] && [ -d ".git" ]; then
 		log "Running installer from existing local repository."
 
-		if [[ "$update_deps_flag" == true ]]; then
-			update_deps
+		if [[ "$refresh_deps_flag" == true ]]; then
+			refresh_deps
 		fi
 
 		check_git_and_pull
