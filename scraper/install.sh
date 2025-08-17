@@ -1,5 +1,69 @@
 #!/usr/bin/env bash
 
+show_help() {
+	echo "Usage: $0 [OPTIONS]"
+	echo ""
+	echo "Scraper installation script"
+	echo ""
+	echo "Options:"
+	echo "  -u, --uninstall     Uninstall scraper from the system"
+	echo "  -h, --help          Show this help message"
+	echo ""
+	echo "Default behavior: Install scraper and its dependencies"
+}
+
+uninstall_scraper() {
+	echo "Scraper Uninstaller"
+	echo
+
+	if [[ -f "$INSTALL_DIR/scrape" ]]; then
+		echo "Removing scraper from $INSTALL_DIR/scrape"
+		if [[ "$INSTALL_DIR" == "/usr/local/bin" ]]; then
+			if [[ -w "$INSTALL_DIR" ]]; then
+				rm -f "$INSTALL_DIR/scrape"
+			else
+				if command -v sudo &>/dev/null; then
+					sudo rm -f "$INSTALL_DIR/scrape"
+				else
+					echo "Warning: Could not remove $INSTALL_DIR/scrape (no sudo access)"
+					exit 1
+				fi
+			fi
+		else
+			rm -f "$INSTALL_DIR/scrape"
+		fi
+		echo "✓ Scraper has been successfully uninstalled"
+	else
+		echo "Scraper is not installed at $INSTALL_DIR/scrape"
+		exit 1
+	fi
+	exit 0
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	-u | --uninstall)
+		# Set install directory for uninstall
+		if [[ -n "$PREFIX" ]] && command -v pkg &>/dev/null; then
+			INSTALL_DIR="$PREFIX/bin"
+		else
+			INSTALL_DIR="/usr/local/bin"
+		fi
+		uninstall_scraper
+		;;
+	-h | --help)
+		show_help
+		exit 0
+		;;
+	*)
+		echo "Unknown option: $1. Use -h or --help to see available options."
+		exit 1
+		;;
+	esac
+	shift
+done
+
 # Set install directory based on environment
 if [[ -n "$PREFIX" ]] && command -v pkg &>/dev/null; then
 	INSTALL_DIR="$PREFIX/bin" # Termux uses $PREFIX/bin

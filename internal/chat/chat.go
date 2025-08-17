@@ -522,8 +522,8 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		}
 	}
 
-	// Open in text editor for modification
-	editedContent, err := m.openInEditor(contentBuilder.String())
+	// Open in text editor for modification (add trailing newline for easier editing)
+	editedContent, err := m.openInEditor(contentBuilder.String() + "\n")
 	if err != nil {
 		return "", fmt.Errorf("error opening editor: %v", err)
 	}
