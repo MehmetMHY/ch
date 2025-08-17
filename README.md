@@ -233,6 +233,7 @@ Ch includes a complementary web scraping tool that provides focused content extr
 ```bash
 cd scraper/
 ./install.sh
+cd -
 ```
 
 **Usage with Ch:**
