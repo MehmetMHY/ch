@@ -226,12 +226,12 @@ When in interactive mode (`ch`), use these commands:
 
 ## Web Scraping
 
-Ch includes a complementary web scraping tool that provides focused content extraction without adding complexity to the main CLI. The scraper handles YouTube videos and general web pages, and includes interactive search functionality via DuckDuckGo.
+Ch includes a complementary web scraping tool called **sift** that provides focused content extraction without adding complexity to the main CLI. Sift handles YouTube videos and general web pages, and includes interactive search functionality via DuckDuckGo.
 
 **Installation:**
 
 ```bash
-cd scraper/
+cd sift/
 ./install.sh
 cd -
 ```
@@ -239,7 +239,7 @@ cd -
 **Update dependencies:**
 
 ```bash
-cd scraper/
+cd sift/
 ./install.sh -r    # or --update
 cd -
 ```
@@ -247,7 +247,7 @@ cd -
 **Uninstall:**
 
 ```bash
-cd scraper/
+cd sift/
 ./install.sh -u
 cd -
 ```
@@ -257,16 +257,14 @@ cd -
 ```bash
 # scrape specific URLs
 ch
-!x scrape https://example.com
+!x sift https://example.com
 
 # search and interactively select URLs to scrape
 ch
-!x scrape -s "machine learning basics"
+!x sift -s "machine learning basics"
 ```
 
-The scraper extracts clean, structured content from web pages and YouTube videos (including metadata and subtitles). The search feature uses DuckDuckGo to find relevant content and lets you interactively select which URLs to scrape using fzf. All scraped content becomes available as context in your AI conversation through Ch's shell session recording feature.
-
-For detailed usage instructions, see the [scraper README](./scraper/README.md).
+Sift extracts clean, structured content from web pages and YouTube videos (including metadata and subtitles). The search feature uses DuckDuckGo to find relevant content and lets you interactively select which URLs to scrape using fzf. All scraped content becomes available as context in your AI conversation through Ch's shell session recording feature.
 
 ## Platform Compatibility
 

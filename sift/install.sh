@@ -3,39 +3,39 @@
 show_help() {
 	echo "Usage: $0 [OPTIONS]"
 	echo ""
-	echo "Scraper installation script"
+	echo "Sift installation script"
 	echo ""
 	echo "Options:"
-	echo "  -u, --uninstall     Uninstall scraper from the system"
+	echo "  -u, --uninstall     Uninstall sift from the system"
 	echo "  -r, --update        Update all dependencies to latest versions"
 	echo "  -h, --help          Show this help message"
 	echo ""
-	echo "Default behavior: Install scraper and its dependencies"
+	echo "Default behavior: Install sift and its dependencies"
 }
 
-uninstall_scraper() {
-	echo "Scraper Uninstaller"
+uninstall_sift() {
+	echo "Sift Uninstaller"
 	echo
 
-	if [[ -f "$INSTALL_DIR/scrape" ]]; then
-		echo "Removing scraper from $INSTALL_DIR/scrape"
+	if [[ -f "$INSTALL_DIR/sift" ]]; then
+		echo "Removing sift from $INSTALL_DIR/sift"
 		if [[ "$INSTALL_DIR" == "/usr/local/bin" ]]; then
 			if [[ -w "$INSTALL_DIR" ]]; then
-				rm -f "$INSTALL_DIR/scrape"
+				rm -f "$INSTALL_DIR/sift"
 			else
 				if command -v sudo &>/dev/null; then
-					sudo rm -f "$INSTALL_DIR/scrape"
+					sudo rm -f "$INSTALL_DIR/sift"
 				else
-					echo "Warning: Could not remove $INSTALL_DIR/scrape (no sudo access)"
+					echo "Warning: Could not remove $INSTALL_DIR/sift (no sudo access)"
 					exit 1
 				fi
 			fi
 		else
-			rm -f "$INSTALL_DIR/scrape"
+			rm -f "$INSTALL_DIR/sift"
 		fi
-		echo "✓ Scraper has been successfully uninstalled"
+		echo "✓ Sift has been successfully uninstalled"
 	else
-		echo "Scraper is not installed at $INSTALL_DIR/scrape"
+		echo "Sift is not installed at $INSTALL_DIR/sift"
 		exit 1
 	fi
 	exit 0
@@ -110,7 +110,7 @@ while [[ $# -gt 0 ]]; do
 		else
 			INSTALL_DIR="/usr/local/bin"
 		fi
-		uninstall_scraper
+		uninstall_sift
 		;;
 	-r | --update)
 		update_dependencies
@@ -432,6 +432,6 @@ if [[ ! -d "$INSTALL_DIR" ]]; then
 	exit 1
 fi
 
-cp scrape.sh "$INSTALL_DIR/scrape"
-chmod +x "$INSTALL_DIR/scrape"
+cp sift.sh "$INSTALL_DIR/sift"
+chmod +x "$INSTALL_DIR/sift"
 echo "Installation completed successfully!"
