@@ -31,11 +31,11 @@
 
 ## Overview
 
-**Ch** is a lightweight, GoLang-based version of the popular [Cha](https://github.com/MehmetMHY/cha/) CLI tool. Built from the ground up in Go, Ch is over 10x faster at startup compared to Cha and delivers significantly faster performance for complex processes like codedump. While Cha offers more advanced and powerful features with a larger codebase, Ch prioritizes speed and efficiency, making it ideal for developers who need rapid AI interaction with minimal overhead.
+**Ch** is a lightweight, GoLang-based CLI tool for AI interaction. As the successor to the now-deprecated [Cha](https://github.com/MehmetMHY/cha/) project, Ch delivers the same core functionality with over 10x faster startup and significantly improved performance. Ch prioritizes speed and efficiency, making it ideal for developers who need rapid AI interaction with minimal overhead and full user control.
 
 ## Vision
 
-Ch follows the Unix philosophy of doing one thing well. It provides direct terminal access to powerful AI models with minimal overhead, transparent operations, and explicit user control. No hidden automation, no surprise file modifications—just fast, reliable AI interaction that integrates seamlessly into your development workflow.
+Ch provides direct terminal access to powerful AI models with minimal overhead, transparent operations, and explicit user control. It integrates seamlessly into developer environments, minimizing context switching and empowering users to leverage AI's full potential through explicit control and flexible, user-driven interactions without automated decisions or hidden costs.
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ ch "What are the key features of Go programming language?"
 
 ## Features
 
-- **High Performance**: 2.55x faster than the original Python implementation
+- **High Performance**: Built for speed with minimal startup overhead
 - **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
