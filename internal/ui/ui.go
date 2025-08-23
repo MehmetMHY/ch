@@ -219,7 +219,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - help page\n", t.config.HelpKey)
 	fmt.Printf("  %s - switch platforms (interactive)\n", t.config.PlatformSwitch)
 	fmt.Printf("  %s [platform] - switch to specific platform\n", t.config.PlatformSwitch)
-	fmt.Printf("  %s - load files/dirs from current dir\n", t.config.LoadFiles)
+	fmt.Printf("  %s [dir] - load files/dirs from current or specified directory\n", t.config.LoadFiles)
 	fmt.Printf("  %s - generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
 	fmt.Printf("  %s - export selected chat entries to a file\n", t.config.ExportChat)
 	fmt.Printf("  %s - record a shell session and use it as context\n", t.config.ShellRecord)
@@ -378,7 +378,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - backtrack to a previous message", t.config.Backtrack),
 		fmt.Sprintf("%s - help page", t.config.HelpKey),
 		fmt.Sprintf("%s - switch platforms (interactive)", t.config.PlatformSwitch),
-		fmt.Sprintf("%s - load files/dirs from current dir", t.config.LoadFiles),
+		fmt.Sprintf("%s [dir] - load files/dirs from current or specified directory", t.config.LoadFiles),
 		fmt.Sprintf("%s - generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
 		fmt.Sprintf("%s - export selected chat entries to a file", t.config.ExportChat),
 		fmt.Sprintf("%s - record a shell session and use it as context", t.config.ShellRecord),
@@ -821,21 +821,25 @@ func (t *Terminal) GetCurrentDirFilesRecursive() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current directory: %v", err)
 	}
+	return t.GetDirFilesRecursive(currentDir)
+}
 
+// GetDirFilesRecursive returns all files and directories in the specified directory and subdirectories
+func (t *Terminal) GetDirFilesRecursive(targetDir string) ([]string, error) {
 	var items []string
 
-	err = filepath.WalkDir(currentDir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(targetDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip files we can't access
 		}
 
 		// Skip the root directory itself
-		if path == currentDir {
+		if path == targetDir {
 			return nil
 		}
 
-		// Get relative path from current directory
-		relPath, err := filepath.Rel(currentDir, path)
+		// Get relative path from target directory
+		relPath, err := filepath.Rel(targetDir, path)
 		if err != nil {
 			return nil // Skip if we can't get relative path
 		}

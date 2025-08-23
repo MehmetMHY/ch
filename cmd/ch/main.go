@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -383,7 +384,11 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		return true
 
 	case input == config.LoadFiles:
-		return handleFileLoad(chatManager, terminal, state)
+		return handleFileLoad(chatManager, terminal, state, "")
+
+	case strings.HasPrefix(input, config.LoadFiles+" "):
+		dirPath := strings.TrimSpace(strings.TrimPrefix(input, config.LoadFiles+" "))
+		return handleFileLoad(chatManager, terminal, state, dirPath)
 
 	case input == config.CodeDump:
 		return handleCodeDump(chatManager, terminal, state)
@@ -567,16 +572,36 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 	}
 }
 
-func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
-	files, err := terminal.GetCurrentDirFilesRecursive()
-	if err != nil {
-		terminal.PrintError(fmt.Sprintf("error reading directory: %v", err))
-		return true
-	}
+func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState, dirPath string) bool {
+	var files []string
+	var err error
 
-	if len(files) == 0 {
-		terminal.PrintError("no files found in current directory")
-		return true
+	if dirPath == "" {
+		// Use current directory
+		files, err = terminal.GetCurrentDirFilesRecursive()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error reading current directory: %v", err))
+			return true
+		}
+		if len(files) == 0 {
+			terminal.PrintError("no files found in current directory")
+			return true
+		}
+	} else {
+		// Use specified directory
+		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+			terminal.PrintError(fmt.Sprintf("directory does not exist: %s", dirPath))
+			return true
+		}
+		files, err = terminal.GetDirFilesRecursive(dirPath)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error reading directory %s: %v", dirPath, err))
+			return true
+		}
+		if len(files) == 0 {
+			terminal.PrintError(fmt.Sprintf("no files found in directory: %s", dirPath))
+			return true
+		}
 	}
 
 	selections, err := terminal.FzfMultiSelect(files, "Files: ")
@@ -589,7 +614,17 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 		return true
 	}
 
-	content, err := terminal.LoadFileContent(selections)
+	// Resolve full paths if using custom directory
+	var fullPaths []string
+	if dirPath != "" {
+		for _, selection := range selections {
+			fullPaths = append(fullPaths, filepath.Join(dirPath, selection))
+		}
+	} else {
+		fullPaths = selections
+	}
+
+	content, err := terminal.LoadFileContent(fullPaths)
 	if err != nil {
 		terminal.PrintError(fmt.Sprintf("error loading content: %v", err))
 		return true
@@ -597,8 +632,13 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 
 	if content != "" {
 		chatManager.AddUserMessage(content)
-		historySummary := fmt.Sprintf("Loaded: %s", strings.Join(selections, ", "))
-		chatManager.AddToHistory(historySummary, "")
+		if dirPath != "" {
+			historySummary := fmt.Sprintf("Loaded from %s: %s", dirPath, strings.Join(selections, ", "))
+			chatManager.AddToHistory(historySummary, "")
+		} else {
+			historySummary := fmt.Sprintf("Loaded: %s", strings.Join(selections, ", "))
+			chatManager.AddToHistory(historySummary, "")
+		}
 	}
 
 	return true

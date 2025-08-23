@@ -202,7 +202,8 @@ When in interactive mode (`ch`), use these commands:
 - **`!c`** - Clear chat history
 - **`!t`** - Text editor input mode
 - **`!b`** - Backtrack to previous message
-- **`!l`** - Load files (text, PDF, DOCX, XLSX, CSV) and directories
+- **`!l`** - Load files from current directory
+- **`!l <dir>`** - Load files from specified directory
 - **`!d`** - Generate code dump
 - **`!e`** - Export selected chat entries
 - **`!s`** - Scrape content from URLs (supports multiple URLs and YouTube)
