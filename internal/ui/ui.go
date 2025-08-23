@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -182,7 +184,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  -d [DIRECTORY]       generate codedump file (optionally specify directory path)")
 	fmt.Println("  -p [PLATFORM]        switch platform (leave empty for interactive selection)")
 	fmt.Println("  -m MODEL             specify model to use")
-	fmt.Println("  -l FILE              load and display file content (text, PDF, DOCX, XLSX, CSV)")
+	fmt.Println("  -l FILE/URL          load and display file content (text, PDF, DOCX, XLSX, CSV) or scrape URL")
 	fmt.Println("  -e, --export         export code blocks from the last response")
 	fmt.Println("")
 	fmt.Println("Examples:")
@@ -191,6 +193,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  ch -p groq -m llama3-8b-8192 \"Explain quantum computing\"")
 	fmt.Println("  ch -m gpt-4o \"Write a Python function to calculate fibonacci\"")
 	fmt.Println("  ch -l document.pdf                           # Load and display PDF content")
+	fmt.Println("  ch -l https://example.com                    # Scrape and display web content")
 	fmt.Println("  ch -e \"Write a Python script to sort a list\"  # Export code to file")
 	fmt.Println("  ch -d                                         # Generate codedump of current directory")
 	fmt.Println("  ch -d /path/to/project                        # Generate codedump of specific directory")
@@ -220,6 +223,9 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
 	fmt.Printf("  %s - export selected chat entries to a file\n", t.config.ExportChat)
 	fmt.Printf("  %s - record a shell session and use it as context\n", t.config.ShellRecord)
+	fmt.Printf("  %s <url1> [url2] ... - scrape content from URLs\n", t.config.ScrapeURL)
+	fmt.Printf("  %s <query> - search web using ddgr\n", t.config.WebSearch)
+	fmt.Printf("  %s - copy selected responses to clipboard\n", t.config.CopyToClipboard)
 	fmt.Printf("  %s - multi-line input mode (end with '\\')\n", t.config.MultiLine)
 	fmt.Printf("  %s - list and display chat history\n", t.config.ListHistory)
 }
@@ -376,6 +382,9 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
 		fmt.Sprintf("%s - export selected chat entries to a file", t.config.ExportChat),
 		fmt.Sprintf("%s - record a shell session and use it as context", t.config.ShellRecord),
+		fmt.Sprintf("%s <url1> [url2] ... - scrape content from URLs", t.config.ScrapeURL),
+		fmt.Sprintf("%s <query> - search web using ddgr", t.config.WebSearch),
+		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
 		fmt.Sprintf("%s - multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 		fmt.Sprintf("%s - list and display chat history", t.config.ListHistory),
 	}
@@ -531,7 +540,7 @@ func (t *Terminal) PrintPlatformSwitch(platform, model string) {
 	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", platform, model)
 }
 
-// LoadFileContent loads and returns content from selected files/directories
+// LoadFileContent loads and returns content from selected files/directories or URLs
 func (t *Terminal) LoadFileContent(selections []string) (string, error) {
 	var contentBuilder strings.Builder
 
@@ -540,6 +549,18 @@ func (t *Terminal) LoadFileContent(selections []string) (string, error) {
 			continue
 		}
 
+		// Check if this is a URL
+		if t.isURL(selection) {
+			urlContent, err := t.scrapeURL(selection)
+			if err != nil {
+				contentBuilder.WriteString(fmt.Sprintf("Error scraping %s: %v\n", selection, err))
+				continue
+			}
+			contentBuilder.WriteString(urlContent)
+			continue
+		}
+
+		// Handle files and directories
 		info, err := os.Stat(selection)
 		if err != nil {
 			continue
@@ -1205,4 +1226,407 @@ func (t *Terminal) generateCodeDumpFromDir(files []string, sourceDir string) (st
 
 	result.WriteString("=== END CODE DUMP ===")
 	return result.String(), nil
+}
+
+// isURL checks if a string is a valid URL
+func (t *Terminal) isURL(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
+}
+
+// IsURL is a public method to check if a string is a valid URL
+func (t *Terminal) IsURL(str string) bool {
+	return t.isURL(str)
+}
+
+// isYouTubeURL checks if a URL is a YouTube URL
+func (t *Terminal) isYouTubeURL(urlStr string) bool {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Host)
+	return strings.Contains(host, "youtube.com") ||
+		strings.Contains(host, "youtu.be") ||
+		strings.Contains(host, "m.youtube.com") ||
+		strings.Contains(host, "www.youtube.com") ||
+		strings.Contains(host, "youtube-nocookie.com")
+}
+
+// scrapeURL scrapes content from a single URL
+func (t *Terminal) scrapeURL(urlStr string) (string, error) {
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("=== %s ===\n", urlStr))
+
+	if t.isYouTubeURL(urlStr) {
+		// YouTube scraping with yt-dlp
+		content, err := t.scrapeYouTube(urlStr)
+		if err != nil {
+			return "", fmt.Errorf("failed to scrape YouTube URL: %w", err)
+		}
+		result.WriteString(content)
+	} else {
+		// Regular web scraping with curl + lynx
+		content, err := t.scrapeWeb(urlStr)
+		if err != nil {
+			return "", fmt.Errorf("failed to scrape URL: %w", err)
+		}
+		result.WriteString(content)
+	}
+
+	result.WriteString("\n")
+	return result.String(), nil
+}
+
+// scrapeWeb scrapes regular web pages using curl and lynx
+func (t *Terminal) scrapeWeb(urlStr string) (string, error) {
+	// Use curl to fetch the content and pipe to lynx for text extraction
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("curl -s %s | lynx -dump -stdin", urlStr))
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to scrape web content: %w", err)
+	}
+	return string(output), nil
+}
+
+// scrapeYouTube scrapes YouTube videos using yt-dlp
+func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
+	var result strings.Builder
+
+	// Get metadata
+	result.WriteString("--- METADATA ---\n")
+	metadataCmd := exec.Command("yt-dlp", "-j", urlStr)
+	metadataOutput, err := metadataCmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get YouTube metadata: %w", err)
+	}
+
+	// Parse key fields from JSON (simple parsing without jq)
+	metadata := string(metadataOutput)
+	result.WriteString(t.parseYouTubeMetadata(metadata))
+
+	// Get subtitles
+	result.WriteString("\n--- SUBTITLES ---\n")
+
+	tempDir, err := t.getTempDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get temp directory: %w", err)
+	}
+
+	baseName := filepath.Join(tempDir, fmt.Sprintf("yt_%d", time.Now().UnixNano()))
+
+	// Download subtitles
+	subtitleCmd := exec.Command("yt-dlp", "--quiet", "--skip-download",
+		"--write-auto-subs", "--sub-lang", "en", "--sub-format", "srt",
+		"-o", baseName+".%(ext)s", urlStr)
+
+	err = subtitleCmd.Run()
+	if err == nil {
+		// Find the .srt file
+		pattern := baseName + "*.srt"
+		matches, _ := filepath.Glob(pattern)
+		if len(matches) > 0 {
+			srtContent, readErr := ioutil.ReadFile(matches[0])
+			if readErr == nil {
+				result.WriteString(string(srtContent))
+			}
+			// Clean up temp files
+			for _, match := range matches {
+				os.Remove(match)
+			}
+		}
+	}
+
+	return result.String(), nil
+}
+
+// parseYouTubeMetadata extracts key metadata fields from JSON response
+func (t *Terminal) parseYouTubeMetadata(jsonStr string) string {
+	var result strings.Builder
+
+	// Simple regex-based extraction of key fields
+	extractField := func(field string) string {
+		pattern := fmt.Sprintf(`"%s":\s*"([^"]*)"`, field)
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(jsonStr)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+
+		// Try numeric fields
+		pattern = fmt.Sprintf(`"%s":\s*(\d+)`, field)
+		re = regexp.MustCompile(pattern)
+		matches = re.FindStringSubmatch(jsonStr)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+
+		return ""
+	}
+
+	if title := extractField("title"); title != "" {
+		result.WriteString(fmt.Sprintf("Title: %s\n", title))
+	}
+	if duration := extractField("duration"); duration != "" {
+		result.WriteString(fmt.Sprintf("Duration: %s seconds\n", duration))
+	}
+	if viewCount := extractField("view_count"); viewCount != "" {
+		result.WriteString(fmt.Sprintf("View count: %s\n", viewCount))
+	}
+	if uploader := extractField("uploader"); uploader != "" {
+		result.WriteString(fmt.Sprintf("Uploader: %s\n", uploader))
+	}
+	if uploadDate := extractField("upload_date"); uploadDate != "" {
+		result.WriteString(fmt.Sprintf("Upload date: %s\n", uploadDate))
+	}
+	if description := extractField("description"); description != "" {
+		// Truncate description if too long
+		if len(description) > 500 {
+			description = description[:500] + "..."
+		}
+		result.WriteString(fmt.Sprintf("Description: %s\n", description))
+	}
+
+	return result.String()
+}
+
+// ScrapeURLs scrapes content from multiple URLs
+func (t *Terminal) ScrapeURLs(urls []string) (string, error) {
+	var result strings.Builder
+
+	for _, urlStr := range urls {
+		if urlStr == "" {
+			continue
+		}
+
+		content, err := t.scrapeURL(urlStr)
+		if err != nil {
+			result.WriteString(fmt.Sprintf("Error scraping %s: %v\n", urlStr, err))
+			continue
+		}
+
+		result.WriteString(content)
+	}
+
+	return result.String(), nil
+}
+
+// WebSearch performs a web search using ddgr
+func (t *Terminal) WebSearch(query string) (string, error) {
+	// Check if ddgr is available
+	_, err := exec.LookPath("ddgr")
+	if err != nil {
+		return "", fmt.Errorf("ddgr is not installed. Please install it to use web search")
+	}
+
+	// Use ddgr to search
+	cmd := exec.Command("ddgr", "--json", query)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("search failed: %w", err)
+	}
+
+	searchResults := string(output)
+	if strings.TrimSpace(searchResults) == "" || searchResults == "[]" {
+		return "No search results found for: " + query, nil
+	}
+
+	// Parse and format results
+	formatted := t.parseSearchResults(searchResults, query)
+	return formatted, nil
+}
+
+// parseSearchResults parses JSON search results and formats them
+func (t *Terminal) parseSearchResults(jsonStr, query string) string {
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("Search results for: %s\n", query))
+	result.WriteString("===============================================\n\n")
+
+	// Simple JSON parsing to extract results
+	lines := strings.Split(jsonStr, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "[" || line == "]" {
+			continue
+		}
+
+		// Remove trailing comma
+		line = strings.TrimSuffix(line, ",")
+
+		// Extract title, URL, and abstract using regex
+		if title := t.extractJSONField(line, "title"); title != "" {
+			result.WriteString(fmt.Sprintf("Title: %s\n", title))
+		}
+		if url := t.extractJSONField(line, "url"); url != "" {
+			result.WriteString(fmt.Sprintf("URL: %s\n", url))
+		}
+		if abstract := t.extractJSONField(line, "abstract"); abstract != "" {
+			result.WriteString(fmt.Sprintf("Description: %s\n", abstract))
+		}
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
+
+// extractJSONField extracts a field value from a JSON string
+func (t *Terminal) extractJSONField(jsonStr, field string) string {
+	pattern := fmt.Sprintf(`"%s":\s*"([^"]*)"`, field)
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(jsonStr)
+	if len(matches) > 1 {
+		// Unescape JSON string
+		value := matches[1]
+		value = strings.ReplaceAll(value, `\"`, `"`)
+		value = strings.ReplaceAll(value, `\\`, `\`)
+		return value
+	}
+	return ""
+}
+
+// CopyToClipboard copies content to the system clipboard with cross-platform support
+func (t *Terminal) CopyToClipboard(content string) error {
+	var cmd *exec.Cmd
+
+	// Detect platform and use appropriate clipboard command
+	if _, err := exec.LookPath("pbcopy"); err == nil {
+		// macOS
+		cmd = exec.Command("pbcopy")
+	} else if _, err := exec.LookPath("xclip"); err == nil {
+		// Linux with xclip
+		cmd = exec.Command("xclip", "-selection", "clipboard")
+	} else if _, err := exec.LookPath("xsel"); err == nil {
+		// Linux with xsel
+		cmd = exec.Command("xsel", "--clipboard", "--input")
+	} else if _, err := exec.LookPath("wl-copy"); err == nil {
+		// Wayland (Linux)
+		cmd = exec.Command("wl-copy")
+	} else if _, err := exec.LookPath("termux-clipboard-set"); err == nil {
+		// Android/Termux
+		cmd = exec.Command("termux-clipboard-set")
+	} else if _, err := exec.LookPath("clip"); err == nil {
+		// Windows (WSL or Git Bash)
+		cmd = exec.Command("clip")
+	} else {
+		return fmt.Errorf("no clipboard utility found. Please install: pbcopy (macOS), xclip/xsel (Linux), wl-copy (Wayland), or termux-clipboard-set (Android)")
+	}
+
+	cmd.Stdin = strings.NewReader(content)
+	return cmd.Run()
+}
+
+// CopyResponsesInteractive allows user to select and copy chat responses to clipboard
+func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory) error {
+	if len(chatHistory) == 0 {
+		return fmt.Errorf("no chat history available")
+	}
+
+	// Create list of responses for fzf selection
+	var responseOptions []string
+	var responseMap = make(map[string]types.ChatHistory)
+
+	for i, entry := range chatHistory {
+		if entry.Bot != "" {
+			// Create display text with truncated response
+			displayText := entry.Bot
+			if len(displayText) > 100 {
+				displayText = displayText[:97] + "..."
+			}
+			// Replace newlines with spaces for better fzf display
+			displayText = strings.ReplaceAll(displayText, "\n", " ")
+
+			optionText := fmt.Sprintf("[%d] %s", i+1, displayText)
+			responseOptions = append(responseOptions, optionText)
+			responseMap[optionText] = entry
+		}
+	}
+
+	if len(responseOptions) == 0 {
+		return fmt.Errorf("no responses found in chat history")
+	}
+
+	// Use fzf for multi-selection
+	selected, err := t.FzfMultiSelect(responseOptions, "Select responses to copy (TAB=multi): ")
+	if err != nil {
+		return fmt.Errorf("selection failed: %w", err)
+	}
+
+	if len(selected) == 0 {
+		t.PrintInfo("no responses selected")
+		return nil
+	}
+
+	// Combine selected responses
+	var combinedContent strings.Builder
+	for i, selection := range selected {
+		if entry, exists := responseMap[selection]; exists {
+			if i > 0 {
+				combinedContent.WriteString("\n\n---\n\n")
+			}
+			combinedContent.WriteString(entry.Bot)
+		}
+	}
+
+	finalContent := combinedContent.String()
+
+	// Open editor for final editing
+	editedContent, err := t.openEditorWithContent(finalContent)
+	if err != nil {
+		return fmt.Errorf("editor failed: %w", err)
+	}
+
+	// Copy to clipboard
+	err = t.CopyToClipboard(editedContent)
+	if err != nil {
+		return fmt.Errorf("failed to copy to clipboard: %w", err)
+	}
+
+	fmt.Printf("\033[93madded %d response(s) to clipboard\033[0m\n", len(selected))
+	return nil
+}
+
+// openEditorWithContent opens the preferred editor with given content and returns the edited result
+func (t *Terminal) openEditorWithContent(content string) (string, error) {
+	// Create temporary file
+	tempDir, err := t.getTempDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get temp directory: %w", err)
+	}
+
+	tempFile, err := ioutil.TempFile(tempDir, "ch_clipboard_*.md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	// Write content to temp file
+	if _, err := tempFile.WriteString(content); err != nil {
+		tempFile.Close()
+		return "", fmt.Errorf("failed to write to temp file: %w", err)
+	}
+	tempFile.Close()
+
+	// Determine editor command
+	editor := t.config.PreferredEditor
+	if envEditor := os.Getenv("EDITOR"); envEditor != "" {
+		editor = envEditor
+	}
+
+	// Open editor
+	cmd := exec.Command(editor, tempFile.Name())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("editor command failed: %w", err)
+	}
+
+	// Read edited content
+	editedBytes, err := ioutil.ReadFile(tempFile.Name())
+	if err != nil {
+		return "", fmt.Errorf("failed to read edited content: %w", err)
+	}
+
+	return string(editedBytes), nil
 }

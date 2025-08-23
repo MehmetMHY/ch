@@ -45,6 +45,9 @@ type Config struct {
 	ExportChat      string
 	Backtrack       string
 	SaveHistory     string
+	WebSearch       string
+	ScrapeURL       string
+	CopyToClipboard string
 	LoadFiles       string
 	LoadFilesAdv    string
 	AnswerSearch    string

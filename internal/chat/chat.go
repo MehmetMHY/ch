@@ -335,6 +335,11 @@ func (m *Manager) GetMessages() []types.ChatMessage {
 	return m.state.Messages
 }
 
+// GetChatHistory returns the current chat history
+func (m *Manager) GetChatHistory() []types.ChatHistory {
+	return m.state.ChatHistory
+}
+
 // GetCurrentModel returns the current model
 func (m *Manager) GetCurrentModel() string {
 	return m.state.Config.CurrentModel

@@ -97,8 +97,11 @@ install_dependencies() {
 
 	log "Checking system dependencies for $os"
 
-	local deps=("fzf")
+	# Core dependencies (clipboard utilities are optional and auto-detected)
+	local deps=("fzf" "curl" "lynx" "yt-dlp")
 	local missing_deps=()
+	local pip_deps=("ddgr")
+	local missing_pip_deps=()
 
 	for dep in "${deps[@]}"; do
 		if ! command -v "$dep" >/dev/null 2>&1; then
@@ -106,12 +109,25 @@ install_dependencies() {
 		fi
 	done
 
-	if [[ ${#missing_deps[@]} -eq 0 ]]; then
+	# Check for Python dependencies
+	for dep in "${pip_deps[@]}"; do
+		if ! command -v "$dep" >/dev/null 2>&1; then
+			missing_pip_deps+=("$dep")
+		fi
+	done
+
+	if [[ ${#missing_deps[@]} -eq 0 ]] && [[ ${#missing_pip_deps[@]} -eq 0 ]]; then
 		log "All dependencies already installed"
 		return
 	fi
 
-	log "The following dependencies are missing: ${missing_deps[*]}"
+	if [[ ${#missing_deps[@]} -gt 0 ]]; then
+		log "The following system dependencies are missing: ${missing_deps[*]}"
+	fi
+
+	if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+		log "The following Python dependencies are missing: ${missing_pip_deps[*]}"
+	fi
 
 	case "$os" in
 	"macos")
@@ -122,6 +138,21 @@ install_dependencies() {
 			log "Installing $dep with Homebrew..."
 			brew install "$dep"
 		done
+		# Install Python dependencies
+		if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+			if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
+				log "Installing Python and pip..."
+				brew install python
+			fi
+			for dep in "${missing_pip_deps[@]}"; do
+				log "Installing $dep with pip..."
+				if command -v pip3 >/dev/null 2>&1; then
+					pip3 install "$dep"
+				else
+					pip install "$dep"
+				fi
+			done
+		fi
 		;;
 	"android")
 		if ! command -v pkg >/dev/null 2>&1; then
@@ -132,6 +163,17 @@ install_dependencies() {
 			log "Installing $dep with pkg..."
 			pkg install -y "$dep"
 		done
+		# Install Python dependencies
+		if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+			if ! command -v pip >/dev/null 2>&1; then
+				log "Installing Python and pip..."
+				pkg install -y python
+			fi
+			for dep in "${missing_pip_deps[@]}"; do
+				log "Installing $dep with pip..."
+				pip install "$dep"
+			done
+		fi
 		;;
 	"linux")
 		if command -v sudo >/dev/null 2>&1; then
@@ -141,36 +183,146 @@ install_dependencies() {
 					log "Installing $dep with apt-get..."
 					sudo apt-get install -y "$dep"
 				done
+				# Install Python dependencies
+				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
+						log "Installing Python and pip..."
+						sudo apt-get install -y python3-pip
+					fi
+					for dep in "${missing_pip_deps[@]}"; do
+						log "Installing $dep with pip..."
+						if command -v pip3 >/dev/null 2>&1; then
+							pip3 install --user "$dep"
+						else
+							pip install --user "$dep"
+						fi
+					done
+				fi
 			elif command -v pacman >/dev/null 2>&1; then
 				for dep in "${missing_deps[@]}"; do
 					log "Installing $dep with pacman..."
 					sudo pacman -Sy --noconfirm "$dep"
 				done
+				# Install Python dependencies
+				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+					if ! command -v pip >/dev/null 2>&1; then
+						log "Installing Python and pip..."
+						sudo pacman -S --noconfirm python-pip
+					fi
+					for dep in "${missing_pip_deps[@]}"; do
+						log "Installing $dep with pip..."
+						pip install --user "$dep"
+					done
+				fi
 			elif command -v dnf >/dev/null 2>&1; then
 				for dep in "${missing_deps[@]}"; do
 					log "Installing $dep with dnf..."
 					sudo dnf install -y "$dep"
 				done
+				# Install Python dependencies
+				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
+						log "Installing Python and pip..."
+						sudo dnf install -y python3-pip
+					fi
+					for dep in "${missing_pip_deps[@]}"; do
+						log "Installing $dep with pip..."
+						if command -v pip3 >/dev/null 2>&1; then
+							pip3 install --user "$dep"
+						else
+							pip install --user "$dep"
+						fi
+					done
+				fi
 			elif command -v yum >/dev/null 2>&1; then
 				for dep in "${missing_deps[@]}"; do
 					log "Installing $dep with yum..."
 					sudo yum install -y "$dep"
 				done
+				# Install Python dependencies
+				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
+						log "Installing Python and pip..."
+						sudo yum install -y python3-pip
+					fi
+					for dep in "${missing_pip_deps[@]}"; do
+						log "Installing $dep with pip..."
+						if command -v pip3 >/dev/null 2>&1; then
+							pip3 install --user "$dep"
+						else
+							pip install --user "$dep"
+						fi
+					done
+				fi
 			elif command -v zypper >/dev/null 2>&1; then
 				for dep in "${missing_deps[@]}"; do
 					log "Installing $dep with zypper..."
 					sudo zypper install -y "$dep"
 				done
+				# Install Python dependencies
+				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
+						log "Installing Python and pip..."
+						sudo zypper install -y python3-pip
+					fi
+					for dep in "${missing_pip_deps[@]}"; do
+						log "Installing $dep with pip..."
+						if command -v pip3 >/dev/null 2>&1; then
+							pip3 install --user "$dep"
+						else
+							pip install --user "$dep"
+						fi
+					done
+				fi
 			elif command -v apk >/dev/null 2>&1; then
 				for dep in "${missing_deps[@]}"; do
 					log "Installing $dep with apk..."
 					sudo apk add "$dep"
 				done
+				# Install Python dependencies
+				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
+						log "Installing Python and pip..."
+						sudo apk add py3-pip
+					fi
+					for dep in "${missing_pip_deps[@]}"; do
+						log "Installing $dep with pip..."
+						if command -v pip3 >/dev/null 2>&1; then
+							pip3 install --user "$dep"
+						else
+							pip install --user "$dep"
+						fi
+					done
+				fi
 			else
-				error "Unsupported package manager. Please install manually: ${missing_deps[*]}"
+				local all_missing=("${missing_deps[@]}")
+				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+					all_missing+=("${missing_pip_deps[@]}")
+				fi
+				error "Unsupported package manager. Please install manually: ${all_missing[*]}"
 			fi
 		else
 			error "sudo is required to install dependencies on Linux. Please install it first."
+		fi
+
+		# Final fallback for Python dependencies if not handled by package manager
+		if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+			log "Attempting to install remaining Python dependencies with pip..."
+			if command -v pip3 >/dev/null 2>&1; then
+				for dep in "${missing_pip_deps[@]}"; do
+					if ! command -v "$dep" >/dev/null 2>&1; then
+						log "Installing $dep with pip3..."
+						pip3 install --user "$dep" 2>/dev/null || log "Failed to install $dep with pip3"
+					fi
+				done
+			elif command -v pip >/dev/null 2>&1; then
+				for dep in "${missing_pip_deps[@]}"; do
+					if ! command -v "$dep" >/dev/null 2>&1; then
+						log "Installing $dep with pip..."
+						pip install --user "$dep" 2>/dev/null || log "Failed to install $dep with pip"
+					fi
+				done
+			fi
 		fi
 		;;
 	esac

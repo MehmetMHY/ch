@@ -72,7 +72,9 @@ ch "What are the key features of Go programming language?"
 - **Dynamic Switching**: Change models and platforms mid-conversation
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Code Dump**: Package entire directories for AI analysis
-- **Shell Session Recording**: Record terminal sessions and provide them as context to the model.
+- **Shell Session Recording**: Record terminal sessions and provide them as context to the model
+- **Web Scraping & Search**: Built-in URL scraping and web search capabilities
+- **Clipboard Integration**: Copy AI responses to clipboard with cross-platform support
 - **Colored Output**: Platform and model names displayed in distinct colors
 
 ## Installation
@@ -105,7 +107,7 @@ curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
 
 The installer automatically:
 
-- Checks for Go 1.21+ and dependencies (fzf)
+- Checks for Go 1.21+ and dependencies (fzf, curl, lynx, yt-dlp, ddgr)
 - Installs missing dependencies via system package managers (apt, brew, pkg, etc.)
 - Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`
 - Creates global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux)
@@ -175,6 +177,10 @@ ch -e "Write a Python script to sort a list"
 ch -l document.pdf
 ch -l spreadsheet.xlsx
 
+# scrape web content
+ch -l https://example.com
+ch -l https://youtube.com/watch?v=example
+
 # count tokens in files
 ch -t ./README.md
 ch -m "gpt-4" -t ./main.go
@@ -199,6 +205,9 @@ When in interactive mode (`ch`), use these commands:
 - **`!l`** - Load files (text, PDF, DOCX, XLSX, CSV) and directories
 - **`!d`** - Generate code dump
 - **`!e`** - Export selected chat entries
+- **`!s`** - Scrape content from URLs (supports multiple URLs and YouTube)
+- **`!w`** - Search web using DuckDuckGo
+- **`!y`** - Copy selected responses to clipboard
 - **`!x`** - Record shell session or run command (`!x ls` streams output live)
 - **`\`** - Multi-line input mode
 - **`|`** - View and display chat history
@@ -224,47 +233,27 @@ When in interactive mode (`ch`), use these commands:
 3. Display individual entries or complete formatted history
 4. Shows platform/model changes and file loading events
 
-## Web Scraping
+**URL Scraping (`!s` and `-l` with URLs):**
 
-Ch includes a complementary web scraping tool called **sift** that provides focused content extraction without adding complexity to the main CLI. Sift handles YouTube videos and general web pages, and includes interactive search functionality via DuckDuckGo.
+- Supports regular web pages and YouTube videos
+- Extracts clean text content using curl and lynx
+- YouTube videos include metadata and subtitle extraction via yt-dlp
+- Multiple URL support: `!s https://site1.com https://site2.com`
+- Integrated with file loading: `ch -l https://example.com`
 
-**Installation:**
+**Web Search (`!w`):**
 
-```bash
-cd sift/
-./install.sh
-cd -
-```
+- Built-in DuckDuckGo search integration via ddgr
+- Usage: `!w "search query"`
+- Results are automatically added to conversation context
+- No need for external tools or APIs
 
-**Update dependencies:**
+**Clipboard Copy (`!y`):**
 
-```bash
-cd sift/
-./install.sh -r    # or --update
-cd -
-```
-
-**Uninstall:**
-
-```bash
-cd sift/
-./install.sh -u
-cd -
-```
-
-**Usage with Ch:**
-
-```bash
-# scrape specific URLs
-ch
-!x sift https://example.com
-
-# search and interactively select URLs to scrape
-ch
-!x sift -s "machine learning basics"
-```
-
-Sift extracts clean, structured content from web pages and YouTube videos (including metadata and subtitles). The search feature uses DuckDuckGo to find relevant content and lets you interactively select which URLs to scrape using fzf. All scraped content becomes available as context in your AI conversation through Ch's shell session recording feature.
+- Select one or more AI responses with fzf
+- Edit content in your preferred editor before copying
+- Cross-platform clipboard support (macOS, Linux, Android/Termux, Windows)
+- Usage: `!y` then select responses to copy
 
 ## Platform Compatibility
 
@@ -293,6 +282,11 @@ Switch platforms during conversation:
 
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
+- [curl](https://curl.se/) for web content fetching
+- [lynx](https://lynx.browser.org/) for text extraction from HTML
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube video scraping
+- [ddgr](https://github.com/jarun/ddgr) for DuckDuckGo web search
+- Clipboard utilities (auto-detected): pbcopy, xclip, xsel, wl-copy, termux-clipboard-set
 
 ### Build from Source
 

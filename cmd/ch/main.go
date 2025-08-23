@@ -290,6 +290,10 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 }
 
 func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	return handleSpecialCommandsInternal(input, chatManager, platformManager, terminal, state, false)
+}
+
+func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, fromHelp bool) bool {
 	config := state.Config
 
 	switch {
@@ -301,7 +305,7 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		selectedCommand := terminal.ShowHelpFzf()
 		if selectedCommand != "" {
 			// Recursively handle the selected command
-			return handleSpecialCommands(selectedCommand, chatManager, platformManager, terminal, state)
+			return handleSpecialCommandsInternal(selectedCommand, chatManager, platformManager, terminal, state, true)
 		}
 		return true
 
@@ -451,6 +455,41 @@ func handleSpecialCommands(input string, chatManager *chat.Manager, platformMana
 		err := handleListHistory(chatManager, terminal, state)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error listing history: %v", err))
+		}
+		return true
+
+	case input == config.ScrapeURL:
+		if fromHelp {
+			fmt.Printf("\033[93m%s <url1> [url2] ... - scrape content from URLs\033[0m\n", config.ScrapeURL)
+		} else {
+			terminal.PrintError("no URLs provided")
+		}
+		return true
+
+	case strings.HasPrefix(input, config.ScrapeURL+" "):
+		urls := strings.Fields(strings.TrimPrefix(input, config.ScrapeURL+" "))
+		return handleScrapeURLs(urls, chatManager, terminal, state)
+
+	case input == config.WebSearch:
+		if fromHelp {
+			fmt.Printf("\033[93m%s <query> - search web using ddgr\033[0m\n", config.WebSearch)
+		} else {
+			terminal.PrintError("no search query provided")
+		}
+		return true
+
+	case strings.HasPrefix(input, config.WebSearch+" "):
+		query := strings.TrimPrefix(input, config.WebSearch+" ")
+		return handleWebSearch(query, chatManager, terminal, state)
+
+	case input == config.CopyToClipboard:
+		if fromHelp {
+			fmt.Printf("\033[93m%s - copy selected responses to clipboard\033[0m\n", config.CopyToClipboard)
+		} else {
+			err := terminal.CopyResponsesInteractive(chatManager.GetChatHistory())
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error copying to clipboard: %v", err))
+			}
 		}
 		return true
 
@@ -824,8 +863,19 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 	return nil
 }
 
-// handleLoadFile loads and displays file content
+// handleLoadFile loads and displays file content or scrapes URL
 func handleLoadFile(filePath string, terminal *ui.Terminal) error {
+	// Check if it's a URL
+	if terminal.IsURL(filePath) {
+		// Use the same loading logic as !l command for URLs
+		content, err := terminal.LoadFileContent([]string{filePath})
+		if err != nil {
+			return fmt.Errorf("failed to scrape URL: %w", err)
+		}
+		fmt.Print(content)
+		return nil
+	}
+
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return fmt.Errorf("file does not exist: %s", filePath)
@@ -840,4 +890,48 @@ func handleLoadFile(filePath string, terminal *ui.Terminal) error {
 	// Print the content directly to stdout
 	fmt.Print(content)
 	return nil
+}
+
+// handleScrapeURLs handles the !s command for scraping URLs
+func handleScrapeURLs(urls []string, chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	if len(urls) == 0 {
+		terminal.PrintError("no URLs provided")
+		return true
+	}
+
+	content, err := terminal.ScrapeURLs(urls)
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("error scraping URLs: %v", err))
+		return true
+	}
+
+	if content != "" {
+		chatManager.AddUserMessage(content)
+		historySummary := fmt.Sprintf("Scraped: %s", strings.Join(urls, ", "))
+		chatManager.AddToHistory(historySummary, "")
+	}
+
+	return true
+}
+
+// handleWebSearch handles the !w command for web search
+func handleWebSearch(query string, chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	if query == "" {
+		terminal.PrintError("no search query provided")
+		return true
+	}
+
+	content, err := terminal.WebSearch(query)
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("error searching: %v", err))
+		return true
+	}
+
+	if content != "" {
+		chatManager.AddUserMessage(content)
+		historySummary := fmt.Sprintf("Web search: %s", query)
+		chatManager.AddToHistory(historySummary, "")
+	}
+
+	return true
 }
