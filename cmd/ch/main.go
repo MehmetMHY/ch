@@ -247,6 +247,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 		if err != nil {
 			if err == readline.ErrInterrupt {
 				// Ctrl+C pressed - clear input and continue
+				fmt.Printf("\033[93mPress Ctrl+D to exit\033[0m\n")
 				continue
 			}
 			// io.EOF (Ctrl+D) or other errors - exit
