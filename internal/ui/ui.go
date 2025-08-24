@@ -228,6 +228,8 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %s - copy selected responses to clipboard\n", t.config.CopyToClipboard)
 	fmt.Printf("  %s - multi-line input mode (end with '\\')\n", t.config.MultiLine)
 	fmt.Printf("  %s - list and display chat history\n", t.config.ListHistory)
+	fmt.Printf("  Ctrl+C - clear current prompt input\n")
+	fmt.Printf("  Ctrl+D - exit interface\n")
 }
 
 // RecordShellSession records the entire shell session and returns the content as a string.
@@ -387,6 +389,8 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
 		fmt.Sprintf("%s - multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 		fmt.Sprintf("%s - list and display chat history", t.config.ListHistory),
+		"Ctrl+C - clear current prompt input",
+		"Ctrl+D - exit interface",
 	}
 
 	return options
@@ -408,6 +412,8 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
 	fmt.Printf("\033[93m%s - multi-line input\033[0m\n", t.config.MultiLine)
 	fmt.Printf("\033[93m%s - list chat history\033[0m\n", t.config.ListHistory)
+	fmt.Printf("\033[93mCtrl+C - clear prompt input\033[0m\n")
+	fmt.Printf("\033[93mCtrl+D - exit interface\033[0m\n")
 }
 
 // ShowLoadingAnimation displays a loading animation

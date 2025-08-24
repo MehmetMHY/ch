@@ -233,7 +233,9 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 
 func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) {
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt: "\033[94mUser: \033[0m",
+		Prompt:          "\033[94mUser: \033[0m",
+		InterruptPrompt: "", // Don't show ^C when Ctrl+C is pressed
+		EOFPrompt:       "exit",
 	})
 	if err != nil {
 		panic(err)
@@ -242,7 +244,12 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 
 	for {
 		line, err := rl.Readline()
-		if err != nil { // io.EOF, readline.ErrInterrupt
+		if err != nil {
+			if err == readline.ErrInterrupt {
+				// Ctrl+C pressed - clear input and continue
+				continue
+			}
+			// io.EOF (Ctrl+D) or other errors - exit
 			break
 		}
 		input := strings.TrimSpace(line)

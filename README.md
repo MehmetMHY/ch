@@ -212,6 +212,8 @@ When in interactive mode (`ch`), use these commands:
 - **`!x`** - Record shell session or run command (`!x ls` streams output live)
 - **`\`** - Multi-line input mode
 - **`|`** - View and display chat history
+- **`Ctrl+C`** - Clear current prompt input
+- **`Ctrl+D`** - Exit interface
 
 ### Advanced Features
 
