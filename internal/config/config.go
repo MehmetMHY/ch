@@ -96,6 +96,24 @@ func DefaultConfig() *types.Config {
 					JSONPath: "models.name",
 				},
 			},
+			"together": {
+				Name:    "together",
+				BaseURL: "https://api.together.xyz/v1",
+				EnvName: "TOGETHER_API_KEY",
+				Models: types.PlatformModels{
+					URL:      "https://api.together.xyz/v1/models",
+					JSONPath: "id",
+				},
+			},
+			"google": {
+				Name:    "google",
+				BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+				EnvName: "GEMINI_API_KEY",
+				Models: types.PlatformModels{
+					URL:      "https://generativelanguage.googleapis.com/v1beta/models",
+					JSONPath: "models.name",
+				},
+			},
 		},
 	}
 }

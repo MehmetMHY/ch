@@ -291,20 +291,26 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 func (m *Manager) fetchPlatformModels(platform types.Platform) ([]string, error) {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 
-	req, err := http.NewRequest("GET", platform.Models.URL, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	apiKey := os.Getenv(platform.EnvName)
 	if apiKey == "" && platform.Name != "ollama" {
 		return nil, fmt.Errorf("%s environment variable not set", platform.EnvName)
 	}
 
+	// Handle Google's special URL with API key in query parameter
+	url := platform.Models.URL
+	if platform.Name == "google" {
+		url = strings.Replace(url, "https://generativelanguage.googleapis.com/v1beta/models", "https://generativelanguage.googleapis.com/v1beta/models?key="+apiKey, 1)
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	if platform.Name == "anthropic" {
 		req.Header.Set("x-api-key", apiKey)
 		req.Header.Set("anthropic-version", "2023-06-01")
-	} else if platform.Name != "ollama" {
+	} else if platform.Name != "ollama" && platform.Name != "google" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	req.Header.Set("Content-Type", "application/json")

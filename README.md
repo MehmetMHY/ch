@@ -60,7 +60,7 @@ ch "What are the key features of Go programming language?"
 ## Features
 
 - **High Performance**: Built for speed with minimal startup overhead
-- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, and Ollama
+- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
 - **Smart File Handling**: Load text files, PDFs, Word docs, spreadsheets (XLSX/CSV), and directories
@@ -125,9 +125,11 @@ export OPENAI_API_KEY="your-openai-key"
 
 # optional additional platforms
 export GROQ_API_KEY="your-groq-key"
-export DEEPSEEK_API_KEY="your-deepseek-key"
+export DEEP_SEEK_API_KEY="your-deepseek-key"
 export ANTHROPIC_API_KEY="your-anthropic-key"
 export XAI_API_KEY="your-xai-key"
+export TOGETHER_API_KEY="your-together-key"
+export GEMINI_API_KEY="your-gemini-key"
 ```
 
 ### Default Settings
@@ -266,9 +268,11 @@ Ch supports multiple AI platforms with seamless switching:
 | --------- | -------------------------- | -------------------- |
 | OpenAI    | GPT-4o, GPT-4o-mini, etc.  | `OPENAI_API_KEY`     |
 | Groq      | Llama3, Mixtral, etc.      | `GROQ_API_KEY`       |
-| DeepSeek  | DeepSeek-Chat, etc.        | `DEEPSEEK_API_KEY`   |
+| DeepSeek  | DeepSeek-Chat, etc.        | `DEEP_SEEK_API_KEY`  |
 | Anthropic | Claude-3.5, etc.           | `ANTHROPIC_API_KEY`  |
 | xAI       | Grok models                | `XAI_API_KEY`        |
+| Together  | Llama3, Mixtral, etc.      | `TOGETHER_API_KEY`   |
+| Google    | Gemini models              | `GEMINI_API_KEY`     |
 | Ollama    | Local models (Llama3, etc) | (none)               |
 
 Switch platforms during conversation:
