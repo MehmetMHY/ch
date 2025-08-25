@@ -429,17 +429,18 @@ print_success() {
 		echo -e "A symlink has been created at \$PREFIX/bin/ch, so you can run 'ch' from anywhere."
 		echo
 		echo -e "\033[93mImportant:\033[0m"
-		echo -e "Make sure '\$PREFIX/bin' is in your \$PATH (it should be by default in Termux)."
-		echo -e "You can check by running: \033[90mecho \$PATH\033[0m"
+		echo -e "- Make sure '\$PREFIX/bin' is in your \$PATH (it should be by default in Termux)."
+		echo -e "- You can check by running: \033[90mecho \$PATH\033[0m"
+		echo -e "- You may need to restart your terminal."
 	else
 		echo -e "A symlink has been created at /usr/local/bin/ch, so you can run 'ch' from anywhere."
 		echo
 		echo -e "\033[93mImportant:\033[0m"
-		echo -e "Make sure '/usr/local/bin' is in your \$PATH."
-		echo -e "You can check by running: \033[90mecho \$PATH\033[0m"
+		echo -e "- Make sure '/usr/local/bin' is in your \$PATH."
+		echo -e "- You can check by running: \033[90mecho \$PATH\033[0m"
+		echo -e "- You may need to restart your terminal."
 	fi
 
-	echo -e "You may need to restart your terminal session for changes to take effect."
 	echo
 	echo -e "To get started, simply type:"
 	echo -e "  \033[96mch\033[0m"

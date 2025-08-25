@@ -3,6 +3,7 @@ package ui
 import (
 	"bufio"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -1429,8 +1430,8 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 		return "", fmt.Errorf("ddgr is not installed. Please install it to use web search")
 	}
 
-	// Use ddgr to search
-	cmd := exec.Command("ddgr", "--json", query)
+	// Use ddgr to search with more results and JSON output
+	cmd := exec.Command("ddgr", "--json", "--num", "5", query)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("search failed: %w", err)
@@ -1438,7 +1439,7 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 
 	searchResults := string(output)
 	if strings.TrimSpace(searchResults) == "" || searchResults == "[]" {
-		return "No search results found for: " + query, nil
+		return fmt.Sprintf("No search results found for: %s\n", query), nil
 	}
 
 	// Parse and format results
@@ -1446,14 +1447,57 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 	return formatted, nil
 }
 
+// SearchResult represents a single search result
+type SearchResult struct {
+	Title    string `json:"title"`
+	URL      string `json:"url"`
+	Abstract string `json:"abstract"`
+}
+
 // parseSearchResults parses JSON search results and formats them
 func (t *Terminal) parseSearchResults(jsonStr, query string) string {
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("Search results for: %s\n", query))
-	result.WriteString("===============================================\n\n")
+
+	// Try to parse as proper JSON array
+	var searchResults []SearchResult
+	err := json.Unmarshal([]byte(jsonStr), &searchResults)
+	if err != nil {
+		// Fallback to line-by-line parsing if JSON parsing fails
+		return t.parseSearchResultsLegacy(jsonStr, query)
+	}
+
+	if len(searchResults) == 0 {
+		result.WriteString(fmt.Sprintf("No search results found for: %s\n", query))
+		return result.String()
+	}
+
+	// Format each result
+	for i, searchResult := range searchResults {
+		if searchResult.Title != "" && searchResult.URL != "" {
+			result.WriteString(fmt.Sprintf("\033[93m%d) \033[93m%s\033[0m\n", i+1, searchResult.Title))
+			result.WriteString(fmt.Sprintf("\033[95m%s\033[0m\n", searchResult.URL))
+			if searchResult.Abstract != "" {
+				result.WriteString(fmt.Sprintf("\033[92m%s\033[0m\n", searchResult.Abstract))
+			}
+			if i < len(searchResults)-1 {
+				result.WriteString("\n")
+			}
+		}
+	}
+
+	return result.String()
+}
+
+// parseSearchResultsLegacy handles line-by-line parsing as fallback
+func (t *Terminal) parseSearchResultsLegacy(jsonStr, query string) string {
+	var result strings.Builder
 
 	// Simple JSON parsing to extract results
 	lines := strings.Split(jsonStr, "\n")
+	resultNumber := 1
+	validResults := []string{}
+
+	// First pass: collect all valid results
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || line == "[" || line == "]" {
@@ -1464,16 +1508,26 @@ func (t *Terminal) parseSearchResults(jsonStr, query string) string {
 		line = strings.TrimSuffix(line, ",")
 
 		// Extract title, URL, and abstract using regex
-		if title := t.extractJSONField(line, "title"); title != "" {
-			result.WriteString(fmt.Sprintf("Title: %s\n", title))
+		title := t.extractJSONField(line, "title")
+		url := t.extractJSONField(line, "url")
+		abstract := t.extractJSONField(line, "abstract")
+
+		// Only add if we have at least title and URL
+		if title != "" && url != "" {
+			validResults = append(validResults, fmt.Sprintf("\033[93m%d) \033[93m%s\033[0m\n\033[95m%s\033[0m\n", resultNumber, title, url))
+			if abstract != "" {
+				validResults[len(validResults)-1] += fmt.Sprintf("\033[92m%s\033[0m\n", abstract)
+			}
+			resultNumber++
 		}
-		if url := t.extractJSONField(line, "url"); url != "" {
-			result.WriteString(fmt.Sprintf("URL: %s\n", url))
+	}
+
+	// Format results with proper spacing
+	for i, validResult := range validResults {
+		result.WriteString(validResult)
+		if i < len(validResults)-1 {
+			result.WriteString("\n")
 		}
-		if abstract := t.extractJSONField(line, "abstract"); abstract != "" {
-			result.WriteString(fmt.Sprintf("Description: %s\n", abstract))
-		}
-		result.WriteString("\n")
 	}
 
 	return result.String()
