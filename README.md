@@ -311,7 +311,7 @@ cd ch
 ```bash
 # using the install script (local build options)
 ./install.sh -b     # build locally without installing
-./install.sh -d -b  # update dependencies and build
+./install.sh -r -b  # refresh/update all dependencies and build
 ./install.sh -h     # show help with all options
 
 # using Make directly
@@ -338,8 +338,8 @@ git clone https://github.com/MehmetMHY/ch.git
 
 cd ch
 
-# update dependencies and build
-./install.sh -d -b
+# refresh dependencies and build
+./install.sh -r -b
 
 make dev
 ```

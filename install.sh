@@ -492,11 +492,153 @@ build_only() {
 	echo -e "Binary location: \033[90m./bin/ch\033[0m"
 }
 
+update_cli_tools() {
+	log "Updating CLI tools..."
+
+	local os
+	os=$(detect_os)
+
+	# Core dependencies to update
+	local system_deps=("fzf" "curl" "lynx")
+	local pip_deps=("yt-dlp" "ddgr")
+
+	# Update system-managed dependencies
+	case "$os" in
+	"macos")
+		if command -v brew >/dev/null 2>&1; then
+			for dep in "${system_deps[@]}"; do
+				if command -v "$dep" >/dev/null 2>&1; then
+					log "Updating $dep..."
+					brew upgrade "$dep" 2>/dev/null || log "$dep already up to date or not installed via brew"
+				fi
+			done
+		fi
+		;;
+	"android")
+		if command -v pkg >/dev/null 2>&1; then
+			log "Updating package list..."
+			pkg update -y >/dev/null 2>&1
+			for dep in "${system_deps[@]}"; do
+				if command -v "$dep" >/dev/null 2>&1; then
+					log "Updating $dep..."
+					pkg upgrade -y "$dep" 2>/dev/null || log "$dep already up to date"
+				fi
+			done
+		fi
+		;;
+	"linux")
+		if command -v sudo >/dev/null 2>&1; then
+			# Handle fzf special case (might be installed from git)
+			if command -v fzf >/dev/null 2>&1 && [[ -d ~/.fzf ]]; then
+				log "Updating fzf from git..."
+				(cd ~/.fzf && git pull && ./install --all >/dev/null 2>&1) || log "Failed to update fzf from git"
+			else
+				# Update via package manager
+				if command -v apt-get >/dev/null 2>&1; then
+					log "Updating package list..."
+					sudo apt-get update -qq >/dev/null 2>&1
+					for dep in "${system_deps[@]}"; do
+						if command -v "$dep" >/dev/null 2>&1; then
+							log "Updating $dep..."
+							sudo apt-get install --only-upgrade -y "$dep" 2>/dev/null || log "$dep already up to date"
+						fi
+					done
+				elif command -v pacman >/dev/null 2>&1; then
+					log "Updating package database..."
+					sudo pacman -Sy >/dev/null 2>&1
+					for dep in "${system_deps[@]}"; do
+						if command -v "$dep" >/dev/null 2>&1; then
+							log "Updating $dep..."
+							sudo pacman -S --noconfirm "$dep" 2>/dev/null || log "$dep already up to date"
+						fi
+					done
+				elif command -v dnf >/dev/null 2>&1; then
+					for dep in "${system_deps[@]}"; do
+						if command -v "$dep" >/dev/null 2>&1; then
+							log "Updating $dep..."
+							sudo dnf upgrade -y "$dep" 2>/dev/null || log "$dep already up to date"
+						fi
+					done
+				elif command -v yum >/dev/null 2>&1; then
+					for dep in "${system_deps[@]}"; do
+						if command -v "$dep" >/dev/null 2>&1; then
+							log "Updating $dep..."
+							sudo yum update -y "$dep" 2>/dev/null || log "$dep already up to date"
+						fi
+					done
+				elif command -v zypper >/dev/null 2>&1; then
+					for dep in "${system_deps[@]}"; do
+						if command -v "$dep" >/dev/null 2>&1; then
+							log "Updating $dep..."
+							sudo zypper update -y "$dep" 2>/dev/null || log "$dep already up to date"
+						fi
+					done
+				elif command -v apk >/dev/null 2>&1; then
+					log "Updating package index..."
+					sudo apk update >/dev/null 2>&1
+					for dep in "${system_deps[@]}"; do
+						if command -v "$dep" >/dev/null 2>&1; then
+							log "Updating $dep..."
+							sudo apk upgrade "$dep" 2>/dev/null || log "$dep already up to date"
+						fi
+					done
+				else
+					log "No supported package manager found for updating system packages"
+				fi
+			fi
+		else
+			log "sudo not available - skipping system package updates"
+		fi
+		;;
+	esac
+
+	# Update Python-managed dependencies
+	for dep in "${pip_deps[@]}"; do
+		if command -v "$dep" >/dev/null 2>&1; then
+			log "Updating $dep..."
+			case "$dep" in
+			"yt-dlp")
+				# yt-dlp has its own update mechanism on non-Android systems
+				if [[ "$os" != "android" ]]; then
+					yt-dlp --update 2>/dev/null || {
+						# Fallback to pip if self-update fails
+						if command -v pip3 >/dev/null 2>&1; then
+							pip3 install --upgrade --user yt-dlp 2>/dev/null || log "Failed to update yt-dlp"
+						elif command -v pip >/dev/null 2>&1; then
+							pip install --upgrade --user yt-dlp 2>/dev/null || log "Failed to update yt-dlp"
+						fi
+					}
+				else
+					# On Android, use pip directly
+					if command -v pip >/dev/null 2>&1; then
+						pip install --upgrade yt-dlp 2>/dev/null || log "Failed to update yt-dlp"
+					fi
+				fi
+				;;
+			"ddgr")
+				if command -v pip3 >/dev/null 2>&1; then
+					pip3 install --upgrade --user ddgr 2>/dev/null || log "Failed to update ddgr"
+				elif command -v pip >/dev/null 2>&1; then
+					pip install --upgrade --user ddgr 2>/dev/null || log "Failed to update ddgr"
+				else
+					log "pip not available - cannot update ddgr"
+				fi
+				;;
+			esac
+		fi
+	done
+
+	log "CLI tools update complete"
+}
+
 refresh_deps() {
 	log "Refreshing dependencies..."
 	go get -u ./... || error "Failed to refresh dependencies"
 	go mod tidy || error "Failed to tidy modules"
-	log "Dependencies refreshed successfully"
+	log "Go dependencies refreshed successfully"
+
+	update_cli_tools
+	log "All dependencies refreshed successfully"
 }
 
 show_help() {
