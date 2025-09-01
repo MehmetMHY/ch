@@ -1264,21 +1264,33 @@ func (t *Terminal) isYouTubeURL(urlStr string) bool {
 		strings.Contains(host, "youtube-nocookie.com")
 }
 
+// cleanURL removes backslash escapes from URLs that shells sometimes add
+func (t *Terminal) cleanURL(urlStr string) string {
+	// Remove backslash escapes from common shell-escaped characters in URLs
+	cleaned := strings.ReplaceAll(urlStr, `\?`, `?`)
+	cleaned = strings.ReplaceAll(cleaned, `\=`, `=`)
+	cleaned = strings.ReplaceAll(cleaned, `\&`, `&`)
+	return cleaned
+}
+
 // scrapeURL scrapes content from a single URL
 func (t *Terminal) scrapeURL(urlStr string) (string, error) {
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("=== %s ===\n", urlStr))
+	// Clean any shell escapes from the URL
+	cleanedURL := t.cleanURL(urlStr)
 
-	if t.isYouTubeURL(urlStr) {
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("=== %s ===\n\n", cleanedURL))
+
+	if t.isYouTubeURL(cleanedURL) {
 		// YouTube scraping with yt-dlp
-		content, err := t.scrapeYouTube(urlStr)
+		content, err := t.scrapeYouTube(cleanedURL)
 		if err != nil {
 			return "", fmt.Errorf("failed to scrape YouTube URL: %w", err)
 		}
 		result.WriteString(content)
 	} else {
 		// Regular web scraping with curl + lynx
-		content, err := t.scrapeWeb(urlStr)
+		content, err := t.scrapeWeb(cleanedURL)
 		if err != nil {
 			return "", fmt.Errorf("failed to scrape URL: %w", err)
 		}
