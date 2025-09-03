@@ -4,6 +4,7 @@ set -euo pipefail
 
 CH_HOME="$HOME/.ch"
 BIN_DIR="$CH_HOME/bin"
+VENV_DIR="$CH_HOME/venv"
 REPO_URL="https://github.com/MehmetMHY/ch.git"
 
 log() {
@@ -13,6 +14,10 @@ log() {
 error() {
 	echo -e "\033[91mERROR: $1\033[0m" >&2
 	exit 1
+}
+
+warning() {
+	echo -e "\033[93mWarning: $1\033[0m"
 }
 
 uninstall_ch() {
@@ -50,7 +55,7 @@ uninstall_ch() {
 				if command -v sudo >/dev/null 2>&1; then
 					sudo rm -f "/usr/local/bin/ch"
 				else
-					log "Warning: Could not remove /usr/local/bin/ch (no sudo access)"
+					warning "Could not remove /usr/local/bin/ch (no sudo access)"
 				fi
 			fi
 			log "Removed symlink: /usr/local/bin/ch"
@@ -97,36 +102,48 @@ install_dependencies() {
 
 	log "Checking system dependencies for $os"
 
-	# Core dependencies (clipboard utilities are optional and auto-detected)
-	local deps=("fzf" "curl" "lynx" "yt-dlp")
-	local missing_deps=()
-	local pip_deps=("ddgr")
-	local missing_pip_deps=()
+	# fzf is critical, the rest are optional
+	local required_deps=("fzf")
+	local optional_deps=("curl" "lynx" "yt-dlp")
+	pip_deps=("ddgr") # Handled separately in a venv
 
-	for dep in "${deps[@]}"; do
+	local missing_required=()
+	local missing_optional=()
+	local missing_pip=()
+
+	for dep in "${required_deps[@]}"; do
 		if ! command -v "$dep" >/dev/null 2>&1; then
-			missing_deps+=("$dep")
+			missing_required+=("$dep")
 		fi
 	done
 
-	# Check for Python dependencies
+	for dep in "${optional_deps[@]}"; do
+		if ! command -v "$dep" >/dev/null 2>&1; then
+			missing_optional+=("$dep")
+		fi
+	done
+
+	# Check for Python dependencies (look in venv first)
 	for dep in "${pip_deps[@]}"; do
-		if ! command -v "$dep" >/dev/null 2>&1; then
-			missing_pip_deps+=("$dep")
+		if ! command -v "$dep" >/dev/null 2>&1 && ! [[ -f "$VENV_DIR/bin/$dep" ]]; then
+			missing_pip+=("$dep")
 		fi
 	done
 
-	if [[ ${#missing_deps[@]} -eq 0 ]] && [[ ${#missing_pip_deps[@]} -eq 0 ]]; then
+	if [[ ${#missing_required[@]} -eq 0 ]] && [[ ${#missing_optional[@]} -eq 0 ]] && [[ ${#missing_pip[@]} -eq 0 ]]; then
 		log "All dependencies already installed"
 		return
 	fi
 
-	if [[ ${#missing_deps[@]} -gt 0 ]]; then
-		log "The following system dependencies are missing: ${missing_deps[*]}"
+	# Announce missing dependencies
+	if [[ ${#missing_required[@]} -gt 0 ]]; then
+		log "The following required system dependencies are missing: ${missing_required[*]}"
 	fi
-
-	if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-		log "The following Python dependencies are missing: ${missing_pip_deps[*]}"
+	if [[ ${#missing_optional[@]} -gt 0 ]]; then
+		log "The following optional system dependencies are missing: ${missing_optional[*]}"
+	fi
+	if [[ ${#missing_pip[@]} -gt 0 ]]; then
+		log "The following optional Python dependencies are missing: ${missing_pip[*]}"
 	fi
 
 	case "$os" in
@@ -134,22 +151,28 @@ install_dependencies() {
 		if ! command -v brew >/dev/null 2>&1; then
 			error "Homebrew is required on macOS to install dependencies. Install from https://brew.sh/"
 		fi
-		for dep in "${missing_deps[@]}"; do
-			log "Installing $dep with Homebrew..."
-			brew install "$dep"
+		# Install required
+		for dep in "${missing_required[@]}"; do
+			log "Installing required dependency $dep with Homebrew..."
+			brew install "$dep" || error "Failed to install required dependency: $dep. Please install it manually."
+		done
+		# Install optional
+		for dep in "${missing_optional[@]}"; do
+			log "Installing optional dependency $dep with Homebrew..."
+			brew install "$dep" || warning "Failed to install optional dependency: $dep."
 		done
 		# Install Python dependencies
-		if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+		if [[ ${#missing_pip[@]} -gt 0 ]]; then
 			if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
 				log "Installing Python and pip..."
-				brew install python
+				brew install python || warning "Failed to install Python. Pip dependencies will be skipped."
 			fi
-			for dep in "${missing_pip_deps[@]}"; do
+			for dep in "${missing_pip[@]}"; do
 				log "Installing $dep with pip..."
 				if command -v pip3 >/dev/null 2>&1; then
-					pip3 install "$dep"
+					pip3 install "$dep" || warning "Failed to install optional dependency: $dep."
 				else
-					pip install "$dep"
+					pip install "$dep" || warning "Failed to install optional dependency: $dep."
 				fi
 			done
 		fi
@@ -159,169 +182,111 @@ install_dependencies() {
 			error "pkg package manager not found. Make sure you're running this in Termux."
 		fi
 		pkg update -y
-		for dep in "${missing_deps[@]}"; do
-			log "Installing $dep with pkg..."
-			pkg install -y "$dep"
+		# Install required
+		for dep in "${missing_required[@]}"; do
+			log "Installing required dependency $dep with pkg..."
+			pkg install -y "$dep" || error "Failed to install required dependency: $dep. Please install it manually."
+		done
+		# Install optional
+		for dep in "${missing_optional[@]}"; do
+			log "Installing optional dependency $dep with pkg..."
+			pkg install -y "$dep" || warning "Failed to install optional dependency: $dep."
 		done
 		# Install Python dependencies
-		if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
+		if [[ ${#missing_pip[@]} -gt 0 ]]; then
 			if ! command -v pip >/dev/null 2>&1; then
 				log "Installing Python and pip..."
-				pkg install -y python
+				pkg install -y python || warning "Failed to install Python. Pip dependencies will be skipped."
 			fi
-			for dep in "${missing_pip_deps[@]}"; do
+			for dep in "${missing_pip[@]}"; do
 				log "Installing $dep with pip..."
-				pip install "$dep"
+				pip install "$dep" || warning "Failed to install optional dependency: $dep."
 			done
 		fi
 		;;
 	"linux")
-		if command -v sudo >/dev/null 2>&1; then
-			if command -v apt-get >/dev/null 2>&1; then
-				sudo apt-get update -qq
-				for dep in "${missing_deps[@]}"; do
-					log "Installing $dep with apt-get..."
-					sudo apt-get install -y "$dep"
-				done
-				# Install Python dependencies
-				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
-						log "Installing Python and pip..."
-						sudo apt-get install -y python3-pip
-					fi
-					for dep in "${missing_pip_deps[@]}"; do
-						log "Installing $dep with pip..."
-						if command -v pip3 >/dev/null 2>&1; then
-							pip3 install --user "$dep"
-						else
-							pip install --user "$dep"
-						fi
-					done
-				fi
-			elif command -v pacman >/dev/null 2>&1; then
-				for dep in "${missing_deps[@]}"; do
-					log "Installing $dep with pacman..."
-					sudo pacman -Sy --noconfirm "$dep"
-				done
-				# Install Python dependencies
-				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-					if ! command -v pip >/dev/null 2>&1; then
-						log "Installing Python and pip..."
-						sudo pacman -S --noconfirm python-pip
-					fi
-					for dep in "${missing_pip_deps[@]}"; do
-						log "Installing $dep with pip..."
-						pip install --user "$dep"
-					done
-				fi
-			elif command -v dnf >/dev/null 2>&1; then
-				for dep in "${missing_deps[@]}"; do
-					log "Installing $dep with dnf..."
-					sudo dnf install -y "$dep"
-				done
-				# Install Python dependencies
-				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
-						log "Installing Python and pip..."
-						sudo dnf install -y python3-pip
-					fi
-					for dep in "${missing_pip_deps[@]}"; do
-						log "Installing $dep with pip..."
-						if command -v pip3 >/dev/null 2>&1; then
-							pip3 install --user "$dep"
-						else
-							pip install --user "$dep"
-						fi
-					done
-				fi
-			elif command -v yum >/dev/null 2>&1; then
-				for dep in "${missing_deps[@]}"; do
-					log "Installing $dep with yum..."
-					sudo yum install -y "$dep"
-				done
-				# Install Python dependencies
-				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
-						log "Installing Python and pip..."
-						sudo yum install -y python3-pip
-					fi
-					for dep in "${missing_pip_deps[@]}"; do
-						log "Installing $dep with pip..."
-						if command -v pip3 >/dev/null 2>&1; then
-							pip3 install --user "$dep"
-						else
-							pip install --user "$dep"
-						fi
-					done
-				fi
-			elif command -v zypper >/dev/null 2>&1; then
-				for dep in "${missing_deps[@]}"; do
-					log "Installing $dep with zypper..."
-					sudo zypper install -y "$dep"
-				done
-				# Install Python dependencies
-				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
-						log "Installing Python and pip..."
-						sudo zypper install -y python3-pip
-					fi
-					for dep in "${missing_pip_deps[@]}"; do
-						log "Installing $dep with pip..."
-						if command -v pip3 >/dev/null 2>&1; then
-							pip3 install --user "$dep"
-						else
-							pip install --user "$dep"
-						fi
-					done
-				fi
-			elif command -v apk >/dev/null 2>&1; then
-				for dep in "${missing_deps[@]}"; do
-					log "Installing $dep with apk..."
-					sudo apk add "$dep"
-				done
-				# Install Python dependencies
-				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-					if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
-						log "Installing Python and pip..."
-						sudo apk add py3-pip
-					fi
-					for dep in "${missing_pip_deps[@]}"; do
-						log "Installing $dep with pip..."
-						if command -v pip3 >/dev/null 2>&1; then
-							pip3 install --user "$dep"
-						else
-							pip install --user "$dep"
-						fi
-					done
-				fi
-			else
-				local all_missing=("${missing_deps[@]}")
-				if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-					all_missing+=("${missing_pip_deps[@]}")
-				fi
-				error "Unsupported package manager. Please install manually: ${all_missing[*]}"
-			fi
-		else
+		if ! command -v sudo >/dev/null 2>&1; then
 			error "sudo is required to install dependencies on Linux. Please install it first."
 		fi
 
-		# Final fallback for Python dependencies if not handled by package manager
-		if [[ ${#missing_pip_deps[@]} -gt 0 ]]; then
-			log "Attempting to install remaining Python dependencies with pip..."
-			if command -v pip3 >/dev/null 2>&1; then
-				for dep in "${missing_pip_deps[@]}"; do
-					if ! command -v "$dep" >/dev/null 2>&1; then
-						log "Installing $dep with pip3..."
-						pip3 install --user "$dep" 2>/dev/null || log "Failed to install $dep with pip3"
-					fi
-				done
-			elif command -v pip >/dev/null 2>&1; then
-				for dep in "${missing_pip_deps[@]}"; do
-					if ! command -v "$dep" >/dev/null 2>&1; then
-						log "Installing $dep with pip..."
-						pip install --user "$dep" 2>/dev/null || log "Failed to install $dep with pip"
-					fi
-				done
+		local all_deps=("${missing_required[@]}" "${missing_optional[@]}")
+		local pkg_manager=""
+		if command -v apt-get >/dev/null 2>&1; then pkg_manager="apt-get"; fi
+		if command -v pacman >/dev/null 2>&1; then pkg_manager="pacman"; fi
+		if command -v dnf >/dev/null 2>&1; then pkg_manager="dnf"; fi
+		if command -v yum >/dev/null 2>&1; then pkg_manager="yum"; fi
+		if command -v zypper >/dev/null 2>&1; then pkg_manager="zypper"; fi
+		if command -v apk >/dev/null 2>&1; then pkg_manager="apk"; fi
+
+		if [[ -z "$pkg_manager" ]]; then
+			error "Unsupported package manager. Please install manually: fzf (required), ${optional_deps[*]} (optional)"
+		fi
+
+		log "Updating package manager..."
+		case "$pkg_manager" in
+		"apt-get") sudo apt-get update -qq ;;
+		"pacman") sudo pacman -Sy --noconfirm ;;
+		esac
+
+		# Install required
+		for dep in "${missing_required[@]}"; do
+			log "Installing required dependency $dep with $pkg_manager..."
+			case "$pkg_manager" in
+			"apt-get") sudo apt-get install -y "$dep" ;;
+			"pacman") sudo pacman -S --noconfirm "$dep" ;;
+			"dnf") sudo dnf install -y "$dep" ;;
+			"yum") sudo yum install -y "$dep" ;;
+			"zypper") sudo zypper install -y "$dep" ;;
+			"apk") sudo apk add "$dep" ;;
+			esac
+			if ! command -v "$dep" >/dev/null 2>&1; then
+				error "Failed to install required dependency: $dep. Please install it manually."
+			fi
+		done
+
+		# Install optional
+		for dep in "${missing_optional[@]}"; do
+			log "Installing optional dependency $dep with $pkg_manager..."
+			case "$pkg_manager" in
+			"apt-get") sudo apt-get install -y "$dep" ;;
+			"pacman") sudo pacman -S --noconfirm "$dep" ;;
+			"dnf") sudo dnf install -y "$dep" ;;
+			"yum") sudo yum install -y "$dep" ;;
+			"zypper") sudo zypper install -y "$dep" ;;
+			"apk") sudo apk add "$dep" ;;
+			esac
+			if ! command -v "$dep" >/dev/null 2>&1; then
+				warning "Failed to install optional dependency: $dep."
+			fi
+		done
+
+		# Install Python dependencies into a virtual environment
+		if [[ ${#missing_pip[@]} -gt 0 ]]; then
+			log "Setting up Python virtual environment for Ch dependencies..."
+			if ! command -v python3 >/dev/null 2>&1; then
+				warning "python3 is not installed. Skipping Python dependencies."
+			else
+				# Ensure venv module is available
+				if ! python3 -c "import venv" >/dev/null 2>&1; then
+					log "Python 'venv' module not found, attempting to install..."
+					case "$pkg_manager" in
+					"apt-get") sudo apt-get install -y python3-venv ;;
+					"dnf" | "yum") sudo "$pkg_manager" install -y python3-virtualenv ;; # RHEL family
+					*)
+						warning "Could not automatically install 'venv' module. Please install python3-venv or equivalent."
+						;;
+					esac
+				fi
+
+				if python3 -c "import venv" >/dev/null 2>&1; then
+					python3 -m venv "$VENV_DIR" || warning "Failed to create Python virtual environment."
+					for dep in "${missing_pip[@]}"; do
+						log "Installing $dep with pip into virtual environment..."
+						"$VENV_DIR/bin/pip" install "$dep" || warning "Failed to install optional dependency: $dep."
+					done
+				else
+					warning "Python 'venv' module is required but not available. Skipping Python dependencies."
+				fi
 			fi
 		fi
 		;;
@@ -335,30 +300,45 @@ build_ch() {
 	log "Creating application temp directory"
 	mkdir -p "$CH_HOME/tmp" || error "Failed to create directory $CH_HOME/tmp"
 
-	if [[ -d "$CH_HOME" ]]; then
-		log "Removing existing Ch installation..."
-		rm -rf "$CH_HOME"
-		mkdir -p "$BIN_DIR"
-	fi
-
 	log "Building Ch..."
 	go mod download || error "Failed to download Go modules"
 
 	local os
 	os=$(detect_os)
+	local bin_path="$BIN_DIR/ch-bin"
 
 	if [[ "$os" == "android" ]]; then
 		log "Building for Android (disabling CGO)..."
-		CGO_ENABLED=0 go build -o "$BIN_DIR/ch" cmd/ch/main.go || error "Failed to build Ch"
+		CGO_ENABLED=0 go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
 	else
-		go build -o "$BIN_DIR/ch" cmd/ch/main.go || error "Failed to build Ch"
+		go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
 	fi
+
+	log "Creating wrapper script..."
+	local wrapper_path="$BIN_DIR/ch"
+	cat >"$wrapper_path" <<EOF
+#!/usr/bin/env bash
+# This script is a wrapper to ensure Ch can find its Python dependencies.
+
+CH_HOME="\$HOME/.ch"
+VENV_DIR="\$CH_HOME/venv"
+
+# If a virtual environment exists, add its bin directory to the PATH
+if [[ -d "\$VENV_DIR" ]]; then
+    export PATH="\$VENV_DIR/bin:\$PATH"
+fi
+
+# Execute the main Ch binary
+exec "\$CH_HOME/bin/ch-bin" "\$@"
+EOF
+
+	chmod +x "$wrapper_path" || error "Failed to make wrapper script executable"
 }
 
 create_symlink() {
 	local os
 	os=$(detect_os)
-	local source_path="$BIN_DIR/ch"
+	local source_path="$BIN_DIR/ch" # Symlink to the wrapper script
 
 	if [[ "$os" == "android" ]]; then
 		log "Creating symlink for 'ch' in \$PREFIX/bin"
@@ -396,7 +376,7 @@ create_symlink() {
 			if command -v sudo >/dev/null 2>&1; then
 				sudo ln -sf "$source_path" "$symlink_path"
 			else
-				log "sudo not available. Cannot create symlink in $target_dir"
+				warning "sudo not available. Cannot create symlink in $target_dir"
 				log "You can still use ch by either:"
 				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
 				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
@@ -404,7 +384,7 @@ create_symlink() {
 				return 0
 			fi
 			if [[ $? -ne 0 ]]; then
-				log "Failed to create symlink in $target_dir"
+				warning "Failed to create symlink in $target_dir"
 				log "You can still use ch by either:"
 				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
 				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
@@ -458,6 +438,8 @@ check_git_and_pull() {
 
 _install_ch_from_repo() {
 	log "Starting Ch installation process from local repository..."
+	# Create CH_HOME early for venv setup
+	mkdir -p "$CH_HOME"
 	check_go
 	install_dependencies
 	build_ch
@@ -531,7 +513,7 @@ update_cli_tools() {
 			# Handle fzf special case (might be installed from git)
 			if command -v fzf >/dev/null 2>&1 && [[ -d ~/.fzf ]]; then
 				log "Updating fzf from git..."
-				(cd ~/.fzf && git pull && ./install --all >/dev/null 2>&1) || log "Failed to update fzf from git"
+				(cd ~/.fzf && git pull && ./install --all >/dev/null 2>&1) || warning "Failed to update fzf from git"
 			else
 				# Update via package manager
 				if command -v apt-get >/dev/null 2>&1; then
@@ -587,46 +569,55 @@ update_cli_tools() {
 				fi
 			fi
 		else
-			log "sudo not available - skipping system package updates"
+			warning "sudo not available - skipping system package updates"
 		fi
 		;;
 	esac
 
 	# Update Python-managed dependencies
-	for dep in "${pip_deps[@]}"; do
-		if command -v "$dep" >/dev/null 2>&1; then
-			log "Updating $dep..."
-			case "$dep" in
-			"yt-dlp")
-				# yt-dlp has its own update mechanism on non-Android systems
-				if [[ "$os" != "android" ]]; then
-					yt-dlp --update 2>/dev/null || {
-						# Fallback to pip if self-update fails
-						if command -v pip3 >/dev/null 2>&1; then
-							pip3 install --upgrade --user yt-dlp 2>/dev/null || log "Failed to update yt-dlp"
-						elif command -v pip >/dev/null 2>&1; then
-							pip install --upgrade --user yt-dlp 2>/dev/null || log "Failed to update yt-dlp"
+	local venv_pip="$VENV_DIR/bin/pip"
+	if [[ -f "$venv_pip" ]]; then
+		log "Updating Python dependencies in virtual environment..."
+		for dep in "${pip_deps[@]}"; do
+			if "$venv_pip" list | grep -qi "^$dep "; then
+				log "Updating $dep..."
+				"$venv_pip" install --upgrade "$dep" 2>/dev/null || warning "Failed to update $dep"
+			fi
+		done
+	else
+		# Fallback for non-venv systems (macOS, Android)
+		for dep in "${pip_deps[@]}"; do
+			if command -v "$dep" >/dev/null 2>&1; then
+				log "Updating $dep..."
+				case "$dep" in
+				"yt-dlp")
+					if [[ "$os" != "android" ]]; then
+						yt-dlp --update 2>/dev/null || {
+							if command -v pip3 >/dev/null 2>&1; then
+								pip3 install --upgrade --user yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
+							elif command -v pip >/dev/null 2>&1; then
+								pip install --upgrade --user yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
+							fi
+						}
+					else
+						if command -v pip >/dev/null 2>&1; then
+							pip install --upgrade yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
 						fi
-					}
-				else
-					# On Android, use pip directly
-					if command -v pip >/dev/null 2>&1; then
-						pip install --upgrade yt-dlp 2>/dev/null || log "Failed to update yt-dlp"
 					fi
-				fi
-				;;
-			"ddgr")
-				if command -v pip3 >/dev/null 2>&1; then
-					pip3 install --upgrade --user ddgr 2>/dev/null || log "Failed to update ddgr"
-				elif command -v pip >/dev/null 2>&1; then
-					pip install --upgrade --user ddgr 2>/dev/null || log "Failed to update ddgr"
-				else
-					log "pip not available - cannot update ddgr"
-				fi
-				;;
-			esac
-		fi
-	done
+					;;
+				"ddgr")
+					if command -v pip3 >/dev/null 2>&1; then
+						pip3 install --upgrade --user ddgr 2>/dev/null || warning "Failed to update ddgr"
+					elif command -v pip >/dev/null 2>&1; then
+						pip install --upgrade --user ddgr 2>/dev/null || warning "Failed to update ddgr"
+					else
+						warning "pip not available - cannot update ddgr"
+					fi
+					;;
+				esac
+			fi
+		done
+	fi
 
 	log "CLI tools update complete"
 }
@@ -726,7 +717,7 @@ main() {
 		fi
 
 		local temp_dir
-		temp_dir="$HOME/.ch/tmp/ch-install-$$"
+		temp_dir="$HOME/.ch/tmp/ch-install-$"
 		mkdir -p "$temp_dir" || error "Failed to create temporary directory"
 
 		trap "log 'Cleaning up temporary files...'; rm -rf '$temp_dir'" EXIT
