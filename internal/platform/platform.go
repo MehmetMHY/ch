@@ -183,7 +183,7 @@ func (m *Manager) isSlowModel(modelName string) bool {
 
 	patterns := []string{
 		`^o\d+`,
-		`^gemini-\d+\.\d+-pro.*`,
+		`^(models/)?gemini-\d+\.\d+-pro.*`,
 		`^deepseek-reasoner$`,
 		`^grok-4.*`,
 		`^claude-opus-4.*`,
