@@ -9,23 +9,23 @@ import (
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() *types.Config {
-	// Get default platform from environment variable, fallback to "openai"
+	// Get default platform from environment variable, fallback to default platform
 	defaultPlatform := os.Getenv("CH_DEFAULT_PLATFORM")
 	if defaultPlatform == "" {
 		defaultPlatform = "openai"
 	}
 
-	// Get default model from environment variable, fallback to "gpt-4o-mini"
+	// Get default model from environment variable, fallback to hardcoded default model
 	defaultModel := os.Getenv("CH_DEFAULT_MODEL")
 	if defaultModel == "" {
-		defaultModel = "gpt-4o-mini"
+		defaultModel = "gpt-4.1-mini"
 	}
 
 	return &types.Config{
 		OpenAIAPIKey:    "", // API keys are fetched per-platform in Initialize()
 		DefaultModel:    defaultModel,
 		CurrentModel:    defaultModel,
-		SystemPrompt:    "You are a helpful assistant powered by Cha who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
+		SystemPrompt:    "You are a helpful assistant powered by Ch who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
 		ExitKey:         "!q",
 		ModelSwitch:     "!m",
 		EditorInput:     "!t",

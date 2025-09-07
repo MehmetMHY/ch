@@ -294,6 +294,7 @@ Switch platforms during conversation:
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube video scraping
 - [ddgr](https://github.com/jarun/ddgr) for DuckDuckGo web search
 - Clipboard utilities (auto-detected): pbcopy, xclip, xsel, wl-copy, termux-clipboard-set
+- [Helix editor](https://helix-editor.com/) (optional but recommended for enhanced text editing)
 
 ### Build from Source
 
