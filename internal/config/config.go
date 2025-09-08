@@ -114,6 +114,15 @@ func DefaultConfig() *types.Config {
 					JSONPath: "models.name",
 				},
 			},
+			"mistral": {
+				Name:    "mistral",
+				BaseURL: "https://api.mistral.ai/v1",
+				EnvName: "MISTRAL_API_KEY",
+				Models: types.PlatformModels{
+					URL:      "https://api.mistral.ai/v1/models",
+					JSONPath: "data.id",
+				},
+			},
 		},
 	}
 }

@@ -60,7 +60,7 @@ ch "What are the key features of Go programming language?"
 ## Features
 
 - **High Performance**: Built for speed with minimal startup overhead
-- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, and Ollama
+- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, Mistral AI, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
 - **Smart File Handling**: Load text files, PDFs, Word docs, spreadsheets (XLSX/CSV), and directories
@@ -130,6 +130,7 @@ export ANTHROPIC_API_KEY="your-anthropic-key"
 export XAI_API_KEY="your-xai-key"
 export TOGETHER_API_KEY="your-together-key"
 export GEMINI_API_KEY="your-gemini-key"
+export MISTRAL_API_KEY="your-mistral-key"
 ```
 
 ### Default Settings
@@ -273,6 +274,7 @@ Ch supports multiple AI platforms with seamless switching:
 | xAI       | Grok models                | `XAI_API_KEY`        |
 | Together  | Llama3, Mixtral, etc.      | `TOGETHER_API_KEY`   |
 | Google    | Gemini models              | `GEMINI_API_KEY`     |
+| Mistral   | Mistral-tiny, small, etc.  | `MISTRAL_API_KEY`    |
 | Ollama    | Local models (Llama3, etc) | (none)               |
 
 Switch platforms during conversation:
