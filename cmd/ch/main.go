@@ -976,10 +976,6 @@ func handleWebSearch(query string, chatManager *chat.Manager, terminal *ui.Termi
 	}
 
 	if content != "" {
-		// Print the formatted results to the user
-		fmt.Print(content)
-
-		// Add to conversation context
 		chatManager.AddUserMessage(content)
 		historySummary := fmt.Sprintf("Web search: %s", query)
 		chatManager.AddToHistory(historySummary, "")

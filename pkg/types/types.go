@@ -33,35 +33,37 @@ type PlatformModels struct {
 
 // Config holds application configuration
 type Config struct {
-	OpenAIAPIKey    string
-	DefaultModel    string
-	CurrentModel    string
-	SystemPrompt    string
-	ExitKey         string
-	ModelSwitch     string
-	EditorInput     string
-	ClearHistory    string
-	HelpKey         string
-	ExportChat      string
-	Backtrack       string
-	SaveHistory     string
-	WebSearch       string
-	ScrapeURL       string
-	CopyToClipboard string
-	LoadFiles       string
-	LoadFilesAdv    string
-	AnswerSearch    string
-	PlatformSwitch  string
-	CodeDump        string
-	ShellRecord     string
-	ShellOption     string
-	LoadHistory     string
-	EditorAlias     string
-	MultiLine       string
-	ListHistory     string
-	PreferredEditor string
-	CurrentPlatform string
-	Platforms       map[string]Platform
+	OpenAIAPIKey      string
+	DefaultModel      string
+	CurrentModel      string
+	SystemPrompt      string
+	ExitKey           string
+	ModelSwitch       string
+	EditorInput       string
+	ClearHistory      string
+	HelpKey           string
+	ExportChat        string
+	Backtrack         string
+	SaveHistory       string
+	WebSearch         string
+	ShowSearchResults bool
+	NumSearchResults  int
+	ScrapeURL         string
+	CopyToClipboard   string
+	LoadFiles         string
+	LoadFilesAdv      string
+	AnswerSearch      string
+	PlatformSwitch    string
+	CodeDump          string
+	ShellRecord       string
+	ShellOption       string
+	LoadHistory       string
+	EditorAlias       string
+	MultiLine         string
+	ListHistory       string
+	PreferredEditor   string
+	CurrentPlatform   string
+	Platforms         map[string]Platform
 }
 
 // ExportEntry represents a single entry in the JSON export

@@ -1436,14 +1436,13 @@ func (t *Terminal) ScrapeURLs(urls []string) (string, error) {
 
 // WebSearch performs a web search using ddgr
 func (t *Terminal) WebSearch(query string) (string, error) {
-	// Check if ddgr is available
 	_, err := exec.LookPath("ddgr")
 	if err != nil {
 		return "", fmt.Errorf("ddgr is not installed. Please install it to use web search")
 	}
 
-	// Use ddgr to search with more results and JSON output
-	cmd := exec.Command("ddgr", "--json", "--num", "5", query)
+	numResults := fmt.Sprintf("%d", t.config.NumSearchResults)
+	cmd := exec.Command("ddgr", "--json", "--num", numResults, query)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("search failed: %w", err)
@@ -1451,11 +1450,19 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 
 	searchResults := string(output)
 	if strings.TrimSpace(searchResults) == "" || searchResults == "[]" {
-		return fmt.Sprintf("No search results found for: %s\n", query), nil
+		noResultsMsg := fmt.Sprintf("No search results found for: %s\n", query)
+		if t.config.ShowSearchResults {
+			fmt.Print(noResultsMsg)
+		}
+		return noResultsMsg, nil
 	}
 
-	// Parse and format results
 	formatted := t.parseSearchResults(searchResults, query)
+
+	if t.config.ShowSearchResults {
+		fmt.Print(formatted)
+	}
+
 	return formatted, nil
 }
 
