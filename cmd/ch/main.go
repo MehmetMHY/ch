@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -88,7 +89,12 @@ func main() {
 			return
 		}
 
-		filename := fmt.Sprintf("code_dump_%s.txt", uuid.New().String())
+		currentDir, err := os.Getwd()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error getting current directory: %v", err))
+			return
+		}
+		filename := generateUniqueCodeDumpFilename(currentDir, codedump)
 		err = os.WriteFile(filename, []byte(codedump), 0644)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error writing codedump file: %v", err))
@@ -982,4 +988,78 @@ func handleWebSearch(query string, chatManager *chat.Manager, terminal *ui.Termi
 	}
 
 	return true
+}
+
+// generateHashFromContent creates a short hash using characters from the content
+func generateHashFromContent(content string, length int) string {
+	return generateHashFromContentWithOffset(content, length, 0)
+}
+
+// generateHashFromContentWithOffset creates a hash with an offset for collision avoidance
+func generateHashFromContentWithOffset(content string, length, offset int) string {
+	// Extract alphanumeric characters from content
+	var charset []rune
+	for _, char := range content {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') {
+			charset = append(charset, char)
+		}
+	}
+
+	// Fallback to default charset if content has no alphanumeric characters
+	if len(charset) == 0 {
+		charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	}
+
+	// Use content + offset as seed for more variation
+	seed := int64(len(content) + offset)
+	for i, char := range content {
+		if i < 100 { // Only use first 100 chars to avoid overflow
+			seed += int64(char) * int64(i+offset+1)
+		}
+	}
+	rand.Seed(seed)
+
+	// Generate hash
+	hash := make([]rune, length)
+	for i := range hash {
+		hash[i] = charset[rand.Intn(len(charset))]
+	}
+
+	return string(hash)
+}
+
+// generateUniqueCodeDumpFilename generates a unique filename for code dump with collision detection
+func generateUniqueCodeDumpFilename(currentDir, content string) string {
+	baseHash := generateHashFromContent(content, 8)
+	filename := fmt.Sprintf("code_dump_%s.txt", baseHash)
+	fullPath := filepath.Join(currentDir, filename)
+
+	// Check if file exists, if not return it
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		return filename
+	}
+
+	// If file exists, try with different offsets
+	for offset := 1; offset <= 10; offset++ {
+		newHash := generateHashFromContentWithOffset(content, 8, offset)
+		filename = fmt.Sprintf("code_dump_%s.txt", newHash)
+		fullPath = filepath.Join(currentDir, filename)
+
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			return filename
+		}
+	}
+
+	// If still colliding, add a numeric suffix
+	for counter := 1; counter <= 999; counter++ {
+		filename = fmt.Sprintf("code_dump_%s_%03d.txt", baseHash, counter)
+		fullPath = filepath.Join(currentDir, filename)
+
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			return filename
+		}
+	}
+
+	// Fallback to original UUID if everything fails
+	return fmt.Sprintf("code_dump_%s.txt", uuid.New().String())
 }
