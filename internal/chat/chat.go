@@ -452,8 +452,11 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no chat entries to export")
 	}
 
+	// Add [ALL] option at the top of the list
+	fzfOptions := append([]string{"[ALL]"}, items...)
+
 	// Use fzf for selection
-	selectedItems, err := terminal.FzfMultiSelect(items, "Export entries (TAB=multi): ")
+	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "Export entries (TAB=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled or failed: %v", err)
 	}
@@ -462,26 +465,40 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no entries selected")
 	}
 
-	// Extract selected chat entries
+	// Check if [ALL] was selected
 	var selectedEntries []types.ChatHistory
-	for _, selectedItem := range selectedItems {
-		// Parse the index from the selected item
-		parts := strings.Split(selectedItem, ":")
-		if len(parts) < 1 {
-			continue
+	allSelected := false
+	for _, item := range selectedItems {
+		if strings.HasPrefix(item, "[ALL]") {
+			allSelected = true
+			break
 		}
+	}
 
-		var index int
-		_, err := fmt.Sscanf(parts[0], "%d", &index)
-		if err != nil {
-			continue
-		}
+	if allSelected {
+		// Select all entries
+		selectedEntries = chatEntries
+	} else {
+		// Extract selected chat entries
+		for _, selectedItem := range selectedItems {
+			// Parse the index from the selected item
+			parts := strings.Split(selectedItem, ":")
+			if len(parts) < 1 {
+				continue
+			}
 
-		// Find the matching entry
-		for i, entry := range m.state.ChatHistory {
-			if i == index {
-				selectedEntries = append(selectedEntries, entry)
-				break
+			var index int
+			_, err := fmt.Sscanf(parts[0], "%d", &index)
+			if err != nil {
+				continue
+			}
+
+			// Find the matching entry
+			for i, entry := range m.state.ChatHistory {
+				if i == index {
+					selectedEntries = append(selectedEntries, entry)
+					break
+				}
 			}
 		}
 	}
