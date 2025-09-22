@@ -5,6 +5,10 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io/fs"
 	"io/ioutil"
 	"net/url"
@@ -12,12 +16,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/ledongthuc/pdf"
 	"github.com/nguyenthenguyen/docx"
+	"github.com/otiai10/gosseract/v2"
+	"github.com/rwcarlsen/goexif/exif"
 	"github.com/tealeg/xlsx/v3"
 )
 
@@ -591,7 +598,7 @@ func (t *Terminal) LoadFileContent(selections []string) (string, error) {
 	return contentBuilder.String(), nil
 }
 
-// loadTextFile loads content from various file types (text, PDF, DOCX, XLSX, CSV)
+// loadTextFile loads content from various file types (text, PDF, DOCX, XLSX, CSV, images)
 func (t *Terminal) loadTextFile(filePath string) (string, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
@@ -607,6 +614,8 @@ func (t *Terminal) loadTextFile(filePath string) (string, error) {
 		content, err = t.loadXLSX(filePath)
 	case ".csv":
 		content, err = t.loadCSV(filePath)
+	case ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp":
+		content, err = t.loadImage(filePath)
 	default:
 		// Handle regular text files
 		fileContent, readErr := ioutil.ReadFile(filePath)
@@ -771,6 +780,227 @@ func (t *Terminal) loadCSV(filePath string) (string, error) {
 	}
 
 	return content.String(), nil
+}
+
+// loadImage loads and extracts metadata and basic information from image files
+func (t *Terminal) loadImage(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open image file: %w", err)
+	}
+	defer file.Close()
+
+	var content strings.Builder
+	content.WriteString(fmt.Sprintf("Image Analysis for: %s\n\n", filepath.Base(filePath)))
+
+	// Get basic file info
+	fileInfo, err := file.Stat()
+	if err == nil {
+		content.WriteString(fmt.Sprintf("File Size: %d bytes (%.2f KB)\n", fileInfo.Size(), float64(fileInfo.Size())/1024.0))
+		content.WriteString(fmt.Sprintf("Modified: %s\n", fileInfo.ModTime().Format("2006-01-02 15:04:05")))
+	}
+
+	// Reset file pointer
+	file.Seek(0, 0)
+
+	// Decode image to get basic properties
+	img, format, err := image.Decode(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	bounds := img.Bounds()
+	content.WriteString(fmt.Sprintf("Format: %s\n", strings.ToUpper(format)))
+	content.WriteString(fmt.Sprintf("Dimensions: %dx%d pixels\n", bounds.Dx(), bounds.Dy()))
+
+	// Reset file pointer for EXIF reading
+	file.Seek(0, 0)
+
+	// Try to extract EXIF metadata
+	exifData, err := exif.Decode(file)
+	if err == nil {
+		content.WriteString("\nEXIF Metadata:\n")
+
+		// Common EXIF tags to extract
+		exifTags := []struct {
+			name string
+			tag  exif.FieldName
+		}{
+			{"Camera Make", exif.Make},
+			{"Camera Model", exif.Model},
+			{"DateTime", exif.DateTime},
+			{"DateTimeOriginal", exif.DateTimeOriginal},
+			{"DateTimeDigitized", exif.DateTimeDigitized},
+			{"Software", exif.Software},
+			{"Artist", exif.Artist},
+			{"Copyright", exif.Copyright},
+			{"ImageDescription", exif.ImageDescription},
+			{"UserComment", exif.UserComment},
+			{"Orientation", exif.Orientation},
+			{"XResolution", exif.XResolution},
+			{"YResolution", exif.YResolution},
+			{"ResolutionUnit", exif.ResolutionUnit},
+			{"Flash", exif.Flash},
+			{"FocalLength", exif.FocalLength},
+			{"ExposureTime", exif.ExposureTime},
+			{"FNumber", exif.FNumber},
+			{"ISO", exif.ISOSpeedRatings},
+			{"WhiteBalance", exif.WhiteBalance},
+			{"GPS Latitude", exif.GPSLatitude},
+			{"GPS Longitude", exif.GPSLongitude},
+			{"GPS Altitude", exif.GPSAltitude},
+		}
+
+		for _, tagInfo := range exifTags {
+			if tag, err := exifData.Get(tagInfo.tag); err == nil {
+				value := strings.TrimSpace(tag.String())
+				if value != "" && value != "0" && value != "0/1" {
+					content.WriteString(fmt.Sprintf("  %s: %s\n", tagInfo.name, value))
+				}
+			}
+		}
+
+		// Try to get GPS coordinates in a more readable format
+		if lat, err := exifData.Get(exif.GPSLatitude); err == nil {
+			if latRef, err := exifData.Get(exif.GPSLatitudeRef); err == nil {
+				if lon, err := exifData.Get(exif.GPSLongitude); err == nil {
+					if lonRef, err := exifData.Get(exif.GPSLongitudeRef); err == nil {
+						latDeg := convertDMSToDecimal(lat.String())
+						lonDeg := convertDMSToDecimal(lon.String())
+						if latRef.String() == "S" {
+							latDeg = -latDeg
+						}
+						if lonRef.String() == "W" {
+							lonDeg = -lonDeg
+						}
+						if latDeg != 0 || lonDeg != 0 {
+							content.WriteString(fmt.Sprintf("  GPS Coordinates: %.6f, %.6f\n", latDeg, lonDeg))
+						}
+					}
+				}
+			}
+		}
+	} else {
+		content.WriteString("\nNo EXIF metadata found or failed to read EXIF data\n")
+	}
+
+	// Color analysis - sample some pixels to get dominant colors
+	content.WriteString(fmt.Sprintf("\nImage Properties:\n"))
+	content.WriteString(fmt.Sprintf("  Color Mode: %T\n", img.ColorModel()))
+	content.WriteString(fmt.Sprintf("  Aspect Ratio: %.2f:1\n", float64(bounds.Dx())/float64(bounds.Dy())))
+
+	megapixels := float64(bounds.Dx()*bounds.Dy()) / 1000000.0
+	if megapixels > 1.0 {
+		content.WriteString(fmt.Sprintf("  Megapixels: %.1f MP\n", megapixels))
+	} else {
+		content.WriteString(fmt.Sprintf("  Resolution: %.0f K pixels\n", megapixels*1000))
+	}
+
+	// Extract text using OCR
+	content.WriteString("\n" + strings.Repeat("=", 50) + "\n")
+	content.WriteString("TEXT EXTRACTION (OCR):\n")
+	content.WriteString(strings.Repeat("=", 50) + "\n\n")
+
+	extractedText, err := t.extractTextFromImage(filePath)
+	if err != nil {
+		content.WriteString(fmt.Sprintf("OCR Error: %v\n", err))
+	} else if strings.TrimSpace(extractedText) == "" {
+		content.WriteString("No text detected in the image.\n")
+	} else {
+		content.WriteString("Extracted Text:\n")
+		content.WriteString(strings.Repeat("-", 30) + "\n")
+		content.WriteString(extractedText)
+		content.WriteString("\n" + strings.Repeat("-", 30) + "\n")
+	}
+
+	return content.String(), nil
+}
+
+// convertDMSToDecimal converts degrees-minutes-seconds format to decimal degrees
+func convertDMSToDecimal(dms string) float64 {
+	// Parse DMS format like "40/1,2/1,3/1" or similar
+	parts := strings.Split(dms, ",")
+	if len(parts) < 3 {
+		return 0
+	}
+
+	var degrees, minutes, seconds float64
+
+	if d := parseFraction(strings.TrimSpace(parts[0])); d >= 0 {
+		degrees = d
+	}
+	if m := parseFraction(strings.TrimSpace(parts[1])); m >= 0 {
+		minutes = m
+	}
+	if s := parseFraction(strings.TrimSpace(parts[2])); s >= 0 {
+		seconds = s
+	}
+
+	return degrees + minutes/60.0 + seconds/3600.0
+}
+
+// parseFraction parses a fraction string like "40/1" to a float64
+func parseFraction(fraction string) float64 {
+	parts := strings.Split(fraction, "/")
+	if len(parts) != 2 {
+		if f, err := strconv.ParseFloat(fraction, 64); err == nil {
+			return f
+		}
+		return -1
+	}
+
+	numerator, err1 := strconv.ParseFloat(parts[0], 64)
+	denominator, err2 := strconv.ParseFloat(parts[1], 64)
+
+	if err1 != nil || err2 != nil || denominator == 0 {
+		return -1
+	}
+
+	return numerator / denominator
+}
+
+// extractTextFromImage uses Tesseract OCR to extract text from an image
+func (t *Terminal) extractTextFromImage(filePath string) (string, error) {
+	client := gosseract.NewClient()
+	defer client.Close()
+
+	// Set language (default to English, but could be made configurable)
+	err := client.SetLanguage("eng")
+	if err != nil {
+		// If English fails, try without setting language
+		client = gosseract.NewClient()
+		defer client.Close()
+	}
+
+	// Set image source
+	err = client.SetImage(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to set image source: %w", err)
+	}
+
+	// Configure OCR settings for better accuracy
+	client.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?@#$%^&*()_+-={}[]|\\:;\"'<>/~` ")
+
+	// Extract text
+	text, err := client.Text()
+	if err != nil {
+		return "", fmt.Errorf("OCR extraction failed: %w", err)
+	}
+
+	// Clean up the extracted text
+	cleanedText := strings.TrimSpace(text)
+
+	// Remove excessive whitespace and normalize line breaks
+	lines := strings.Split(cleanedText, "\n")
+	var cleanedLines []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			cleanedLines = append(cleanedLines, line)
+		}
+	}
+
+	return strings.Join(cleanedLines, "\n"), nil
 }
 
 // isTextFile checks if content is likely from a text file
@@ -1137,6 +1367,8 @@ func (t *Terminal) isTextFileByPath(filePath string) bool {
 		".mm": true, ".cs": true, ".vb": true, ".fs": true, ".clj": true,
 		// Document files
 		".pdf": true, ".docx": true, ".xlsx": true, ".csv": true,
+		// Image files
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".bmp": true, ".tiff": true, ".tif": true, ".webp": true,
 		".hs": true, ".elm": true, ".ex": true, ".exs": true, ".erl": true,
 		".hrl": true, ".dart": true, ".gradle": true, ".sbt": true,
 		".build": true, ".cmake": true, ".mk": true, ".am": true, ".in": true,
@@ -1219,19 +1451,45 @@ func (t *Terminal) generateCodeDumpFromDir(files []string, sourceDir string) (st
 	for _, file := range files {
 		// Build full path for reading
 		fullPath := filepath.Join(sourceDir, file)
-		content, err := ioutil.ReadFile(fullPath)
-		if err != nil {
-			result.WriteString(fmt.Sprintf("=== FILE: %s ===\nError reading file: %v\n\n", file, err))
-			continue
+
+		// Check if this is a supported file type that we can process
+		ext := strings.ToLower(filepath.Ext(file))
+		supportedTypes := []string{".pdf", ".docx", ".xlsx", ".csv", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
+		isSpecialFile := false
+		for _, supportedExt := range supportedTypes {
+			if ext == supportedExt {
+				isSpecialFile = true
+				break
+			}
 		}
 
-		// Double-check if it's a text file
-		if !t.isTextFile(content) {
-			continue
+		var content string
+		if isSpecialFile {
+			// Use loadTextFile for special file types (PDFs, images, etc.)
+			fileContent, err := t.loadTextFile(fullPath)
+			if err != nil {
+				result.WriteString(fmt.Sprintf("=== FILE: %s ===\nError processing file: %v\n\n", file, err))
+				continue
+			}
+			content = fileContent
+		} else {
+			// Use regular file reading for text files
+			fileBytes, err := ioutil.ReadFile(fullPath)
+			if err != nil {
+				result.WriteString(fmt.Sprintf("=== FILE: %s ===\nError reading file: %v\n\n", file, err))
+				continue
+			}
+
+			// Double-check if it's a text file
+			if !t.isTextFile(fileBytes) {
+				continue
+			}
+
+			content = fmt.Sprintf("File: %s\n%s", file, string(fileBytes))
 		}
 
 		result.WriteString(fmt.Sprintf("=== FILE: %s ===\n", file))
-		result.WriteString(string(content))
+		result.WriteString(content)
 		result.WriteString("\n\n")
 	}
 
