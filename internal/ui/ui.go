@@ -292,7 +292,6 @@ func (t *Terminal) ShowHelpFzf() string {
 	fzfArgs := []string{
 		"--reverse", "--height=40%", "--border",
 		"--prompt=Option: ", "--multi",
-		"--header", fmt.Sprintf("Chatting on %s with %s", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel),
 	}
 	inputText := strings.Join(options, "\n")
 
@@ -319,7 +318,6 @@ func (t *Terminal) ShowHelpFzf() string {
 
 	// If only [ALL] is selected, show all options
 	if len(selectedItems) == 1 && strings.HasPrefix(selectedItems[0], "[ALL]") {
-		fmt.Printf("\033[93m%s\033[0m\n", fmt.Sprintf("Chatting on %s with %s", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel))
 		for _, option := range options {
 			if !strings.HasPrefix(option, "[ALL]") {
 				fmt.Printf("\033[93m%s\033[0m\n", option)
@@ -382,7 +380,6 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 
 // PrintTitle displays the current session information
 func (t *Terminal) PrintTitle() {
-	fmt.Printf("\033[93mChatting on %s with %s\033[0m\n", strings.ToUpper(t.config.CurrentPlatform), t.config.CurrentModel)
 	fmt.Printf("\033[93m%s - exit interface\033[0m\n", t.config.ExitKey)
 	fmt.Printf("\033[93m%s - switch models\033[0m\n", t.config.ModelSwitch)
 	fmt.Printf("\033[93m%s - switch platforms\033[0m\n", t.config.PlatformSwitch)
