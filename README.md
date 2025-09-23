@@ -68,6 +68,7 @@ ch "What are the key features of Go programming language?"
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
 - **Chat History Viewer**: Interactive display of conversation history with filtering and search
+- **Session State Viewer**: Check current session details like model, platform, and token usage
 - **Token Counting**: Estimate token usage for files with model-aware tokenization
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
@@ -230,6 +231,7 @@ When in interactive mode (`ch`), use these commands:
 
 - **`!q`** - Exit interface
 - **`!h`** - Interactive help menu
+- **`!i`** - Show current session state
 - **`!m`** - Switch models (with fuzzy finder)
 - **`!p`** - Switch platforms (with fuzzy finder)
 - **`!c`** - Clear chat history

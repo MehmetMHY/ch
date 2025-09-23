@@ -61,6 +61,7 @@ type Config struct {
 	EditorAlias       string              `json:"editor_alias,omitempty"`
 	MultiLine         string              `json:"multi_line,omitempty"`
 	ListHistory       string              `json:"list_history,omitempty"`
+	ShowState         string              `json:"show_state,omitempty"`
 	PreferredEditor   string              `json:"preferred_editor,omitempty"`
 	CurrentPlatform   string              `json:"current_platform,omitempty"`
 	Platforms         map[string]Platform `json:"platforms,omitempty"`

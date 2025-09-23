@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/MehmetMHY/ch/internal/chat"
 	"github.com/MehmetMHY/ch/internal/config"
@@ -476,6 +477,13 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		return true
 
+	case input == config.ShowState:
+		err := handleShowState(chatManager, terminal, state)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error showing state: %v", err))
+		}
+		return true
+
 	case input == config.ScrapeURL:
 		if fromHelp {
 			fmt.Printf("\033[93m%s <url1> [url2] ... - scrape content from URLs\033[0m\n", config.ScrapeURL)
@@ -858,6 +866,48 @@ func handleExportChatInteractive(chatManager *chat.Manager, terminal *ui.Termina
 
 func handleListHistory(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) error {
 	return chatManager.ListChatHistory(terminal)
+}
+
+func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) error {
+	// Get current time
+	currentDate := time.Now().Format("2006-01-02")
+	currentTime := time.Now().Format("15:04:05 MST")
+
+	// Get platform and model
+	platform := chatManager.GetCurrentPlatform()
+	model := chatManager.GetCurrentModel()
+
+	// Get chat history and count
+	chatHistory := chatManager.GetChatHistory()
+	chatCount := len(chatHistory) - 1 // Subtract system prompt
+
+	// Calculate total token count
+	var totalContent string
+	for _, entry := range chatHistory {
+		totalContent += entry.User + " " + entry.Bot + " "
+	}
+
+	encoding := tokenizer.Cl100kBase
+	enc, err := tokenizer.Get(encoding)
+	if err != nil {
+		return fmt.Errorf("error getting tokenizer: %v", err)
+	}
+
+	tokens, _, err := enc.Encode(totalContent)
+	if err != nil {
+		return fmt.Errorf("error encoding text: %v", err)
+	}
+	tokenCount := len(tokens)
+
+	// Print the state
+	fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "Date:", currentDate)
+	fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "Time:", currentTime)
+	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Platform:", platform)
+	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Model:", model)
+	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "Chats:", chatCount)
+	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "Tokens:", tokenCount)
+
+	return nil
 }
 
 func handleTokenCount(filePath string, model string, terminal *ui.Terminal, state *types.AppState) error {

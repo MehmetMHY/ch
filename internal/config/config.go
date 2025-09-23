@@ -126,6 +126,9 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.ListHistory != "" {
 		defaultConfig.ListHistory = userConfig.ListHistory
 	}
+	if userConfig.ShowState != "" {
+		defaultConfig.ShowState = userConfig.ShowState
+	}
 	if userConfig.PreferredEditor != "" {
 		defaultConfig.PreferredEditor = userConfig.PreferredEditor
 	}
@@ -190,6 +193,7 @@ func DefaultConfig() *types.Config {
 		EditorAlias:       "!v",
 		MultiLine:         "\\",
 		ListHistory:       "|",
+		ShowState:         "!i",
 		PreferredEditor:   "hx",
 		CurrentPlatform:   defaultPlatform,
 		Platforms: map[string]types.Platform{

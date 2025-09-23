@@ -182,62 +182,37 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("Ch - A lightweight CLI tool for AI model interaction")
 	fmt.Println("")
 	fmt.Println("Usage:")
-	fmt.Printf("  ch [-h] [-d [DIRECTORY]] [-p [PLATFORM]] [-m MODEL] [-w URL/TEXT] [-e] [query]\n")
-	fmt.Println("")
-	fmt.Println("Positional arguments:")
-	fmt.Println("  query                 query to send to the AI model")
+	fmt.Printf("  ch [-h] [-d [DIRECTORY]] [-p [PLATFORM]] [-m MODEL] [-l FILE/URL] [-e] [query]\n")
 	fmt.Println("")
 	fmt.Println("Options:")
-	fmt.Println("  -h, --help           show this help message and exit")
-	fmt.Println("  -d [DIRECTORY]       generate codedump file (optionally specify directory path)")
-	fmt.Println("  -p [PLATFORM]        switch platform (leave empty for interactive selection)")
-	fmt.Println("  -m MODEL             specify model to use")
-	fmt.Println("  -l FILE/URL          load and display file content (text, PDF, DOCX, XLSX, CSV) or scrape URL")
-	fmt.Println("  -e, --export         export code blocks from the last response")
+	fmt.Printf("  %-18s %s\n", "-h, --help", "show this help message and exit")
+	fmt.Printf("  %-18s %s\n", "-d [DIRECTORY]", "generate codedump file (optionally specify directory path)")
+	fmt.Printf("  %-18s %s\n", "-p [PLATFORM]", "switch platform (leave empty for interactive selection)")
+	fmt.Printf("  %-18s %s\n", "-m MODEL", "specify model to use")
+	fmt.Printf("  %-18s %s\n", "-l FILE/URL", "load and display file content or scrape URL")
+	fmt.Printf("  %-18s %s\n", "-e, --export", "export code blocks from the last response")
 	fmt.Println("")
 	fmt.Println("Examples:")
 	fmt.Println("  ch \"What is artificial intelligence?\"")
-	fmt.Println("  ch -p groq \"What is the meaning of life?\"")
 	fmt.Println("  ch -p groq -m llama3-8b-8192 \"Explain quantum computing\"")
-	fmt.Println("  ch -m gpt-4o \"Write a Python function to calculate fibonacci\"")
-	fmt.Println("  ch -l document.pdf                           # Load and display PDF content")
-	fmt.Println("  ch -l https://example.com                    # Scrape and display web content")
-	fmt.Println("  ch -e \"Write a Python script to sort a list\"  # Export code to file")
-	fmt.Println("  ch -d                                         # Generate codedump of current directory")
-	fmt.Println("  ch -d /path/to/project                        # Generate codedump of specific directory")
-	fmt.Println("")
-	fmt.Println("Piping Examples:")
+	fmt.Println("  ch -l document.pdf")
+	fmt.Println("  ch -d /path/to/project")
 	fmt.Println("  cat main.py | ch \"What does this code do?\"")
-	fmt.Println("  echo \"hello world\" | ch \"Translate to Spanish\"")
-	fmt.Println("  ls -la | ch \"Summarize this directory\"")
-	fmt.Println("  curl api.example.com | ch \"Parse this JSON response\"")
 	fmt.Println("")
-	fmt.Println("Available Platforms:")
-	fmt.Println("  - openai (default)")
+
+	// Dynamically generate platforms list
+	var platforms []string
+	platforms = append(platforms, "openai (default)")
 	for name := range t.config.Platforms {
-		fmt.Printf("  - %s\n", name)
+		if name != "openai" {
+			platforms = append(platforms, name)
+		}
 	}
+	fmt.Println("Available Platforms:")
+	fmt.Printf("  %s\n", strings.Join(platforms, ", "))
 	fmt.Println("")
-	fmt.Println("Interactive Commands:")
-	fmt.Printf("  %s - exit interface\n", t.config.ExitKey)
-	fmt.Printf("  %s - switch models\n", t.config.ModelSwitch)
-	fmt.Printf("  %s - text editor input mode\n", t.config.EditorInput)
-	fmt.Printf("  %s - clear chat history\n", t.config.ClearHistory)
-	fmt.Printf("  %s - backtrack to a previous message\n", t.config.Backtrack)
-	fmt.Printf("  %s - help page\n", t.config.HelpKey)
-	fmt.Printf("  %s - switch platforms (interactive)\n", t.config.PlatformSwitch)
-	fmt.Printf("  %s [platform] - switch to specific platform\n", t.config.PlatformSwitch)
-	fmt.Printf("  %s [dir] - load files/dirs from current or specified directory\n", t.config.LoadFiles)
-	fmt.Printf("  %s - generate codedump (all text files with fzf exclusion)\n", t.config.CodeDump)
-	fmt.Printf("  %s - export selected chat entries to a file\n", t.config.ExportChat)
-	fmt.Printf("  %s - record a shell session and use it as context\n", t.config.ShellRecord)
-	fmt.Printf("  %s <url1> [url2] ... - scrape content from URLs\n", t.config.ScrapeURL)
-	fmt.Printf("  %s <query> - search web using ddgr\n", t.config.WebSearch)
-	fmt.Printf("  %s - copy selected responses to clipboard\n", t.config.CopyToClipboard)
-	fmt.Printf("  %s - multi-line input mode (end with '\\')\n", t.config.MultiLine)
-	fmt.Printf("  %s - list and display chat history\n", t.config.ListHistory)
-	fmt.Printf("  Ctrl+C - clear current prompt input\n")
-	fmt.Printf("  Ctrl+D - exit interface\n")
+	fmt.Println("Interactive Mode:")
+	fmt.Println("  Run 'ch' without arguments to start. Use '!h' for a full list of commands.")
 }
 
 // RecordShellSession records the entire shell session and returns the content as a string.
@@ -397,6 +372,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
 		fmt.Sprintf("%s - multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 		fmt.Sprintf("%s - list and display chat history", t.config.ListHistory),
+		fmt.Sprintf("%s - show current state", t.config.ShowState),
 		"Ctrl+C - clear current prompt input",
 		"Ctrl+D - exit interface",
 	}
