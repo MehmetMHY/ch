@@ -369,9 +369,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s <query> - search web using ddgr", t.config.WebSearch),
 		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
 		fmt.Sprintf("%s - multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
-		fmt.Sprintf("%s - list and display chat history", t.config.ListHistory),
-		fmt.Sprintf("%s - show current state", t.config.ShowState),
-		"Ctrl+C - clear current prompt input",
+		fmt.Sprintf("%s - show current state", t.config.ShowState), "Ctrl+C - clear current prompt input",
 		"Ctrl+D - exit interface",
 	}
 
@@ -392,7 +390,6 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
 	fmt.Printf("\033[93m%s - multi-line input\033[0m\n", t.config.MultiLine)
-	fmt.Printf("\033[93m%s - list chat history\033[0m\n", t.config.ListHistory)
 	fmt.Printf("\033[93mCtrl+C - clear prompt input\033[0m\n")
 	fmt.Printf("\033[93mCtrl+D - exit interface\033[0m\n")
 }

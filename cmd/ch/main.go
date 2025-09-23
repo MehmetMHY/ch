@@ -470,13 +470,6 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		return true
 
-	case input == config.ListHistory:
-		err := handleListHistory(chatManager, terminal, state)
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error listing history: %v", err))
-		}
-		return true
-
 	case input == config.ShowState:
 		err := handleShowState(chatManager, terminal, state)
 		if err != nil {
@@ -862,10 +855,6 @@ func handleExportChatInteractive(chatManager *chat.Manager, terminal *ui.Termina
 	}
 
 	return nil
-}
-
-func handleListHistory(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) error {
-	return chatManager.ListChatHistory(terminal)
 }
 
 func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) error {

@@ -67,7 +67,6 @@ ch "What are the key features of Go programming language?"
 - **Smart File Handling**: Load text files, PDFs, Word docs, spreadsheets (XLSX/CSV), images (with OCR text extraction), and directories
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
-- **Chat History Viewer**: Interactive display of conversation history with filtering and search
 - **Session State Viewer**: Check current session details like model, platform, and token usage
 - **Token Counting**: Estimate token usage for files with model-aware tokenization
 - **Text Editor Integration**: Use your preferred editor for complex prompts
@@ -246,7 +245,6 @@ When in interactive mode (`ch`), use these commands:
 - **`!y`** - Copy selected responses to clipboard
 - **`!x`** - Record shell session or run command (`!x ls` streams output live)
 - **`\`** - Multi-line input mode
-- **`|`** - View and display chat history
 - **`Ctrl+C`** - Clear current prompt input
 - **`Ctrl+D`** - Exit interface
 
@@ -263,13 +261,6 @@ When in interactive mode (`ch`), use these commands:
 1. Select chat entries with fzf
 2. Edit content in your preferred editor
 3. Choose existing file or create new file with suggested names
-
-**Chat History Viewer (`|`):**
-
-1. Browse complete conversation history with exact search
-2. Filter by user messages, bot responses, or loaded files
-3. Display individual entries or complete formatted history
-4. Shows platform/model changes and file loading events
 
 **URL Scraping (`!s` and `-l` with URLs):**
 
