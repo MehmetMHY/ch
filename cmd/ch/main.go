@@ -142,7 +142,6 @@ func main() {
 		if result != nil {
 			chatManager.SetCurrentPlatform(result["platform_name"].(string))
 			chatManager.SetCurrentModel(result["picked_model"].(string))
-			terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
 		}
 	}
 

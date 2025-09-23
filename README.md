@@ -13,6 +13,7 @@
 - [Configuration](#configuration)
   - [API Keys](#api-keys)
   - [Default Settings](#default-settings)
+  - [Config File](#config-file)
   - [Local \& Open-Source Setup (Ollama)](#local--open-source-setup-ollama)
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
@@ -135,15 +136,43 @@ export MISTRAL_API_KEY="your-mistral-key"
 
 ### Default Settings
 
-Customize default platform and model:
+Customize default platform and model via environment variables:
 
 ```bash
 # default: openai
 export CH_DEFAULT_PLATFORM="groq"
 
-# default: gpt-4o-mini
+# default: gpt-4.1-mini
 export CH_DEFAULT_MODEL="llama3-8b-8192"
 ```
+
+### Config File
+
+For persistent configuration, create `~/.ch/config.json` to override default settings without needing environment variables:
+
+```json
+{
+  "default_model": "grok-4-fast-non-reasoning",
+  "current_platform": "xai",
+  "preferred_editor": "vim",
+  "show_search_results": true,
+  "num_search_results": 10,
+  "system_prompt": "You are a helpful assistant."
+}
+```
+
+**Available config options:**
+
+- `default_model` - Set default model (automatically sets current_model if not specified)
+- `current_model` - Set current active model
+- `current_platform` - Set default platform
+- `preferred_editor` - Set preferred text editor (default: "hx")
+- `show_search_results` - Show/hide web search results (default: false)
+- `num_search_results` - Number of search results to display (default: 5)
+- `system_prompt` - Customize the system prompt
+- Plus all other configuration options using snake_case JSON field names
+
+The config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
 
 ### Local & Open-Source Setup (Ollama)
 

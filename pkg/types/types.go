@@ -33,37 +33,37 @@ type PlatformModels struct {
 
 // Config holds application configuration
 type Config struct {
-	OpenAIAPIKey      string
-	DefaultModel      string
-	CurrentModel      string
-	SystemPrompt      string
-	ExitKey           string
-	ModelSwitch       string
-	EditorInput       string
-	ClearHistory      string
-	HelpKey           string
-	ExportChat        string
-	Backtrack         string
-	SaveHistory       string
-	WebSearch         string
-	ShowSearchResults bool
-	NumSearchResults  int
-	ScrapeURL         string
-	CopyToClipboard   string
-	LoadFiles         string
-	LoadFilesAdv      string
-	AnswerSearch      string
-	PlatformSwitch    string
-	CodeDump          string
-	ShellRecord       string
-	ShellOption       string
-	LoadHistory       string
-	EditorAlias       string
-	MultiLine         string
-	ListHistory       string
-	PreferredEditor   string
-	CurrentPlatform   string
-	Platforms         map[string]Platform
+	OpenAIAPIKey      string              `json:"openai_api_key,omitempty"`
+	DefaultModel      string              `json:"default_model,omitempty"`
+	CurrentModel      string              `json:"current_model,omitempty"`
+	SystemPrompt      string              `json:"system_prompt,omitempty"`
+	ExitKey           string              `json:"exit_key,omitempty"`
+	ModelSwitch       string              `json:"model_switch,omitempty"`
+	EditorInput       string              `json:"editor_input,omitempty"`
+	ClearHistory      string              `json:"clear_history,omitempty"`
+	HelpKey           string              `json:"help_key,omitempty"`
+	ExportChat        string              `json:"export_chat,omitempty"`
+	Backtrack         string              `json:"backtrack,omitempty"`
+	SaveHistory       string              `json:"save_history,omitempty"`
+	WebSearch         string              `json:"web_search,omitempty"`
+	ShowSearchResults bool                `json:"show_search_results,omitempty"`
+	NumSearchResults  int                 `json:"num_search_results,omitempty"`
+	ScrapeURL         string              `json:"scrape_url,omitempty"`
+	CopyToClipboard   string              `json:"copy_to_clipboard,omitempty"`
+	LoadFiles         string              `json:"load_files,omitempty"`
+	LoadFilesAdv      string              `json:"load_files_adv,omitempty"`
+	AnswerSearch      string              `json:"answer_search,omitempty"`
+	PlatformSwitch    string              `json:"platform_switch,omitempty"`
+	CodeDump          string              `json:"code_dump,omitempty"`
+	ShellRecord       string              `json:"shell_record,omitempty"`
+	ShellOption       string              `json:"shell_option,omitempty"`
+	LoadHistory       string              `json:"load_history,omitempty"`
+	EditorAlias       string              `json:"editor_alias,omitempty"`
+	MultiLine         string              `json:"multi_line,omitempty"`
+	ListHistory       string              `json:"list_history,omitempty"`
+	PreferredEditor   string              `json:"preferred_editor,omitempty"`
+	CurrentPlatform   string              `json:"current_platform,omitempty"`
+	Platforms         map[string]Platform `json:"platforms,omitempty"`
 }
 
 // ExportEntry represents a single entry in the JSON export

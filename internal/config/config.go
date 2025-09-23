@@ -1,13 +1,153 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/MehmetMHY/ch/pkg/types"
 )
 
-// DefaultConfig returns the default configuration
+// loadConfigFromFile loads configuration from config.json in ~/.ch/ directory
+func loadConfigFromFile() (*types.Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	chDir := filepath.Join(homeDir, ".ch")
+	configPath := filepath.Join(chDir, "config.json")
+
+	// Create ~/.ch directory if it doesn't exist
+	if err := os.MkdirAll(chDir, 0755); err != nil {
+		return nil, err
+	}
+
+	// Return empty config if file doesn't exist
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return &types.Config{}, nil
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var config types.Config
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+// mergeConfigs merges user config with default config, user config takes precedence
+func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
+	if userConfig.DefaultModel != "" {
+		defaultConfig.DefaultModel = userConfig.DefaultModel
+		// If current_model isn't explicitly set in user config, use the default_model
+		if userConfig.CurrentModel == "" {
+			defaultConfig.CurrentModel = userConfig.DefaultModel
+		}
+	}
+	if userConfig.CurrentModel != "" {
+		defaultConfig.CurrentModel = userConfig.CurrentModel
+	}
+	if userConfig.SystemPrompt != "" {
+		defaultConfig.SystemPrompt = userConfig.SystemPrompt
+	}
+	if userConfig.ExitKey != "" {
+		defaultConfig.ExitKey = userConfig.ExitKey
+	}
+	if userConfig.ModelSwitch != "" {
+		defaultConfig.ModelSwitch = userConfig.ModelSwitch
+	}
+	if userConfig.EditorInput != "" {
+		defaultConfig.EditorInput = userConfig.EditorInput
+	}
+	if userConfig.ClearHistory != "" {
+		defaultConfig.ClearHistory = userConfig.ClearHistory
+	}
+	if userConfig.HelpKey != "" {
+		defaultConfig.HelpKey = userConfig.HelpKey
+	}
+	if userConfig.ExportChat != "" {
+		defaultConfig.ExportChat = userConfig.ExportChat
+	}
+	if userConfig.Backtrack != "" {
+		defaultConfig.Backtrack = userConfig.Backtrack
+	}
+	if userConfig.SaveHistory != "" {
+		defaultConfig.SaveHistory = userConfig.SaveHistory
+	}
+	if userConfig.WebSearch != "" {
+		defaultConfig.WebSearch = userConfig.WebSearch
+	}
+	if userConfig.NumSearchResults != 0 {
+		defaultConfig.NumSearchResults = userConfig.NumSearchResults
+	}
+	if userConfig.ScrapeURL != "" {
+		defaultConfig.ScrapeURL = userConfig.ScrapeURL
+	}
+	if userConfig.CopyToClipboard != "" {
+		defaultConfig.CopyToClipboard = userConfig.CopyToClipboard
+	}
+	if userConfig.LoadFiles != "" {
+		defaultConfig.LoadFiles = userConfig.LoadFiles
+	}
+	if userConfig.LoadFilesAdv != "" {
+		defaultConfig.LoadFilesAdv = userConfig.LoadFilesAdv
+	}
+	if userConfig.AnswerSearch != "" {
+		defaultConfig.AnswerSearch = userConfig.AnswerSearch
+	}
+	if userConfig.PlatformSwitch != "" {
+		defaultConfig.PlatformSwitch = userConfig.PlatformSwitch
+	}
+	if userConfig.CodeDump != "" {
+		defaultConfig.CodeDump = userConfig.CodeDump
+	}
+	if userConfig.ShellRecord != "" {
+		defaultConfig.ShellRecord = userConfig.ShellRecord
+	}
+	if userConfig.ShellOption != "" {
+		defaultConfig.ShellOption = userConfig.ShellOption
+	}
+	if userConfig.LoadHistory != "" {
+		defaultConfig.LoadHistory = userConfig.LoadHistory
+	}
+	if userConfig.EditorAlias != "" {
+		defaultConfig.EditorAlias = userConfig.EditorAlias
+	}
+	if userConfig.MultiLine != "" {
+		defaultConfig.MultiLine = userConfig.MultiLine
+	}
+	if userConfig.ListHistory != "" {
+		defaultConfig.ListHistory = userConfig.ListHistory
+	}
+	if userConfig.PreferredEditor != "" {
+		defaultConfig.PreferredEditor = userConfig.PreferredEditor
+	}
+	if userConfig.CurrentPlatform != "" {
+		defaultConfig.CurrentPlatform = userConfig.CurrentPlatform
+	}
+	// Note: ShowSearchResults is a bool, so we need to check if it was explicitly set
+	// In JSON, omitempty will skip false values, but we can't distinguish between
+	// unset and explicitly false. For now, we'll always use the default unless true is set.
+	defaultConfig.ShowSearchResults = defaultConfig.ShowSearchResults || userConfig.ShowSearchResults
+
+	// Merge platforms if provided
+	if userConfig.Platforms != nil {
+		for name, platform := range userConfig.Platforms {
+			defaultConfig.Platforms[name] = platform
+		}
+	}
+
+	return defaultConfig
+}
+
+// DefaultConfig returns the default configuration merged with user config from config.json
 func DefaultConfig() *types.Config {
 	// Get default platform from environment variable, fallback to default platform
 	defaultPlatform := os.Getenv("CH_DEFAULT_PLATFORM")
@@ -21,7 +161,7 @@ func DefaultConfig() *types.Config {
 		defaultModel = "gpt-4.1-mini"
 	}
 
-	return &types.Config{
+	defaultConfig := &types.Config{
 		OpenAIAPIKey:      "", // API keys are fetched per-platform in Initialize()
 		DefaultModel:      defaultModel,
 		CurrentModel:      defaultModel,
@@ -127,6 +267,16 @@ func DefaultConfig() *types.Config {
 			},
 		},
 	}
+
+	// Load user config from config.json and merge with defaults
+	userConfig, err := loadConfigFromFile()
+	if err != nil {
+		// If we can't load user config, just return defaults
+		// In a production app you might want to log this error
+		return defaultConfig
+	}
+
+	return mergeConfigs(defaultConfig, userConfig)
 }
 
 // InitializeAppState creates and returns initial application state
