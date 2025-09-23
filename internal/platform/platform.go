@@ -181,6 +181,11 @@ func (m *Manager) isSlowModel(modelName string) bool {
 		return true
 	}
 
+	// NOTE: (9-22-2025) Special handling for grok-4-fast models
+	if strings.HasPrefix(modelName, "grok-4-fast") {
+		return false
+	}
+
 	patterns := []string{
 		`^o\d+`,
 		`^(models/)?gemini-\d+\.\d+-pro.*`,
