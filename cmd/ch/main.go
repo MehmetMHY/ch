@@ -318,6 +318,13 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	case input == config.HelpKey || input == "help":
 		selectedCommand := terminal.ShowHelpFzf()
+		if selectedCommand == "[STATE]" {
+			err := handleShowState(chatManager, terminal, state)
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error showing state: %v", err))
+			}
+			return true
+		}
 		if selectedCommand != "" {
 			// Recursively handle the selected command
 			return handleSpecialCommandsInternal(selectedCommand, chatManager, platformManager, terminal, state, true)
@@ -467,13 +474,6 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			terminal.PrintError(err.Error())
 		} else {
 			terminal.PrintInfo(fmt.Sprintf("backtracked by %d", backtrackedCount))
-		}
-		return true
-
-	case input == config.ShowState:
-		err := handleShowState(chatManager, terminal, state)
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error showing state: %v", err))
 		}
 		return true
 

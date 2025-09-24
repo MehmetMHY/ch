@@ -331,6 +331,9 @@ func (t *Terminal) ShowHelpFzf() string {
 }
 
 func (t *Terminal) processHelpSelection(selected string, options []string) string {
+	if strings.HasPrefix(selected, "[STATE]") {
+		return "[STATE]"
+	}
 	// If line contains [ or ], just print it in yellow and return
 	if strings.Contains(selected, "[") || strings.Contains(selected, "]") {
 		fmt.Printf("\033[93m%s\033[0m\n", selected)
@@ -354,6 +357,7 @@ func (t *Terminal) processHelpSelection(selected string, options []string) strin
 func (t *Terminal) getInteractiveHelpOptions() []string {
 	options := []string{
 		"[ALL] - show all help options",
+		"[STATE] - show current state",
 		fmt.Sprintf("%s - exit interface", t.config.ExitKey),
 		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - text editor input mode", t.config.EditorInput),
@@ -369,7 +373,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s <query> - search web using ddgr", t.config.WebSearch),
 		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
 		fmt.Sprintf("%s - multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
-		fmt.Sprintf("%s - show current state", t.config.ShowState), "Ctrl+C - clear current prompt input",
+		"Ctrl+C - clear current prompt input",
 		"Ctrl+D - exit interface",
 	}
 
