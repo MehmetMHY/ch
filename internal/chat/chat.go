@@ -427,6 +427,20 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no chat history to export")
 	}
 
+	// Ask for edit mode
+	editMode, err := terminal.FzfSelect([]string{"Auto Export Mode", "Manual Export Mode"}, "Select export mode: ")
+	if err != nil {
+		return "", fmt.Errorf("selection cancelled or failed: %v", err)
+	}
+
+	if editMode == "Auto Export Mode" {
+		return m.ExportChatAuto(terminal)
+	}
+
+	if editMode == "" {
+		return "", nil // User cancelled
+	}
+
 	// Prepare chat entries for fzf selection (newest to oldest)
 	var items []string
 	var chatEntries []types.ChatHistory
@@ -563,68 +577,47 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	// Extract loaded files from chat history to prioritize them
 	loadedFiles := m.extractLoadedFilesFromHistory()
 
-	// Create the file selection options with smart ordering:
-	// 1. [NEW FILE] at the very top
-	// 2. Recently created files (if any)
-	// 3. Recently loaded files (if any)
-	// 4. All other files
-	var fileOptions []string
-	fileOptions = append(fileOptions, "[NEW FILE]")
-
-	// Add recently created files right after [NEW FILE]
-	prioritizedFiles := make(map[string]bool)
-	if len(m.state.RecentlyCreatedFiles) > 0 {
-		for _, file := range m.state.RecentlyCreatedFiles {
-			// Only include files that exist in current directory
-			if m.fileExistsInCurrentDir(file) {
-				fileOptions = append(fileOptions, file)
-				prioritizedFiles[file] = true
-			}
-		}
-	}
-
-	// Add loaded files after created files
-	if len(loadedFiles) > 0 {
-		for _, file := range loadedFiles {
-			if !prioritizedFiles[file] {
-				fileOptions = append(fileOptions, file)
-				prioritizedFiles[file] = true
-			}
-		}
-	}
-
-	// Add remaining files, excluding already added prioritized files
-	if len(allFiles) > 0 {
-		for _, file := range allFiles {
-			if !prioritizedFiles[file] {
-				fileOptions = append(fileOptions, file)
-			}
-		}
-	}
-
-	selectedOption, err := terminal.FzfSelect(fileOptions, "Save to file: ")
-	if err != nil {
-		return "", fmt.Errorf("file selection failed: %v", err)
-	}
-
-	if selectedOption == "" {
-		return "", fmt.Errorf("export cancelled")
-	}
-
 	var filename string
-	if selectedOption == "[NEW FILE]" {
-		// Generate filename options and let user select
-		filenameOptions := m.generateFilenameOptions(editedContent)
-		selectedFilename, err := terminal.FzfSelect(filenameOptions, "Export file: ")
-		if err != nil {
-			return "", fmt.Errorf("filename selection failed: %v", err)
+	for {
+		newFileOptions := m.generateFilenameOptions(editedContent)
+		var optionsWithOverwrite []string
+		if len(newFileOptions) >= 1 {
+			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[:1]...)
+			optionsWithOverwrite = append(optionsWithOverwrite, "[OVERWRITE]")
+			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[1:]...)
+		} else {
+			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions...)
+			optionsWithOverwrite = append(optionsWithOverwrite, "[OVERWRITE]")
 		}
-		if selectedFilename == "" {
+
+		selectedOption, err := terminal.FzfSelect(optionsWithOverwrite, "Save to file: ")
+		if err != nil {
+			return "", fmt.Errorf("file selection failed: %v", err)
+		}
+		if selectedOption == "" {
 			return "", fmt.Errorf("export cancelled")
 		}
-		filename = selectedFilename
-	} else {
-		filename = selectedOption
+
+		if selectedOption == "[OVERWRITE]" {
+			existingFileOptions := m.createPrioritizedFileOptions(".txt", allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
+			selectedOverwrite, err := terminal.FzfSelect(existingFileOptions, "Overwrite file: ")
+			if err != nil {
+				return "", fmt.Errorf("file selection failed: %v", err)
+			}
+
+			if selectedOverwrite == "[CREATE]" {
+				continue // Loop back to new file selection
+			}
+			if selectedOverwrite == "" {
+				// If user cancels overwrite, go back to new file selection
+				continue
+			}
+			filename = selectedOverwrite
+			break
+		} else {
+			filename = selectedOption
+			break
+		}
 	}
 
 	// Save to file
@@ -642,7 +635,288 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	// Track newly created file for smart prioritization
 	m.AddRecentlyCreatedFile(fullPath)
 
-	return fullPath, nil
+	return "", nil
+}
+
+// ExportChatAuto allows user to automatically extract and save code blocks from chat history
+func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
+	// Step 1: Select chats (re-using logic from ExportChatInteractive)
+	var items []string
+	var chatEntries []types.ChatHistory
+
+	// Iterate in reverse order (newest to oldest)
+	for i := len(m.state.ChatHistory) - 1; i >= 1; i-- {
+		entry := m.state.ChatHistory[i]
+		if entry.User != "" || entry.Bot != "" {
+			userPreview := strings.Split(entry.User, "\n")[0]
+			if len(userPreview) > 60 {
+				userPreview = userPreview[:60] + "..."
+			}
+			timestamp := time.Unix(entry.Time, 0).Format("2006-01-02 15:04:05")
+			items = append(items, fmt.Sprintf("%d: %s - %s", i, timestamp, userPreview))
+			chatEntries = append(chatEntries, entry)
+		}
+	}
+
+	if len(items) == 0 {
+		return "", fmt.Errorf("no chat entries to export")
+	}
+
+	fzfOptions := append([]string{"[ALL]"}, items...)
+	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "Export entries (TAB=multi): ")
+	if err != nil {
+		return "", fmt.Errorf("selection cancelled or failed: %v", err)
+	}
+	if len(selectedItems) == 0 {
+		return "", fmt.Errorf("no entries selected")
+	}
+
+	var selectedEntries []types.ChatHistory
+	allSelected := false
+	for _, item := range selectedItems {
+		if strings.HasPrefix(item, "[ALL]") {
+			allSelected = true
+			break
+		}
+	}
+
+	if allSelected {
+		selectedEntries = chatEntries
+	} else {
+		for _, selectedItem := range selectedItems {
+			var index int
+			if _, err := fmt.Sscanf(selectedItem, "%d:", &index); err == nil {
+				for i, entry := range m.state.ChatHistory {
+					if i == index {
+						selectedEntries = append(selectedEntries, entry)
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if len(selectedEntries) == 0 {
+		return "", fmt.Errorf("no valid entries found")
+	}
+
+	// Step 2: Extract content
+	type ExtractedSnippet struct {
+		Content  string
+		Language string
+	}
+	var snippets []ExtractedSnippet
+	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
+
+	for _, entry := range selectedEntries {
+		if entry.Bot != "" {
+			matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
+			for _, match := range matches {
+				language := match[1]
+				if language == "" {
+					language = "text"
+				}
+				content := match[2]
+				snippets = append(snippets, ExtractedSnippet{Content: content, Language: language})
+			}
+		}
+	}
+
+	if len(snippets) == 0 {
+		return "", fmt.Errorf("no code blocks found in selected chat entries")
+	}
+
+	// Step 3: Select snippets with fzf
+	var snippetOptions []string
+	for i, snippet := range snippets {
+		preview := strings.Split(snippet.Content, "\n")[0]
+		if len(preview) > 80 {
+			preview = preview[:80] + "..."
+		}
+		snippetOptions = append(snippetOptions, fmt.Sprintf("[%d] (%s) %s", i+1, snippet.Language, preview))
+	}
+
+	selectedSnippetItems, err := terminal.FzfMultiSelect(snippetOptions, "Select snippets to save (TAB=multi): ")
+	if err != nil {
+		return "", fmt.Errorf("snippet selection failed: %v", err)
+	}
+	if len(selectedSnippetItems) == 0 {
+		return "", fmt.Errorf("no snippets selected")
+	}
+
+	var selectedSnippets []ExtractedSnippet
+	for _, item := range selectedSnippetItems {
+		var index int
+		if _, err := fmt.Sscanf(item, "[%d]", &index); err == nil && index > 0 && index <= len(snippets) {
+			selectedSnippets = append(selectedSnippets, snippets[index-1])
+		}
+	}
+
+	if len(selectedSnippets) == 0 {
+		return "", fmt.Errorf("no valid snippets selected")
+	}
+
+	// Step 4 & 5: Get filename and save files for each snippet
+	var savedFiles []string
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %v", err)
+	}
+
+	// Pre-fetch all files once to avoid doing it in the loop
+	allFiles, err := m.getAllFilesInCurrentDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory files: %v", err)
+	}
+	loadedFiles := m.extractLoadedFilesFromHistory()
+	recentlyCreatedFiles := m.state.RecentlyCreatedFiles
+
+	for i := 0; i < len(selectedSnippets); i++ {
+		snippet := selectedSnippets[i]
+		ext := m.getLanguageExtension(snippet.Language)
+		language := snippet.Language
+		if language == "" || ext == ".txt" {
+			language = "?"
+		}
+		prompt := fmt.Sprintf("[%s %d] Save to file: ", language, i+1)
+
+		// Generate new filename options first
+		newFileOptions := m.generatePrioritizedFilenameOptions(snippet.Content, ext)
+		var optionsWithOverwrite []string
+		if len(newFileOptions) >= 1 {
+			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[:1]...)
+			optionsWithOverwrite = append(optionsWithOverwrite, "[OVERWRITE]")
+			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[1:]...)
+		} else {
+			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions...)
+			optionsWithOverwrite = append(optionsWithOverwrite, "[OVERWRITE]")
+		}
+
+		selectedOption, err := terminal.FzfSelect(optionsWithOverwrite, prompt)
+		if err != nil {
+			return "", fmt.Errorf("file selection failed: %v", err)
+		}
+		if selectedOption == "" {
+			continue // User cancelled, skip to next snippet
+		}
+
+		var filename string
+		if selectedOption == "[OVERWRITE]" {
+			// Show existing files
+			existingFileOptions := m.createPrioritizedFileOptions(ext, allFiles, loadedFiles, recentlyCreatedFiles)
+			overwritePrompt := fmt.Sprintf("[%s %d] Overwrite file: ", language, i+1)
+			selectedOverwrite, err := terminal.FzfSelect(existingFileOptions, overwritePrompt)
+			if err != nil {
+				return "", fmt.Errorf("file selection failed: %v", err)
+			}
+			if selectedOverwrite == "" || selectedOverwrite == "[CREATE]" {
+				i-- // Redo this snippet
+				continue
+			}
+			filename = selectedOverwrite
+		} else {
+			filename = selectedOption
+		}
+
+		fullPath := filepath.Join(currentDir, filename)
+		err = os.WriteFile(fullPath, []byte(snippet.Content), 0644)
+		if err != nil {
+			return "", fmt.Errorf("failed to write file %s: %v", filename, err)
+		}
+		m.AddRecentlyCreatedFile(fullPath)
+		savedFiles = append(savedFiles, fullPath)
+	}
+
+	return "", nil
+}
+
+// createPrioritizedFileOptions creates a list of file options for fzf, prioritizing files with the given extension.
+func (m *Manager) createPrioritizedFileOptions(priorityExt string, allFiles, loadedFiles, recentlyCreated []string) []string {
+	var fileOptions []string
+	var matchingFiles, otherFiles []string
+
+	// Separate files by extension
+	for _, file := range allFiles {
+		if filepath.Ext(file) == priorityExt {
+			matchingFiles = append(matchingFiles, file)
+		} else {
+			otherFiles = append(otherFiles, file)
+		}
+	}
+
+	// Use a map to avoid duplicates
+	seen := make(map[string]bool)
+
+	// Add recently created matching files
+	for _, file := range recentlyCreated {
+		if filepath.Ext(file) == priorityExt && !seen[file] {
+			fileOptions = append(fileOptions, file)
+			seen[file] = true
+		}
+	}
+	// Add recently loaded matching files
+	for _, file := range loadedFiles {
+		if filepath.Ext(file) == priorityExt && !seen[file] {
+			fileOptions = append(fileOptions, file)
+			seen[file] = true
+		}
+	}
+	// Add all other matching files
+	for _, file := range matchingFiles {
+		if !seen[file] {
+			fileOptions = append(fileOptions, file)
+			seen[file] = true
+		}
+	}
+
+	// Add other recently created/loaded files
+	for _, file := range recentlyCreated {
+		if filepath.Ext(file) != priorityExt && !seen[file] {
+			fileOptions = append(fileOptions, file)
+			seen[file] = true
+		}
+	}
+	for _, file := range loadedFiles {
+		if filepath.Ext(file) != priorityExt && !seen[file] {
+			fileOptions = append(fileOptions, file)
+			seen[file] = true
+		}
+	}
+	// Add all other files
+	for _, file := range otherFiles {
+		if !seen[file] {
+			fileOptions = append(fileOptions, file)
+			seen[file] = true
+		}
+	}
+
+	// Insert [CREATE] at the 2nd position or at the end if less than 1 file
+	if len(fileOptions) >= 1 {
+		finalOptions := make([]string, 0, len(fileOptions)+1)
+		finalOptions = append(finalOptions, fileOptions[:1]...)
+		finalOptions = append(finalOptions, "[CREATE]")
+		finalOptions = append(finalOptions, fileOptions[1:]...)
+		return finalOptions
+	}
+
+	fileOptions = append(fileOptions, "[CREATE]")
+	return fileOptions
+}
+
+// generatePrioritizedFilenameOptions creates filename options, prioritizing the correct extension.
+func (m *Manager) generatePrioritizedFilenameOptions(content, priorityExt string) []string {
+	allOptions := m.generateFilenameOptions(content)
+	var prioritizedOptions, otherOptions []string
+
+	for _, opt := range allOptions {
+		if strings.HasSuffix(opt, priorityExt) {
+			prioritizedOptions = append(prioritizedOptions, opt)
+		} else {
+			otherOptions = append(otherOptions, opt)
+		}
+	}
+
+	return append(prioritizedOptions, otherOptions...)
 }
 
 // openInEditor opens content in the user's preferred text editor and returns the edited content
@@ -682,6 +956,38 @@ func (m *Manager) openInEditor(content string) (string, error) {
 	}
 
 	return string(editedContent), nil
+}
+
+// getLanguageExtension maps language identifiers to file extensions
+func (m *Manager) getLanguageExtension(language string) string {
+	langMap := map[string]string{
+		"python": "py", "py": "py",
+		"javascript": "js", "js": "js",
+		"typescript": "ts", "ts": "ts",
+		"go":   "go",
+		"java": "java",
+		"c":    "c",
+		"cpp":  "cpp", "c++": "cpp",
+		"csharp": "cs", "cs": "cs",
+		"ruby": "rb", "rb": "rb",
+		"php":    "php",
+		"swift":  "swift",
+		"kotlin": "kt",
+		"rust":   "rs", "rs": "rs",
+		"html": "html",
+		"css":  "css",
+		"json": "json",
+		"yaml": "yaml", "yml": "yaml",
+		"markdown": "md", "md": "md",
+		"shell": "sh", "sh": "sh", "bash": "sh",
+		"sql":        "sql",
+		"dockerfile": "Dockerfile",
+		"makefile":   "Makefile",
+	}
+	if ext, ok := langMap[strings.ToLower(language)]; ok {
+		return "." + ext
+	}
+	return ".txt" // Default extension
 }
 
 // generateFilenameOptions creates filename options with ch_<hash>.ext format

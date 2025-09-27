@@ -1428,7 +1428,8 @@ func (t *Terminal) generateCodeDumpFromDir(files []string, sourceDir string) (st
 
 		// Check if this is a supported file type that we can process
 		ext := strings.ToLower(filepath.Ext(file))
-		supportedTypes := []string{".pdf", ".docx", ".xlsx", ".csv", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
+		// Image files are excluded from codedump, only document types are processed as special files.
+		supportedTypes := []string{".pdf", ".docx", ".xlsx", ".csv"}
 		isSpecialFile := false
 		for _, supportedExt := range supportedTypes {
 			if ext == supportedExt {

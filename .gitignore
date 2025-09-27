@@ -113,3 +113,5 @@ ch_*
 history/
 searxng/
 .claude
+meme/*
+meme.*

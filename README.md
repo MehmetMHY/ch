@@ -73,7 +73,7 @@ ch "What are the key features of Go programming language?"
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
 - **Chat Backtracking**: Revert to any point in conversation history
-- **Code Dump**: Package entire directories for AI analysis (includes images with OCR)
+- **Code Dump**: Package entire directories for AI analysis (text and document files only)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
 - **Clipboard Integration**: Copy AI responses to clipboard with cross-platform support
@@ -239,7 +239,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!l`** - Load files from current directory
 - **`!l <dir>`** - Load files from specified directory
 - **`!d`** - Generate code dump
-- **`!e`** - Export selected chat entries
+- **`!e`** - Export chat history with Auto or Manual modes
 - **`!s`** - Scrape content from URLs (supports multiple URLs and YouTube)
 - **`!w`** - Search web using DuckDuckGo
 - **`!y`** - Copy selected responses to clipboard
@@ -258,9 +258,10 @@ When in interactive mode (`ch`), use these commands:
 
 **Interactive Export (`!e`):**
 
-1. Select chat entries with fzf
-2. Edit content in your preferred editor
-3. Choose existing file or create new file with suggested names
+Offers two modes for exporting chat history:
+
+1. **Auto Export Mode**: Automatically extracts all code blocks from selected chats. It then lets you save each snippet individually, intelligently suggesting file names and extensions based on the code's language.
+2. **Manual Export Mode**: Combines selected chat entries into a single file for you to edit and save manually.
 
 **URL Scraping (`!s` and `-l` with URLs):**
 
@@ -341,12 +342,12 @@ cd ch
 ./install.sh -h     # show help with all options
 
 # using Make directly
-make install   # install to $GOPATH/bin
-make clean     # clean build artifacts
-make test      # run tests
-make lint      # run linter
-make fmt       # format code
-make dev       # build and run in dev mode
+make install  # install to $GOPATH/bin
+make clean    # clean build artifacts
+make test     # run tests
+make lint     # run linter
+make fmt      # format code
+make dev      # build and run in dev mode
 ```
 
 ## Contributing
