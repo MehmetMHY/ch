@@ -104,7 +104,7 @@ install_dependencies() {
 
 	# fzf is critical, the rest are optional
 	local required_deps=("fzf")
-	local optional_deps=("curl" "lynx" "yt-dlp")
+	local optional_deps=("yt-dlp")
 	pip_deps=("ddgr") # Handled separately in a venv
 
 	local missing_required=()
@@ -481,7 +481,7 @@ update_cli_tools() {
 	os=$(detect_os)
 
 	# Core dependencies to update
-	local system_deps=("fzf" "curl" "lynx")
+	local system_deps=("fzf")
 	local pip_deps=("yt-dlp" "ddgr")
 
 	# Update system-managed dependencies

@@ -9,8 +9,10 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"io/fs"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -26,6 +28,7 @@ import (
 	"github.com/otiai10/gosseract/v2"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/tealeg/xlsx/v3"
+	"golang.org/x/net/html"
 )
 
 // Terminal handles terminal-related operations
@@ -1534,15 +1537,79 @@ func (t *Terminal) scrapeURL(urlStr string) (string, error) {
 	return result.String(), nil
 }
 
-// scrapeWeb scrapes regular web pages using curl and lynx
+// scrapeWeb scrapes regular web pages using native Go http and html parsing.
 func (t *Terminal) scrapeWeb(urlStr string) (string, error) {
-	// Use curl to fetch the content and pipe to lynx for text extraction
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("curl -s %s | lynx -dump -stdin", urlStr))
-	output, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to scrape web content: %w", err)
+	client := &http.Client{
+		Timeout: 15 * time.Second,
 	}
-	return string(output), nil
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	// Set a user-agent to mimic a browser, as some sites block default Go user-agent
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to fetch URL: status code %d", resp.StatusCode)
+	}
+
+	return t.textContentFromHTML(resp.Body)
+}
+
+// textContentFromHTML extracts readable text from an HTML document body.
+func (t *Terminal) textContentFromHTML(body io.Reader) (string, error) {
+	doc, err := html.Parse(body)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse HTML: %w", err)
+	}
+
+	var sb strings.Builder
+	var traverse func(*html.Node)
+	traverse = func(n *html.Node) {
+		// Skip unwanted tags entirely
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "script", "style", "nav", "header", "footer", "aside":
+				return
+			}
+		}
+
+		if n.Type == html.TextNode {
+			// Add text content, cleaning up whitespace
+			trimmed := strings.TrimSpace(n.Data)
+			if len(trimmed) > 0 {
+				sb.WriteString(trimmed)
+				sb.WriteString(" ") // Add space after text nodes
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			traverse(c)
+		}
+
+		// Add a newline after block-level elements for better readability
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "br", "tr":
+				sb.WriteString("\n")
+			}
+		}
+	}
+
+	traverse(doc)
+
+	// Post-process the text to clean up excessive whitespace and newlines
+	text := sb.String()
+	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = regexp.MustCompile(`(\s*\n\s*)+`).ReplaceAllString(text, "\n")
+
+	return strings.TrimSpace(text), nil
 }
 
 // scrapeYouTube scrapes YouTube videos using yt-dlp

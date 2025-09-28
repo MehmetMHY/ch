@@ -109,7 +109,7 @@ curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
 
 The installer automatically:
 
-- Checks for Go 1.21+ and dependencies (fzf, curl, lynx, yt-dlp, ddgr)
+- Checks for Go 1.21+ and dependencies (fzf, yt-dlp, ddgr)
 - Installs missing dependencies via system package managers (apt, brew, pkg, etc.)
 - Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`
 - Creates global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux)
@@ -266,7 +266,7 @@ Offers two modes for exporting chat history:
 **URL Scraping (`!s` and `-l` with URLs):**
 
 - Supports regular web pages and YouTube videos
-- Extracts clean text content using curl and lynx
+- Extracts clean text content from web pages using a built-in parser
 - YouTube videos include metadata and subtitle extraction via yt-dlp
 - Multiple URL support: `!s https://site1.com https://site2.com`
 - Integrated with file loading: `ch -l https://example.com`
@@ -315,8 +315,6 @@ Switch platforms during conversation:
 
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
-- [curl](https://curl.se/) for web content fetching
-- [lynx](https://lynx.browser.org/) for text extraction from HTML
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube video scraping
 - [ddgr](https://github.com/jarun/ddgr) for DuckDuckGo web search
 - Clipboard utilities (auto-detected): pbcopy, xclip, xsel, wl-copy, termux-clipboard-set
