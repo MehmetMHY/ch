@@ -15,11 +15,12 @@
   - [API Keys](#api-keys)
   - [Default Settings](#default-settings)
   - [Config File](#config-file)
-  - [Local \& Open-Source Setup (Ollama)](#local--open-source-setup-ollama)
+  - [Local & Open-Source Setup (Ollama)](#local--open-source-setup-ollama)
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
   - [Interactive Commands](#interactive-commands)
   - [Advanced Features](#advanced-features)
+  - [Web Content Interaction](#web-content-interaction)
 - [Web Scraping](#web-scraping)
 - [Platform Compatibility](#platform-compatibility)
 - [Development](#development)
@@ -304,6 +305,29 @@ Offers two modes for exporting chat history:
 - Edit content in your preferred editor before copying
 - Cross-platform clipboard support (macOS, Linux, Android/Termux, Windows)
 - Usage: `!y` then select responses to copy
+
+### Web Content Interaction
+
+The `-s` and `-w` flags in the terminal CLI are used for web content interaction:
+
+#### `-s` flag (Scrape URL)
+
+- Usage: `ch -s <URL>`
+- Function: Scrapes content from the specified URL.
+- Supports scraping normal web pages and YouTube videos.
+- For normal web pages, it fetches and extracts clean text content from the HTML.
+- For YouTube URLs, it uses `yt-dlp` to extract metadata and subtitles.
+- The scraped content is printed directly to the terminal.
+
+#### `-w` flag (Web Search)
+
+- Usage: `ch -w <search query>`
+- Function: Performs a web search using the Brave Search API.
+- Requires `BRAVE_API_KEY` environment variable to be set.
+- Fetches search results from Brave Search.
+- Prints the formatted search results (title, URL, description) to the terminal.
+
+Both commands help in integrating external web content and search results into CLI workflow with Ch.
 
 ## Platform Compatibility
 
