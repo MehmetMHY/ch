@@ -75,49 +75,174 @@ ch "What are the key features of Go programming language?"
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Code Dump**: Package entire directories for AI analysis (text and document files only)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
-- **Web Scraping & Search**: Built-in URL scraping and web search capabilities (YouTube support is experimental)
+- **Web Scraping & Search**: Built-in URL scraping and web search capabilities
 - **Clipboard Integration**: Copy AI responses to clipboard with cross-platform support
 - **Colored Output**: Platform and model names displayed in distinct colors
-- **Safe Interruptions**: Requests and shell commands can be safely interrupted; streaming and execution cancellation is built-in.
-
-## Supported Environments
-
-| OS             | Support Level       | Notes                           |
-| -------------- | ------------------- | ------------------------------- |
-| Linux          | Fully supported     | Debian, Ubuntu, Arch, etc.      |
-| macOS          | Fully supported     | Intel & Apple Silicon           |
-| Termux/Android | Fully supported     | Requires `pkg` for dependencies |
-| Windows        | Via WSL or Git Bash | Native Windows is not supported |
-
-Some dependencies, e.g., `yt-dlp`, may require Python and/or manual installation in certain environments (Android/Termux, minimal distros).
 
 ## Installation
 
----
+```bash
+curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
+```
+
+**Alternative methods:**
+
+```bash
+# using wget
+wget -qO- https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
+
+# manual clone and install
+git clone https://github.com/MehmetMHY/ch.git
+cd ch
+./install.sh
+```
+
+**Uninstall:**
+
+```bash
+# run installer with the uninstall flag
+curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash -s -- --uninstall
+
+# or if you have the installer script locally
+./install.sh --uninstall
+```
+
+The installer automatically:
+
+- Checks for Go 1.21+ and dependencies (fzf, yt-dlp)
+- Installs missing dependencies via system package managers (apt, brew, pkg, etc.)
+- Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`
+- Creates global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux)
+- Configures PATH if needed
+
+## Configuration
+
+### API Keys
+
+Set up API keys for your chosen platforms. `OPENAI_API_KEY` is required for core functionality, and `BRAVE_API_KEY` is required for the web search feature.
+
+```bash
+# required
+export OPENAI_API_KEY="your-openai-key"
+export BRAVE_API_KEY="your-brave-api-key" # for web search
+
+# optional
+export GROQ_API_KEY="your-groq-key"
+export DEEP_SEEK_API_KEY="your-deepseek-key"
+export ANTHROPIC_API_KEY="your-anthropic-key"
+export XAI_API_KEY="your-xai-key"
+export TOGETHER_API_KEY="your-together-key"
+export GEMINI_API_KEY="your-gemini-key"
+export MISTRAL_API_KEY="your-mistral-key"
+```
+
+You can find links to obtain API keys below:
+
+| Platform      | Get API Key                                        |
+| ------------- | -------------------------------------------------- |
+| OpenAI        | https://openai.com/api/                            |
+| Brave Search  | https://brave.com/search/api/                      |
+| Google Gemini | https://ai.google.dev/gemini-api/docs/api-key      |
+| xAI           | https://x.ai/api                                   |
+| Groq          | https://console.groq.com/keys                      |
+| Mistral AI    | https://docs.mistral.ai/getting-started/quickstart |
+| Anthropic     | https://console.anthropic.com/                     |
+| Together AI   | https://docs.together.ai/docs/quickstart           |
+| DeepSeek      | https://api-docs.deepseek.com/                     |
+
+### Default Settings
+
+Customize default platform and model via environment variables:
+
+```bash
+# default: openai
+export CH_DEFAULT_PLATFORM="groq"
+
+# default: gpt-4.1-mini
+export CH_DEFAULT_MODEL="llama3-8b-8192"
+```
+
+### Config File
+
+For persistent configuration, create `~/.ch/config.json` to override default settings without needing environment variables:
+
+```json
+{
+  "default_model": "grok-4-fast-non-reasoning",
+  "current_platform": "xai",
+  "preferred_editor": "vim",
+  "show_search_results": true,
+  "num_search_results": 10,
+  "search_country": "us",
+  "search_lang": "en",
+  "system_prompt": "You are a helpful assistant."
+}
+```
+
+**Available config options:**
+
+- `default_model` - Set default model (automatically sets current_model if not specified)
+- `current_model` - Set current active model
+- `current_platform` - Set default platform
+- `preferred_editor` - Set preferred text editor (default: "hx")
+- `show_search_results` - Show/hide web search results (default: false)
+- `num_search_results` - Number of search results to display (default: 5)
+- `search_country` - Set the country for web searches (default: "us")
+- `search_lang` - Set the language for web searches (default: "en")
+- `system_prompt` - Customize the system prompt
+- Plus all other configuration options using snake_case JSON field names
+
+The config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
+
+### Local & Open-Source Setup (Ollama)
+
+Ch supports local models via Ollama, allowing you to run it without relying on third-party services. This provides a completely private, open-source, and offline-capable environment.
+
+1.  **Install Ollama**: Follow the official instructions at [ollama.com](https://ollama.com).
+2.  **Pull a model**: `ollama pull llama3`
+
+3.  **Run Ch with Ollama**: `ch -p ollama "What is the capital of France?"`
+
+Since Ollama runs locally, no API key is required.
+
+## Usage
+
+### Basic Usage
+
+```bash
+# interactive mode
+ch
+
+# direct query
+ch "Explain quantum computing"
+
+# platform-specific query
+ch -p groq "Write a Go function to reverse a string"
 
 # model-specific query
-
 ch -m gpt-4o "Create a REST API in Python"
 
 # export code blocks to files
-
 ch -e "Write a Python script to sort a list"
 
 # load and display file content
-
 ch -l document.pdf
 ch -l spreadsheet.xlsx
 ch -l screenshot.png
 
----
+# scrape web content
+ch -l https://example.com
+ch -l https://youtube.com/watch?v=example
+
+# count tokens in files
+ch -t ./README.md
+ch -m "gpt-4" -t ./main.go
 
 # piping support
-
 cat main.py | ch "What does this code do?"
 echo "hello world" | ch "Translate to Spanish"
 ls -la | ch "Summarize this directory"
-
-If both piped content and CLI arguments are provided, ch will **combine them as a single prompt.**
+```
 
 ### Interactive Commands
 
@@ -137,7 +262,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!s`** - Scrape content from URLs (supports multiple URLs and YouTube)
 - **`!w`** - Search web using Brave Search
 - **`!y`** - Copy selected responses to clipboard
-- **`!x`** - Record shell session or run command (`!x ls` streams output live) (experimental)
+- **`!x`** - Record shell session or run command (`!x ls` streams output live)
 - **`\`** - Multi-line input mode
 - **`Ctrl+C`** - Clear current prompt input
 - **`Ctrl+D`** - Exit interface
@@ -148,42 +273,22 @@ When in interactive mode (`ch`), use these commands:
 
 - Automatically detects programming languages
 - Saves with proper file extensions
-- Supports hundreds of code and document file types with smart file name/extension suggestions.
+- Supports 25+ languages and file types
 
-# scrape web content and add to context
+**Interactive Export (`!e`):**
 
-ch -l https://example.com
-ch -l https://youtube.com/watch?v=example
+Offers two modes for exporting chat history:
 
-# scrape web content and print to terminal
+1. **Auto Export Mode**: Automatically extracts all code blocks from selected chats. It then lets you save each snippet individually, intelligently suggesting file names and extensions based on the code's language.
+2. **Manual Export Mode**: Combines selected chat entries into a single file for you to edit and save manually.
 
-ch -s https://example.com
-
-# search the web and print results
-
-ch -w "latest AI news"
-
-# count tokens in files
-
-ch -t ./README.md
-ch -m "gpt-4" -t ./main.go
-
-# piping support
-
-cat main.py | ch "What does this code do?"
-echo "hello world" | ch "Translate to Spanish"
-ls -la | ch "Summarize this directory"
-
----
-
-**URL Scraping (`!s`, `-s`, and `-l` with URLs):**
+**URL Scraping (`!s` and `-l` with URLs):**
 
 - Supports regular web pages and YouTube videos
 - Extracts clean text content from web pages using a built-in parser
-- YouTube videos include metadata and subtitle extraction via yt-dlp (experimental)
+- YouTube videos include metadata and subtitle extraction via yt-dlp
 - Multiple URL support: `!s https://site1.com https://site2.com`
 - Integrated with file loading: `ch -l https://example.com`
-- Use the `-s` flag for direct terminal output, which is stripped of trailing whitespace.
 
 **Web Search (`!w`):**
 
@@ -199,14 +304,6 @@ ls -la | ch "Summarize this directory"
 - Edit content in your preferred editor before copying
 - Cross-platform clipboard support (macOS, Linux, Android/Termux, Windows)
 - Usage: `!y` then select responses to copy
-
-**Shell Session Recording (`!x`):** (experimental)
-
-- Record terminal sessions and provide them as context to the model
-- Usage: `!x` to start/stop recording, or `!x <command>` to execute and record a single command
-- Live streaming of command output is supported
-
-## Platform Compatibility
 
 ## Platform Compatibility
 
