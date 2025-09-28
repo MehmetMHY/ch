@@ -138,17 +138,17 @@ export MISTRAL_API_KEY="your-mistral-key"
 
 You can find links to obtain API keys below:
 
-| Platform      | Get API Key                                                |
-| ------------- | ---------------------------------------------------------- |
-| OpenAI        | [link](https://openai.com/api/)                            |
-| Brave Search  | [link](https://brave.com/search/api/)                      |
-| Google Gemini | [link](https://ai.google.dev/gemini-api/docs/api-key)      |
-| xAI           | [link](https://x.ai/api)                                   |
-| Groq          | [link](https://console.groq.com/keys)                      |
-| Mistral AI    | [link](https://docs.mistral.ai/getting-started/quickstart) |
-| Anthropic     | [link](https://console.anthropic.com/)                     |
-| Together AI   | [link](https://docs.together.ai/docs/quickstart)           |
-| DeepSeek      | [link](https://api-docs.deepseek.com/)                     |
+| Platform      | Get API Key                                        |
+| ------------- | -------------------------------------------------- |
+| OpenAI        | https://openai.com/api/                            |
+| Brave Search  | https://brave.com/search/api/                      |
+| Google Gemini | https://ai.google.dev/gemini-api/docs/api-key      |
+| xAI           | https://x.ai/api                                   |
+| Groq          | https://console.groq.com/keys                      |
+| Mistral AI    | https://docs.mistral.ai/getting-started/quickstart |
+| Anthropic     | https://console.anthropic.com/                     |
+| Together AI   | https://docs.together.ai/docs/quickstart           |
+| DeepSeek      | https://api-docs.deepseek.com/                     |
 
 ### Default Settings
 
