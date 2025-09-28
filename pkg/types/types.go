@@ -48,6 +48,8 @@ type Config struct {
 	WebSearch         string              `json:"web_search,omitempty"`
 	ShowSearchResults bool                `json:"show_search_results,omitempty"`
 	NumSearchResults  int                 `json:"num_search_results,omitempty"`
+	SearchCountry     string              `json:"search_country,omitempty"`
+	SearchLang        string              `json:"search_lang,omitempty"`
 	ScrapeURL         string              `json:"scrape_url,omitempty"`
 	CopyToClipboard   string              `json:"copy_to_clipboard,omitempty"`
 	LoadFiles         string              `json:"load_files,omitempty"`

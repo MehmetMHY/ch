@@ -105,7 +105,7 @@ install_dependencies() {
 	# fzf is critical, the rest are optional
 	local required_deps=("fzf")
 	local optional_deps=("yt-dlp")
-	pip_deps=("ddgr") # Handled separately in a venv
+	pip_deps=() # Handled separately in a venv
 
 	local missing_required=()
 	local missing_optional=()
@@ -396,7 +396,44 @@ create_symlink() {
 	fi
 }
 
+check_api_keys() {
+	log "Checking API Key status..."
+
+	# Define required and optional keys
+	local required_keys=("OPENAI_API_KEY" "BRAVE_API_KEY")
+	local optional_keys=(
+		"GROQ_API_KEY"
+		"DEEP_SEEK_API_KEY"
+		"ANTHROPIC_API_KEY"
+		"XAI_API_KEY"
+		"TOGETHER_API_KEY"
+		"GEMINI_API_KEY"
+		"MISTRAL_API_KEY"
+	)
+
+	# Check required keys
+	for key in "${required_keys[@]}"; do
+		if [[ -n "${!key-}" ]]; then
+			echo -e "\033[92m✓ $key is set\033[0m"
+		else
+			echo -e "\033[91m✗ $key is not set (Required)\033[0m"
+		fi
+	done
+
+	# Check optional keys
+	for key in "${optional_keys[@]}"; do
+		if [[ -n "${!key-}" ]]; then
+			echo -e "\033[92m✓ $key is set\033[0m"
+		else
+			echo -e "\033[93m- $key is not set (Optional)\033[0m"
+		fi
+	done
+	log "Done checking API key status"
+}
+
 print_success() {
+	check_api_keys
+
 	local os
 	os=$(detect_os)
 
@@ -482,7 +519,7 @@ update_cli_tools() {
 
 	# Core dependencies to update
 	local system_deps=("fzf")
-	local pip_deps=("yt-dlp" "ddgr")
+	local pip_deps=("yt-dlp")
 
 	# Update system-managed dependencies
 	case "$os" in
@@ -603,15 +640,6 @@ update_cli_tools() {
 						if command -v pip >/dev/null 2>&1; then
 							pip install --upgrade yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
 						fi
-					fi
-					;;
-				"ddgr")
-					if command -v pip3 >/dev/null 2>&1; then
-						pip3 install --upgrade --user ddgr 2>/dev/null || warning "Failed to update ddgr"
-					elif command -v pip >/dev/null 2>&1; then
-						pip install --upgrade --user ddgr 2>/dev/null || warning "Failed to update ddgr"
-					else
-						warning "pip not available - cannot update ddgr"
 					fi
 					;;
 				esac

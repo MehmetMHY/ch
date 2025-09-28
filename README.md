@@ -109,7 +109,7 @@ curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
 
 The installer automatically:
 
-- Checks for Go 1.21+ and dependencies (fzf, yt-dlp, ddgr)
+- Checks for Go 1.21+ and dependencies (fzf, yt-dlp)
 - Installs missing dependencies via system package managers (apt, brew, pkg, etc.)
 - Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`
 - Creates global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux)
@@ -119,13 +119,14 @@ The installer automatically:
 
 ### API Keys
 
-Set up API keys for your chosen platforms:
+Set up API keys for your chosen platforms. `OPENAI_API_KEY` is required for core functionality, and `BRAVE_API_KEY` is required for the web search feature.
 
 ```bash
 # required
 export OPENAI_API_KEY="your-openai-key"
+export BRAVE_API_KEY="your-brave-api-key" # for web search
 
-# optional additional platforms
+# optional
 export GROQ_API_KEY="your-groq-key"
 export DEEP_SEEK_API_KEY="your-deepseek-key"
 export ANTHROPIC_API_KEY="your-anthropic-key"
@@ -134,6 +135,20 @@ export TOGETHER_API_KEY="your-together-key"
 export GEMINI_API_KEY="your-gemini-key"
 export MISTRAL_API_KEY="your-mistral-key"
 ```
+
+You can find links to obtain API keys below:
+
+| Platform      | Get API Key                                                |
+|---------------|------------------------------------------------------------|
+| OpenAI        | [link](https://openai.com/api/)                            |
+| Brave Search  | [link](https://brave.com/search/api/)                      |
+| Google Gemini | [link](https://ai.google.dev/gemini-api/docs/api-key)      |
+| xAI           | [link](https://x.ai/api)                                   |
+| Groq          | [link](https://console.groq.com/keys)                      |
+| Mistral AI    | [link](https://docs.mistral.ai/getting-started/quickstart) |
+| Anthropic     | [link](https://console.anthropic.com/)                     |
+| Together AI   | [link](https://docs.together.ai/docs/quickstart)           |
+| DeepSeek      | [link](https://api-docs.deepseek.com/)                     |
 
 ### Default Settings
 
@@ -158,6 +173,8 @@ For persistent configuration, create `~/.ch/config.json` to override default set
   "preferred_editor": "vim",
   "show_search_results": true,
   "num_search_results": 10,
+  "search_country": "us",
+  "search_lang": "en",
   "system_prompt": "You are a helpful assistant."
 }
 ```
@@ -170,6 +187,8 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `preferred_editor` - Set preferred text editor (default: "hx")
 - `show_search_results` - Show/hide web search results (default: false)
 - `num_search_results` - Number of search results to display (default: 5)
+- `search_country` - Set the country for web searches (default: "us")
+- `search_lang` - Set the language for web searches (default: "en")
 - `system_prompt` - Customize the system prompt
 - Plus all other configuration options using snake_case JSON field names
 
@@ -241,7 +260,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!d`** - Generate code dump
 - **`!e`** - Export chat history with Auto or Manual modes
 - **`!s`** - Scrape content from URLs (supports multiple URLs and YouTube)
-- **`!w`** - Search web using DuckDuckGo
+- **`!w`** - Search web using Brave Search
 - **`!y`** - Copy selected responses to clipboard
 - **`!x`** - Record shell session or run command (`!x ls` streams output live)
 - **`\`** - Multi-line input mode
@@ -273,10 +292,11 @@ Offers two modes for exporting chat history:
 
 **Web Search (`!w`):**
 
-- Built-in DuckDuckGo search integration via ddgr
+- Built-in Brave Search integration via the Brave Search API
+- Requires `BRAVE_API_KEY` to be set in your environment variables
 - Usage: `!w "search query"`
 - Results are automatically added to conversation context
-- No need for external tools or APIs
+- No need for external tools, but requires an API key
 
 **Clipboard Copy (`!y`):**
 
@@ -316,7 +336,7 @@ Switch platforms during conversation:
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube video scraping
-- [ddgr](https://github.com/jarun/ddgr) for DuckDuckGo web search
+- `BRAVE_API_KEY` for web search (see [API Keys](#api-keys))
 - Clipboard utilities (auto-detected): pbcopy, xclip, xsel, wl-copy, termux-clipboard-set
 - [Helix editor](https://helix-editor.com/) (optional but recommended for enhanced text editing)
 

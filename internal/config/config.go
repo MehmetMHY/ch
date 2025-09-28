@@ -87,6 +87,12 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.NumSearchResults != 0 {
 		defaultConfig.NumSearchResults = userConfig.NumSearchResults
 	}
+	if userConfig.SearchCountry != "" {
+		defaultConfig.SearchCountry = userConfig.SearchCountry
+	}
+	if userConfig.SearchLang != "" {
+		defaultConfig.SearchLang = userConfig.SearchLang
+	}
 	if userConfig.ScrapeURL != "" {
 		defaultConfig.ScrapeURL = userConfig.ScrapeURL
 	}
@@ -174,6 +180,8 @@ func DefaultConfig() *types.Config {
 		WebSearch:         "!w",
 		ShowSearchResults: false,
 		NumSearchResults:  5,
+		SearchCountry:     "us",
+		SearchLang:        "en",
 		ScrapeURL:         "!s",
 		CopyToClipboard:   "!y",
 		LoadFiles:         "!l",

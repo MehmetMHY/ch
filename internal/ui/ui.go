@@ -373,7 +373,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - export selected chat entries to a file", t.config.ExportChat),
 		fmt.Sprintf("%s - record a shell session and use it as context", t.config.ShellRecord),
 		fmt.Sprintf("%s <url1> [url2] ... - scrape content from URLs", t.config.ScrapeURL),
-		fmt.Sprintf("%s <query> - search web using ddgr", t.config.WebSearch),
+		fmt.Sprintf("%s <query> - search web using Brave Search", t.config.WebSearch),
 		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
 		fmt.Sprintf("%s - multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
 		"Ctrl+C - clear current prompt input",
@@ -1540,7 +1540,7 @@ func (t *Terminal) scrapeURL(urlStr string) (string, error) {
 // scrapeWeb scrapes regular web pages using native Go http and html parsing.
 func (t *Terminal) scrapeWeb(urlStr string) (string, error) {
 	client := &http.Client{
-		Timeout: 15 * time.Second,
+		Timeout: 30 * time.Second,
 	}
 	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
@@ -1734,22 +1734,49 @@ func (t *Terminal) ScrapeURLs(urls []string) (string, error) {
 	return result.String(), nil
 }
 
-// WebSearch performs a web search using ddgr
+// WebSearch performs a web search using the Brave Search API
 func (t *Terminal) WebSearch(query string) (string, error) {
-	_, err := exec.LookPath("ddgr")
-	if err != nil {
-		return "", fmt.Errorf("ddgr is not installed. Please install it to use web search")
+	apiKey := os.Getenv("BRAVE_API_KEY")
+	if apiKey == "" {
+		return "", fmt.Errorf("BRAVE_API_KEY environment variable not set")
 	}
 
-	numResults := fmt.Sprintf("%d", t.config.NumSearchResults)
-	cmd := exec.Command("ddgr", "--json", "--num", numResults, query)
-	output, err := cmd.Output()
+	req, err := http.NewRequest("GET", "https://api.search.brave.com/res/v1/web/search", nil)
 	if err != nil {
-		return "", fmt.Errorf("search failed: %w", err)
+		return "", fmt.Errorf("failed to create search request: %w", err)
 	}
 
-	searchResults := string(output)
-	if strings.TrimSpace(searchResults) == "" || searchResults == "[]" {
+	q := req.URL.Query()
+	q.Add("q", query)
+	q.Add("count", fmt.Sprintf("%d", t.config.NumSearchResults))
+	q.Add("country", t.config.SearchCountry)
+	q.Add("search_lang", t.config.SearchLang)
+	req.URL.RawQuery = q.Encode()
+
+	req.Header.Set("X-Subscription-Token", apiKey)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to perform search: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("search request failed with status: %s", resp.Status)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read search response: %w", err)
+	}
+
+	var braveResult BraveSearchResult
+	if err := json.Unmarshal(body, &braveResult); err != nil {
+		return "", fmt.Errorf("failed to parse search results: %w", err)
+	}
+
+	if len(braveResult.Web.Results) == 0 {
 		noResultsMsg := fmt.Sprintf("No search results found for: %s\n", query)
 		if t.config.ShowSearchResults {
 			fmt.Print(noResultsMsg)
@@ -1757,7 +1784,7 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 		return noResultsMsg, nil
 	}
 
-	formatted := t.parseSearchResults(searchResults, query)
+	formatted := t.formatBraveSearchResults(braveResult.Web.Results, query)
 
 	if t.config.ShowSearchResults {
 		fmt.Print(formatted)
@@ -1766,105 +1793,43 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 	return formatted, nil
 }
 
-// SearchResult represents a single search result
-type SearchResult struct {
-	Title    string `json:"title"`
-	URL      string `json:"url"`
-	Abstract string `json:"abstract"`
+// BraveSearchResult represents the top-level structure of the Brave Search API response
+type BraveSearchResult struct {
+	Web struct {
+		Results []BraveWebResult `json:"results"`
+	} `json:"web"`
 }
 
-// parseSearchResults parses JSON search results and formats them
-func (t *Terminal) parseSearchResults(jsonStr, query string) string {
+// BraveWebResult represents a single web result from the Brave Search API
+type BraveWebResult struct {
+	Title       string `json:"title"`
+	URL         string `json:"url"`
+	Description string `json:"description"`
+}
+
+// formatBraveSearchResults formats the search results from Brave API
+func (t *Terminal) formatBraveSearchResults(results []BraveWebResult, query string) string {
 	var result strings.Builder
 
-	// Try to parse as proper JSON array
-	var searchResults []SearchResult
-	err := json.Unmarshal([]byte(jsonStr), &searchResults)
-	if err != nil {
-		// Fallback to line-by-line parsing if JSON parsing fails
-		return t.parseSearchResultsLegacy(jsonStr, query)
-	}
-
-	if len(searchResults) == 0 {
+	if len(results) == 0 {
 		result.WriteString(fmt.Sprintf("No search results found for: %s\n", query))
 		return result.String()
 	}
 
-	// Format each result
-	for i, searchResult := range searchResults {
+	for i, searchResult := range results {
 		if searchResult.Title != "" && searchResult.URL != "" {
 			result.WriteString(fmt.Sprintf("\033[93m%d) \033[93m%s\033[0m\n", i+1, searchResult.Title))
 			result.WriteString(fmt.Sprintf("\033[95m%s\033[0m\n", searchResult.URL))
-			if searchResult.Abstract != "" {
-				result.WriteString(fmt.Sprintf("\033[92m%s\033[0m\n", searchResult.Abstract))
+			if searchResult.Description != "" {
+				result.WriteString(fmt.Sprintf("\033[92m%s\033[0m\n", searchResult.Description))
 			}
-			if i < len(searchResults)-1 {
+			if i < len(results)-1 {
 				result.WriteString("\n")
 			}
 		}
 	}
 
 	return result.String()
-}
-
-// parseSearchResultsLegacy handles line-by-line parsing as fallback
-func (t *Terminal) parseSearchResultsLegacy(jsonStr, query string) string {
-	var result strings.Builder
-
-	// Simple JSON parsing to extract results
-	lines := strings.Split(jsonStr, "\n")
-	resultNumber := 1
-	validResults := []string{}
-
-	// First pass: collect all valid results
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || line == "[" || line == "]" {
-			continue
-		}
-
-		// Remove trailing comma
-		line = strings.TrimSuffix(line, ",")
-
-		// Extract title, URL, and abstract using regex
-		title := t.extractJSONField(line, "title")
-		url := t.extractJSONField(line, "url")
-		abstract := t.extractJSONField(line, "abstract")
-
-		// Only add if we have at least title and URL
-		if title != "" && url != "" {
-			validResults = append(validResults, fmt.Sprintf("\033[93m%d) \033[93m%s\033[0m\n\033[95m%s\033[0m\n", resultNumber, title, url))
-			if abstract != "" {
-				validResults[len(validResults)-1] += fmt.Sprintf("\033[92m%s\033[0m\n", abstract)
-			}
-			resultNumber++
-		}
-	}
-
-	// Format results with proper spacing
-	for i, validResult := range validResults {
-		result.WriteString(validResult)
-		if i < len(validResults)-1 {
-			result.WriteString("\n")
-		}
-	}
-
-	return result.String()
-}
-
-// extractJSONField extracts a field value from a JSON string
-func (t *Terminal) extractJSONField(jsonStr, field string) string {
-	pattern := fmt.Sprintf(`"%s":\s*"([^"]*)"`, field)
-	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(jsonStr)
-	if len(matches) > 1 {
-		// Unescape JSON string
-		value := matches[1]
-		value = strings.ReplaceAll(value, `\"`, `"`)
-		value = strings.ReplaceAll(value, `\\`, `\`)
-		return value
-	}
-	return ""
 }
 
 // CopyToClipboard copies content to the system clipboard with cross-platform support
