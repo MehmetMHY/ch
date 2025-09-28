@@ -139,7 +139,7 @@ export MISTRAL_API_KEY="your-mistral-key"
 You can find links to obtain API keys below:
 
 | Platform      | Get API Key                                                |
-|---------------|------------------------------------------------------------|
+| ------------- | ---------------------------------------------------------- |
 | OpenAI        | [link](https://openai.com/api/)                            |
 | Brave Search  | [link](https://brave.com/search/api/)                      |
 | Google Gemini | [link](https://ai.google.dev/gemini-api/docs/api-key)      |

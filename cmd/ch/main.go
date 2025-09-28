@@ -531,8 +531,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			line, err := multiLineRl.Readline()
 			if err != nil {
 				if err == readline.ErrInterrupt || err == io.EOF {
-					fmt.Println() // Move to the next line for a clean prompt
-					return true   // Exit silently
+					return true // Exit silently
 				}
 				break // Exit for other errors
 			}

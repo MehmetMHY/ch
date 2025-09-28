@@ -462,7 +462,7 @@ print_success() {
 	echo -e "To get started, simply type:"
 	echo -e "  \033[96mch\033[0m"
 	echo
-	echo -e "If you installed via curl/wget, the cloned repository has been removed."
+	echo -e "If you installed via curl/wget, the cloned repository should have been removed."
 }
 
 check_git_and_pull() {
