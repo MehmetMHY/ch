@@ -400,8 +400,9 @@ check_api_keys() {
 	log "Checking API Key status..."
 
 	# Define required and optional keys
-	local required_keys=("OPENAI_API_KEY" "BRAVE_API_KEY")
+	local required_keys=("OPENAI_API_KEY")
 	local optional_keys=(
+		"BRAVE_API_KEY"
 		"GROQ_API_KEY"
 		"DEEP_SEEK_API_KEY"
 		"ANTHROPIC_API_KEY"

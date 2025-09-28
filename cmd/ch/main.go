@@ -42,6 +42,8 @@ func main() {
 		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
 		tokenFlag      = flag.String("t", "", "Count tokens in file")
 		loadFileFlag   = flag.String("l", "", "Load and display file content (supports text, PDF, DOCX, XLSX, CSV)")
+		webSearchFlag  = flag.String("w", "", "Perform a web search and print the results")
+		scrapeURLFlag  = flag.String("s", "", "Scrape a URL and print the content")
 	)
 	flag.StringVar(tokenFlag, "token", "", "Count tokens in file")
 
@@ -62,6 +64,28 @@ func main() {
 	// handle help flag
 	if *helpFlag {
 		terminal.ShowHelp()
+		return
+	}
+
+	// handle web search flag
+	if *webSearchFlag != "" {
+		results, err := terminal.WebSearch(*webSearchFlag)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error during web search: %v", err))
+			return
+		}
+		fmt.Println(results)
+		return
+	}
+
+	// handle scrape URL flag
+	if *scrapeURLFlag != "" {
+		content, err := terminal.ScrapeURLs([]string{*scrapeURLFlag})
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error scraping URL: %v", err))
+			return
+		}
+		fmt.Println(strings.TrimSpace(content))
 		return
 	}
 
