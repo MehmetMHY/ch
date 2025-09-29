@@ -377,9 +377,9 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s <url1> [url2] ... - scrape content from URLs", t.config.ScrapeURL),
 		fmt.Sprintf("%s <query> - search web using Brave Search", t.config.WebSearch),
 		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
-		fmt.Sprintf("%s - multi-line input mode (end with '\\' on a new line)", t.config.MultiLine),
+		fmt.Sprintf("%s - multi-line input mode (exit with '\\')", t.config.MultiLine),
 		"Ctrl+C - clear current prompt input",
-		"Ctrl+D - exit interface",
+		"Ctrl+D - exit interface completely",
 	}
 
 	return options
@@ -400,7 +400,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
 	fmt.Printf("\033[93m%s - multi-line input\033[0m\n", t.config.MultiLine)
 	fmt.Printf("\033[93mCtrl+C - clear prompt input\033[0m\n")
-	fmt.Printf("\033[93mCtrl+D - exit interface\033[0m\n")
+	fmt.Printf("\033[93mCtrl+D - exit interface completely\033[0m\n")
 }
 
 // ShowLoadingAnimation displays a loading animation
