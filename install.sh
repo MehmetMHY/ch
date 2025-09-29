@@ -102,10 +102,9 @@ install_dependencies() {
 
 	log "Checking system dependencies for $os"
 
-	# fzf is critical, the rest are optional
 	local required_deps=("fzf")
 	local optional_deps=("yt-dlp")
-	pip_deps=() # Handled separately in a venv
+	pip_deps=()
 
 	local missing_required=()
 	local missing_optional=()
@@ -123,7 +122,6 @@ install_dependencies() {
 		fi
 	done
 
-	# Check for Python dependencies (look in venv first)
 	for dep in "${pip_deps[@]}"; do
 		if ! command -v "$dep" >/dev/null 2>&1 && ! [[ -f "$VENV_DIR/bin/$dep" ]]; then
 			missing_pip+=("$dep")
@@ -135,7 +133,6 @@ install_dependencies() {
 		return
 	fi
 
-	# Announce missing dependencies
 	if [[ ${#missing_required[@]} -gt 0 ]]; then
 		log "The following required system dependencies are missing: ${missing_required[*]}"
 	fi
@@ -151,17 +148,14 @@ install_dependencies() {
 		if ! command -v brew >/dev/null 2>&1; then
 			error "Homebrew is required on macOS to install dependencies. Install from https://brew.sh/"
 		fi
-		# Install required
 		for dep in "${missing_required[@]}"; do
 			log "Installing required dependency $dep with Homebrew..."
 			brew install "$dep" || error "Failed to install required dependency: $dep. Please install it manually."
 		done
-		# Install optional
 		for dep in "${missing_optional[@]}"; do
 			log "Installing optional dependency $dep with Homebrew..."
 			brew install "$dep" || warning "Failed to install optional dependency: $dep."
 		done
-		# Install Python dependencies
 		if [[ ${#missing_pip[@]} -gt 0 ]]; then
 			if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
 				log "Installing Python and pip..."
@@ -182,17 +176,14 @@ install_dependencies() {
 			error "pkg package manager not found. Make sure you're running this in Termux."
 		fi
 		pkg update -y
-		# Install required
 		for dep in "${missing_required[@]}"; do
 			log "Installing required dependency $dep with pkg..."
 			pkg install -y "$dep" || error "Failed to install required dependency: $dep. Please install it manually."
 		done
-		# Install optional
 		for dep in "${missing_optional[@]}"; do
 			log "Installing optional dependency $dep with pkg..."
 			pkg install -y "$dep" || warning "Failed to install optional dependency: $dep."
 		done
-		# Install Python dependencies
 		if [[ ${#missing_pip[@]} -gt 0 ]]; then
 			if ! command -v pip >/dev/null 2>&1; then
 				log "Installing Python and pip..."
@@ -228,7 +219,6 @@ install_dependencies() {
 		"pacman") sudo pacman -Sy --noconfirm ;;
 		esac
 
-		# Install required
 		for dep in "${missing_required[@]}"; do
 			log "Installing required dependency $dep with $pkg_manager..."
 			case "$pkg_manager" in
@@ -244,7 +234,6 @@ install_dependencies() {
 			fi
 		done
 
-		# Install optional
 		for dep in "${missing_optional[@]}"; do
 			log "Installing optional dependency $dep with $pkg_manager..."
 			case "$pkg_manager" in
@@ -260,18 +249,16 @@ install_dependencies() {
 			fi
 		done
 
-		# Install Python dependencies into a virtual environment
 		if [[ ${#missing_pip[@]} -gt 0 ]]; then
 			log "Setting up Python virtual environment for Ch dependencies..."
 			if ! command -v python3 >/dev/null 2>&1; then
 				warning "python3 is not installed. Skipping Python dependencies."
 			else
-				# Ensure venv module is available
 				if ! python3 -c "import venv" >/dev/null 2>&1; then
 					log "Python 'venv' module not found, attempting to install..."
 					case "$pkg_manager" in
 					"apt-get") sudo apt-get install -y python3-venv ;;
-					"dnf" | "yum") sudo "$pkg_manager" install -y python3-virtualenv ;; # RHEL family
+					"dnf" | "yum") sudo "$pkg_manager" install -y python3-virtualenv ;;
 					*)
 						warning "Could not automatically install 'venv' module. Please install python3-venv or equivalent."
 						;;
@@ -318,17 +305,11 @@ build_ch() {
 	local wrapper_path="$BIN_DIR/ch"
 	cat >"$wrapper_path" <<EOF
 #!/usr/bin/env bash
-# This script is a wrapper to ensure Ch can find its Python dependencies.
-
 CH_HOME="\$HOME/.ch"
 VENV_DIR="\$CH_HOME/venv"
-
-# If a virtual environment exists, add its bin directory to the PATH
 if [[ -d "\$VENV_DIR" ]]; then
     export PATH="\$VENV_DIR/bin:\$PATH"
 fi
-
-# Execute the main Ch binary
 exec "\$CH_HOME/bin/ch-bin" "\$@"
 EOF
 
@@ -338,7 +319,7 @@ EOF
 create_symlink() {
 	local os
 	os=$(detect_os)
-	local source_path="$BIN_DIR/ch" # Symlink to the wrapper script
+	local source_path="$BIN_DIR/ch"
 
 	if [[ "$os" == "android" ]]; then
 		log "Creating symlink for 'ch' in \$PREFIX/bin"
@@ -399,7 +380,6 @@ create_symlink() {
 check_api_keys() {
 	log "Checking API Key status..."
 
-	# Define required and optional keys
 	local required_keys=("OPENAI_API_KEY")
 	local optional_keys=(
 		"BRAVE_API_KEY"
@@ -412,7 +392,6 @@ check_api_keys() {
 		"MISTRAL_API_KEY"
 	)
 
-	# Check required keys
 	for key in "${required_keys[@]}"; do
 		if [[ -n "${!key-}" ]]; then
 			echo -e "\033[92m✓ $key is set\033[0m"
@@ -421,7 +400,6 @@ check_api_keys() {
 		fi
 	done
 
-	# Check optional keys
 	for key in "${optional_keys[@]}"; do
 		if [[ -n "${!key-}" ]]; then
 			echo -e "\033[92m✓ $key is set\033[0m"
@@ -476,7 +454,6 @@ check_git_and_pull() {
 
 _install_ch_from_repo() {
 	log "Starting Ch installation process from local repository..."
-	# Create CH_HOME early for venv setup
 	mkdir -p "$CH_HOME"
 	check_go
 	install_dependencies
@@ -518,11 +495,9 @@ update_cli_tools() {
 	local os
 	os=$(detect_os)
 
-	# Core dependencies to update
 	local system_deps=("fzf")
 	local pip_deps=("yt-dlp")
 
-	# Update system-managed dependencies
 	case "$os" in
 	"macos")
 		if command -v brew >/dev/null 2>&1; then
@@ -548,12 +523,10 @@ update_cli_tools() {
 		;;
 	"linux")
 		if command -v sudo >/dev/null 2>&1; then
-			# Handle fzf special case (might be installed from git)
 			if command -v fzf >/dev/null 2>&1 && [[ -d ~/.fzf ]]; then
 				log "Updating fzf from git..."
 				(cd ~/.fzf && git pull && ./install --all >/dev/null 2>&1) || warning "Failed to update fzf from git"
 			else
-				# Update via package manager
 				if command -v apt-get >/dev/null 2>&1; then
 					log "Updating package list..."
 					sudo apt-get update -qq >/dev/null 2>&1
@@ -612,7 +585,6 @@ update_cli_tools() {
 		;;
 	esac
 
-	# Update Python-managed dependencies
 	local venv_pip="$VENV_DIR/bin/pip"
 	if [[ -f "$venv_pip" ]]; then
 		log "Updating Python dependencies in virtual environment..."
@@ -623,7 +595,6 @@ update_cli_tools() {
 			fi
 		done
 	else
-		# Fallback for non-venv systems (macOS, Android)
 		for dep in "${pip_deps[@]}"; do
 			if command -v "$dep" >/dev/null 2>&1; then
 				log "Updating $dep..."
@@ -633,7 +604,7 @@ update_cli_tools() {
 						yt-dlp --update 2>/dev/null || {
 							if command -v pip3 >/dev/null 2>&1; then
 								pip3 install --upgrade --user yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
-							elif command -v pip >/dev/null 2>&1; then
+							else
 								pip install --upgrade --user yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
 							fi
 						}
