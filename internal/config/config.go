@@ -139,6 +139,7 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	// In JSON, omitempty will skip false values, but we can't distinguish between
 	// unset and explicitly false. For now, we'll always use the default unless true is set.
 	defaultConfig.ShowSearchResults = defaultConfig.ShowSearchResults || userConfig.ShowSearchResults
+	defaultConfig.MuteNotifications = defaultConfig.MuteNotifications || userConfig.MuteNotifications
 
 	// Merge platforms if provided
 	if userConfig.Platforms != nil {
@@ -196,6 +197,7 @@ func DefaultConfig() *types.Config {
 		MultiLine:         "\\",
 		PreferredEditor:   "hx",
 		CurrentPlatform:   defaultPlatform,
+		MuteNotifications: false,
 		Platforms: map[string]types.Platform{
 			"groq": {
 				Name:    "groq",

@@ -277,7 +277,9 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 		if err != nil {
 			if err == readline.ErrInterrupt {
 				// Ctrl+C pressed - clear input and continue
-				fmt.Printf("\033[93mPress Ctrl+D to exit\033[0m\n")
+				if !state.Config.MuteNotifications {
+					fmt.Printf("\033[93mPress Ctrl+D to exit\033[0m\n")
+				}
 				continue
 			}
 			// io.EOF (Ctrl+D) or other errors - exit
@@ -376,7 +378,9 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		if selectedModel != "" {
 			oldModel := chatManager.GetCurrentModel()
 			chatManager.SetCurrentModel(selectedModel)
-			terminal.PrintModelSwitch(selectedModel)
+			if !config.MuteNotifications {
+				terminal.PrintModelSwitch(selectedModel)
+			}
 			chatManager.AddToHistory(config.ModelSwitch, fmt.Sprintf("Switched model from %s to %s", oldModel, selectedModel))
 		}
 		return true
@@ -385,7 +389,9 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		modelName := strings.TrimPrefix(input, config.ModelSwitch+" ")
 		oldModel := chatManager.GetCurrentModel()
 		chatManager.SetCurrentModel(modelName)
-		terminal.PrintModelSwitch(modelName)
+		if !config.MuteNotifications {
+			terminal.PrintModelSwitch(modelName)
+		}
 		chatManager.AddToHistory(fmt.Sprintf("%s %s", config.ModelSwitch, modelName), fmt.Sprintf("Switched model from %s to %s", oldModel, modelName))
 		return true
 
@@ -402,7 +408,9 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
 			} else {
-				terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
+				if !config.MuteNotifications {
+					terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
+				}
 				chatManager.AddToHistory(config.PlatformSwitch, fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
@@ -422,7 +430,9 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
 			} else {
-				terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
+				if !config.MuteNotifications {
+					terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
+				}
 				chatManager.AddToHistory(fmt.Sprintf("%s %s", config.PlatformSwitch, platformName), fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}

@@ -64,6 +64,7 @@ type Config struct {
 	MultiLine         string              `json:"multi_line,omitempty"`
 	PreferredEditor   string              `json:"preferred_editor,omitempty"`
 	CurrentPlatform   string              `json:"current_platform,omitempty"`
+	MuteNotifications bool                `json:"mute_notifications,omitempty"`
 	Platforms         map[string]Platform `json:"platforms,omitempty"`
 }
 

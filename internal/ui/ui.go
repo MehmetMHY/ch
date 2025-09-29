@@ -324,7 +324,7 @@ func (t *Terminal) ShowHelpFzf() string {
 	// If only [ALL] is selected, show all options
 	if len(selectedItems) == 1 && strings.HasPrefix(selectedItems[0], "[ALL]") {
 		for _, option := range options {
-			if !strings.HasPrefix(option, "[ALL]") {
+			if !strings.HasPrefix(option, "[ALL]") && !strings.HasPrefix(option, "[STATE]") {
 				fmt.Printf("\033[93m%s\033[0m\n", option)
 			}
 		}
@@ -370,8 +370,8 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - backtrack to a previous message", t.config.Backtrack),
 		fmt.Sprintf("%s - help page", t.config.HelpKey),
 		fmt.Sprintf("%s - switch platforms (interactive)", t.config.PlatformSwitch),
-		fmt.Sprintf("%s [dir] - load files/dirs from current or specified directory", t.config.LoadFiles),
-		fmt.Sprintf("%s - generate codedump (all text files with fzf exclusion)", t.config.CodeDump),
+		fmt.Sprintf("%s [dir] - load files/dirs from current or specified dir", t.config.LoadFiles),
+		fmt.Sprintf("%s - generate codedump (all text-based files)", t.config.CodeDump),
 		fmt.Sprintf("%s - export selected chat entries to a file", t.config.ExportChat),
 		fmt.Sprintf("%s - record a shell session and use it as context", t.config.ShellRecord),
 		fmt.Sprintf("%s <url1> [url2] ... - scrape content from URLs", t.config.ScrapeURL),
