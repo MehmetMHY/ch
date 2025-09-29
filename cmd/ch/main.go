@@ -922,12 +922,11 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 	tokenCount := len(tokens)
 
 	// Print the state
-	fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "Date:", currentDate)
-	fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "Time:", currentTime)
+	combinedDateTime := currentDate + " " + currentTime
+	fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "Date:", combinedDateTime)
 	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Platform:", platform)
 	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Model:", model)
-	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "Chats:", chatCount)
-	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "Tokens:", tokenCount)
+	fmt.Printf("\033[96m%s\033[0m \033[91m%d (%d chats)\033[0m\n", "Tokens:", tokenCount, chatCount)
 
 	return nil
 }
