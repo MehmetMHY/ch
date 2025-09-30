@@ -97,6 +97,7 @@ func (m *Manager) ListModels() ([]string, error) {
 
 // SelectPlatform handles platform selection and model selection
 func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func([]string, string) (string, error)) (map[string]interface{}, error) {
+	platformChanged := false
 	if platformKey == "" {
 		var platforms []string
 		platforms = append(platforms, "openai")
@@ -114,12 +115,36 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 		}
 
 		platformKey = selected
+		platformChanged = true
 	}
 
 	if platformKey == "openai" {
 		finalModel := modelName
-		if finalModel == "" {
-			finalModel = "gpt-4o-mini"
+		if platformChanged || finalModel == "" {
+			apiKey := os.Getenv("OPENAI_API_KEY")
+			if apiKey == "" {
+				return nil, fmt.Errorf("OPENAI_API_KEY environment variable is required for OpenAI platform")
+			}
+			client := openai.NewClient(apiKey)
+			models, err := client.ListModels(context.Background())
+			if err != nil {
+				return nil, err
+			}
+
+			var modelNames []string
+			for _, model := range models.Models {
+				modelNames = append(modelNames, model.ID)
+			}
+
+			selected, err := fzfSelector(modelNames, "Model: ")
+			if err != nil {
+				return nil, err
+			}
+
+			if selected == "" {
+				return nil, fmt.Errorf("no model selected")
+			}
+			finalModel = selected
 		}
 
 		return map[string]interface{}{
@@ -138,7 +163,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 	finalModel := modelName
 	var modelsList []string
 
-	if finalModel == "" {
+	if finalModel == "" || platformChanged {
 		var err error
 		modelsList, err = m.fetchPlatformModels(platform)
 		if err != nil {
