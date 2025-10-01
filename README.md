@@ -21,7 +21,6 @@
   - [Interactive Commands](#interactive-commands)
   - [Advanced Features](#advanced-features)
   - [Web Content Interaction](#web-content-interaction)
-- [Web Scraping](#web-scraping)
 - [Platform Compatibility](#platform-compatibility)
 - [Development](#development)
   - [Prerequisites](#prerequisites)
@@ -30,6 +29,7 @@
 - [Contributing](#contributing)
   - [Development Setup](#development-setup)
   - [Code Standards](#code-standards)
+- [Uninstall](#uninstall)
 - [License](#license)
 
 ## Overview
@@ -124,6 +124,23 @@ The installer automatically:
 ### API Keys
 
 Set up API keys for your chosen platforms. `OPENAI_API_KEY` is required for core functionality, and `BRAVE_API_KEY` is required for the web search feature.
+
+#### Important Note on API Keys
+
+By default, Ch uses the `openai` platform. If you run `ch` without setting the `OPENAI_API_KEY`, you will see an error. Here’s how to get started:
+
+1.  **Set the API Key**: If you want to use OpenAI, set the environment variable:
+    ```bash
+    export OPENAI_API_KEY="your-openai-key"
+    ```
+2.  **Switch Platforms**: Use a different platform that you have configured. For example, to use Groq:
+    ```bash
+    ch -p groq "Hello"
+    ```
+3.  **Use a Local Model**: For a completely free and offline experience, use [Ollama](https://ollama.com/):
+    ```bash
+    ch -p ollama "Hello"
+    ```
 
 ```bash
 # required
