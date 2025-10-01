@@ -319,11 +319,7 @@ create_symlink() {
 			;;
 		2)
 			log "Skipping symlink creation."
-			log "Please add the following line to your shell profile (e.g., ~/.zshrc, ~/.bash_profile):"
-			echo
-			echo -e "  \033[92mexport PATH=\"$HOME/.ch/bin:\$PATH\"\033[0m"
-			echo
-			log "After adding it, restart your shell or run 'source <your_profile_file>'."
+			SYMLINK_SKIPPED=true
 			;;
 		3)
 			error "Installation aborted by user."
@@ -385,6 +381,14 @@ print_success() {
 		echo -e "- Make sure '\$PREFIX/bin' is in your \$PATH (it should be by default in Termux)."
 		echo -e "- You can check by running: \033[90mecho \$PATH\033[0m"
 		echo -e "- You may need to restart your terminal."
+	elif [[ "${SYMLINK_SKIPPED:-false}" == true ]]; then
+		echo
+		echo -e "\033[93mTo complete the installation, please add Ch to your PATH:\033[0m"
+		echo -e "Add the following line to your shell profile (e.g., ~/.zshrc, ~/.bash_profile):"
+		echo
+		echo -e "  \033[92mexport PATH=\"$HOME/.ch/bin:\$PATH\"\033[0m"
+		echo
+		echo -e "After adding it, restart your shell or run 'source <your_profile_file>'."
 	else
 		echo -e "A symlink has been created at /usr/local/bin/ch, so you can run 'ch' from anywhere."
 		echo
@@ -411,6 +415,7 @@ check_git_and_pull() {
 
 _install_ch_from_repo() {
 	log "Starting Ch installation process from local repository..."
+	SYMLINK_SKIPPED=false
 	mkdir -p "$CH_HOME"
 	check_go
 	install_dependencies
