@@ -940,6 +940,11 @@ func parseFraction(fraction string) float64 {
 
 // extractTextFromImage uses Tesseract OCR to extract text from an image
 func (t *Terminal) extractTextFromImage(filePath string) (string, error) {
+	// Check if tesseract is installed
+	if _, err := exec.LookPath("tesseract"); err != nil {
+		return "", fmt.Errorf("Tesseract OCR is not installed. Please install it to enable image-to-text extraction")
+	}
+
 	client := gosseract.NewClient()
 	defer client.Close()
 

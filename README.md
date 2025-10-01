@@ -110,11 +110,14 @@ curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash
 
 The installer automatically:
 
-- Checks for Go 1.21+ and dependencies (fzf, yt-dlp)
-- Installs missing dependencies via system package managers (apt, brew, pkg, etc.)
-- Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`
-- Creates global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux)
-- Configures PATH if needed
+- Checks for Go 1.21+ and dependencies (fzf, yt-dlp, tesseract).
+- Installs missing dependencies via system package managers (apt, brew, pkg, etc.).
+- Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`.
+- Attempts to create a global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux).
+- If the symlink creation fails due to permissions, it will interactively prompt you to:
+  - Retry with `sudo`.
+  - Install locally to `~/.ch/bin` and provide instructions to add it to your `PATH`.
+- Warns you if Tesseract OCR is not installed, as it is required for image-to-text extraction.
 
 ## Configuration
 
@@ -360,6 +363,7 @@ Switch platforms during conversation:
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube video scraping
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (optional) for image-to-text extraction from images. The installer will warn you if it's missing.
 - `BRAVE_API_KEY` for web search (see [API Keys](#api-keys))
 - Clipboard utilities (auto-detected): pbcopy, xclip, xsel, wl-copy, termux-clipboard-set
 - [Helix editor](https://helix-editor.com/) (optional but recommended for enhanced text editing)

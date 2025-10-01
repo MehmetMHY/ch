@@ -4,7 +4,6 @@ set -euo pipefail
 
 CH_HOME="$HOME/.ch"
 BIN_DIR="$CH_HOME/bin"
-VENV_DIR="$CH_HOME/venv"
 REPO_URL="https://github.com/MehmetMHY/ch.git"
 
 log() {
@@ -103,12 +102,10 @@ install_dependencies() {
 	log "Checking system dependencies for $os"
 
 	local required_deps=("fzf")
-	local optional_deps=("yt-dlp")
-	pip_deps=()
+	local optional_deps=("yt-dlp" "tesseract")
 
 	local missing_required=()
 	local missing_optional=()
-	local missing_pip=()
 
 	for dep in "${required_deps[@]}"; do
 		if ! command -v "$dep" >/dev/null 2>&1; then
@@ -122,13 +119,7 @@ install_dependencies() {
 		fi
 	done
 
-	for dep in "${pip_deps[@]}"; do
-		if ! command -v "$dep" >/dev/null 2>&1 && ! [[ -f "$VENV_DIR/bin/$dep" ]]; then
-			missing_pip+=("$dep")
-		fi
-	done
-
-	if [[ ${#missing_required[@]} -eq 0 ]] && [[ ${#missing_optional[@]} -eq 0 ]] && [[ ${#missing_pip[@]} -eq 0 ]]; then
+	if [[ ${#missing_required[@]} -eq 0 ]] && [[ ${#missing_optional[@]} -eq 0 ]]; then
 		log "All dependencies already installed"
 		return
 	fi
@@ -139,9 +130,13 @@ install_dependencies() {
 	if [[ ${#missing_optional[@]} -gt 0 ]]; then
 		log "The following optional system dependencies are missing: ${missing_optional[*]}"
 	fi
-	if [[ ${#missing_pip[@]} -gt 0 ]]; then
-		log "The following optional Python dependencies are missing: ${missing_pip[*]}"
-	fi
+
+	for dep in "${missing_optional[@]}"; do
+		if [[ "$dep" == "tesseract" ]]; then
+			warning "Tesseract OCR is not installed. Image-to-text extraction will be disabled."
+			warning "The script will attempt to install it. If it fails, you can install it manually (e.g., 'brew install tesseract' or 'sudo apt-get install tesseract-ocr')."
+		fi
+	done
 
 	case "$os" in
 	"macos")
@@ -156,20 +151,6 @@ install_dependencies() {
 			log "Installing optional dependency $dep with Homebrew..."
 			brew install "$dep" || warning "Failed to install optional dependency: $dep."
 		done
-		if [[ ${#missing_pip[@]} -gt 0 ]]; then
-			if ! command -v pip3 >/dev/null 2>&1 && ! command -v pip >/dev/null 2>&1; then
-				log "Installing Python and pip..."
-				brew install python || warning "Failed to install Python. Pip dependencies will be skipped."
-			fi
-			for dep in "${missing_pip[@]}"; do
-				log "Installing $dep with pip..."
-				if command -v pip3 >/dev/null 2>&1; then
-					pip3 install "$dep" || warning "Failed to install optional dependency: $dep."
-				else
-					pip install "$dep" || warning "Failed to install optional dependency: $dep."
-				fi
-			done
-		fi
 		;;
 	"android")
 		if ! command -v pkg >/dev/null 2>&1; then
@@ -181,26 +162,19 @@ install_dependencies() {
 			pkg install -y "$dep" || error "Failed to install required dependency: $dep. Please install it manually."
 		done
 		for dep in "${missing_optional[@]}"; do
-			log "Installing optional dependency $dep with pkg..."
-			pkg install -y "$dep" || warning "Failed to install optional dependency: $dep."
-		done
-		if [[ ${#missing_pip[@]} -gt 0 ]]; then
-			if ! command -v pip >/dev/null 2>&1; then
-				log "Installing Python and pip..."
-				pkg install -y python || warning "Failed to install Python. Pip dependencies will be skipped."
+			local install_name="$dep"
+			if [[ "$dep" == "tesseract" ]]; then
+				install_name="tesseract-ocr"
 			fi
-			for dep in "${missing_pip[@]}"; do
-				log "Installing $dep with pip..."
-				pip install "$dep" || warning "Failed to install optional dependency: $dep."
-			done
-		fi
+			log "Installing optional dependency $install_name with pkg..."
+			pkg install -y "$install_name" || warning "Failed to install optional dependency: $dep."
+		done
 		;;
 	"linux")
 		if ! command -v sudo >/dev/null 2>&1; then
 			error "sudo is required to install dependencies on Linux. Please install it first."
 		fi
 
-		local all_deps=("${missing_required[@]}" "${missing_optional[@]}")
 		local pkg_manager=""
 		if command -v apt-get >/dev/null 2>&1; then pkg_manager="apt-get"; fi
 		if command -v pacman >/dev/null 2>&1; then pkg_manager="pacman"; fi
@@ -235,47 +209,25 @@ install_dependencies() {
 		done
 
 		for dep in "${missing_optional[@]}"; do
-			log "Installing optional dependency $dep with $pkg_manager..."
+			local install_name="$dep"
+			if [[ "$dep" == "tesseract" ]]; then
+				if [[ "$pkg_manager" == "apt-get" ]]; then
+					install_name="tesseract-ocr"
+				fi
+			fi
+			log "Installing optional dependency $install_name with $pkg_manager..."
 			case "$pkg_manager" in
-			"apt-get") sudo apt-get install -y "$dep" ;;
-			"pacman") sudo pacman -S --noconfirm "$dep" ;;
-			"dnf") sudo dnf install -y "$dep" ;;
-			"yum") sudo yum install -y "$dep" ;;
-			"zypper") sudo zypper install -y "$dep" ;;
-			"apk") sudo apk add "$dep" ;;
+			"apt-get") sudo apt-get install -y "$install_name" ;;
+			"pacman") sudo pacman -S --noconfirm "$install_name" ;;
+			"dnf") sudo dnf install -y "$install_name" ;;
+			"yum") sudo yum install -y "$install_name" ;;
+			"zypper") sudo zypper install -y "$install_name" ;;
+			"apk") sudo apk add "$install_name" ;;
 			esac
 			if ! command -v "$dep" >/dev/null 2>&1; then
 				warning "Failed to install optional dependency: $dep."
 			fi
 		done
-
-		if [[ ${#missing_pip[@]} -gt 0 ]]; then
-			log "Setting up Python virtual environment for Ch dependencies..."
-			if ! command -v python3 >/dev/null 2>&1; then
-				warning "python3 is not installed. Skipping Python dependencies."
-			else
-				if ! python3 -c "import venv" >/dev/null 2>&1; then
-					log "Python 'venv' module not found, attempting to install..."
-					case "$pkg_manager" in
-					"apt-get") sudo apt-get install -y python3-venv ;;
-					"dnf" | "yum") sudo "$pkg_manager" install -y python3-virtualenv ;;
-					*)
-						warning "Could not automatically install 'venv' module. Please install python3-venv or equivalent."
-						;;
-					esac
-				fi
-
-				if python3 -c "import venv" >/dev/null 2>&1; then
-					python3 -m venv "$VENV_DIR" || warning "Failed to create Python virtual environment."
-					for dep in "${missing_pip[@]}"; do
-						log "Installing $dep with pip into virtual environment..."
-						"$VENV_DIR/bin/pip" install "$dep" || warning "Failed to install optional dependency: $dep."
-					done
-				else
-					warning "Python 'venv' module is required but not available. Skipping Python dependencies."
-				fi
-			fi
-		fi
 		;;
 	esac
 }
@@ -305,12 +257,7 @@ build_ch() {
 	local wrapper_path="$BIN_DIR/ch"
 	cat >"$wrapper_path" <<EOF
 #!/usr/bin/env bash
-CH_HOME="\$HOME/.ch"
-VENV_DIR="\$CH_HOME/venv"
-if [[ -d "\$VENV_DIR" ]]; then
-    export PATH="\$VENV_DIR/bin:\$PATH"
-fi
-exec "\$CH_HOME/bin/ch-bin" "\$@"
+exec "\$HOME/.ch/bin/ch-bin" "\$@"
 EOF
 
 	chmod +x "$wrapper_path" || error "Failed to make wrapper script executable"
@@ -333,50 +280,55 @@ create_symlink() {
 		ln -sf "$source_path" "$symlink_path"
 		log "Symlink created: $symlink_path -> $source_path"
 	else
-		log "Creating symlink for 'ch' in /usr/local/bin"
+		log "Attempting to create symlink for 'ch' in a directory in your PATH."
 		local target_dir="/usr/local/bin"
 		local symlink_path="$target_dir/ch"
 
-		if [[ ! -d "$target_dir" ]]; then
-			log "Directory $target_dir does not exist. Creating it with sudo."
-			if command -v sudo >/dev/null 2>&1; then
-				sudo mkdir -p "$target_dir"
-			else
-				error "sudo is required to create $target_dir. Please create it manually and re-run."
-			fi
-			if [[ $? -ne 0 ]]; then
-				error "Failed to create $target_dir. Please create it manually and re-run the script."
-			fi
-		fi
-
-		if [[ -w "$target_dir" ]]; then
+		# Try to create symlink without sudo first
+		if [[ -d "$target_dir" ]] && [[ -w "$target_dir" ]]; then
 			ln -sf "$source_path" "$symlink_path"
 			log "Symlink created: $symlink_path -> $source_path"
-		else
-			log "Attempting to create symlink with sudo..."
-			if command -v sudo >/dev/null 2>&1; then
-				sudo ln -sf "$source_path" "$symlink_path"
-			else
-				warning "sudo not available. Cannot create symlink in $target_dir"
-				log "You can still use ch by either:"
-				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
-				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
-				log "  3. Using the full path: $source_path"
-				return 0
-			fi
-			if [[ $? -ne 0 ]]; then
-				warning "Failed to create symlink in $target_dir"
-				log "You can still use ch by either:"
-				log "  1. Adding $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
-				log "  2. Creating the symlink manually: sudo ln -sf \"$source_path\" \"$symlink_path\""
-				log "  3. Using the full path: $source_path"
-				return 0
-			fi
-			log "Symlink created with sudo: $symlink_path -> $source_path"
+			return
 		fi
+
+		# If it fails, prompt the user
+		warning "Could not create symlink in $target_dir without elevated permissions."
+		echo "Please choose an option:"
+		echo "  1) Attempt to create symlink with sudo (recommended)"
+		echo "  2) Install to $BIN_DIR only (you will need to add this to your PATH manually)"
+		echo "  3) Abort installation"
+		read -p "Enter your choice [1]: " choice
+		choice=${choice:-1}
+
+		case "$choice" in
+		1)
+			log "Attempting to create symlink with sudo..."
+			if ! command -v sudo >/dev/null 2>&1; then
+				error "sudo command not found. Please choose another option or install sudo."
+			fi
+			if [[ ! -d "$target_dir" ]]; then
+				sudo mkdir -p "$target_dir" || error "Failed to create $target_dir with sudo."
+			fi
+			sudo ln -sf "$source_path" "$symlink_path" || error "Failed to create symlink with sudo."
+			log "Symlink created with sudo: $symlink_path -> $source_path"
+			;;
+		2)
+			log "Skipping symlink creation."
+			log "Please add the following line to your shell profile (e.g., ~/.zshrc, ~/.bash_profile):"
+			echo
+			echo -e "  \033[92mexport PATH=\"$HOME/.ch/bin:\$PATH\"\033[0m"
+			echo
+			log "After adding it, restart your shell or run 'source <your_profile_file>'."
+			;;
+		3)
+			error "Installation aborted by user."
+			;;
+		*)
+			error "Invalid choice. Aborting installation."
+			;;
+		esac
 	fi
 }
-
 check_api_keys() {
 	log "Checking API Key status..."
 
@@ -495,8 +447,7 @@ update_cli_tools() {
 	local os
 	os=$(detect_os)
 
-	local system_deps=("fzf")
-	local pip_deps=("yt-dlp")
+	local system_deps=("fzf" "yt-dlp" "tesseract")
 
 	case "$os" in
 	"macos")
@@ -523,101 +474,47 @@ update_cli_tools() {
 		;;
 	"linux")
 		if command -v sudo >/dev/null 2>&1; then
-			if command -v fzf >/dev/null 2>&1 && [[ -d ~/.fzf ]]; then
-				log "Updating fzf from git..."
-				(cd ~/.fzf && git pull && ./install --all >/dev/null 2>&1) || warning "Failed to update fzf from git"
-			else
-				if command -v apt-get >/dev/null 2>&1; then
-					log "Updating package list..."
-					sudo apt-get update -qq >/dev/null 2>&1
-					for dep in "${system_deps[@]}"; do
-						if command -v "$dep" >/dev/null 2>&1; then
-							log "Updating $dep..."
-							sudo apt-get install --only-upgrade -y "$dep" 2>/dev/null || log "$dep already up to date"
-						fi
-					done
-				elif command -v pacman >/dev/null 2>&1; then
-					log "Updating package database..."
-					sudo pacman -Sy >/dev/null 2>&1
-					for dep in "${system_deps[@]}"; do
-						if command -v "$dep" >/dev/null 2>&1; then
-							log "Updating $dep..."
-							sudo pacman -S --noconfirm "$dep" 2>/dev/null || log "$dep already up to date"
-						fi
-					done
-				elif command -v dnf >/dev/null 2>&1; then
-					for dep in "${system_deps[@]}"; do
-						if command -v "$dep" >/dev/null 2>&1; then
-							log "Updating $dep..."
-							sudo dnf upgrade -y "$dep" 2>/dev/null || log "$dep already up to date"
-						fi
-					done
-				elif command -v yum >/dev/null 2>&1; then
-					for dep in "${system_deps[@]}"; do
-						if command -v "$dep" >/dev/null 2>&1; then
-							log "Updating $dep..."
-							sudo yum update -y "$dep" 2>/dev/null || log "$dep already up to date"
-						fi
-					done
-				elif command -v zypper >/dev/null 2>&1; then
-					for dep in "${system_deps[@]}"; do
-						if command -v "$dep" >/dev/null 2>&1; then
-							log "Updating $dep..."
-							sudo zypper update -y "$dep" 2>/dev/null || log "$dep already up to date"
-						fi
-					done
-				elif command -v apk >/dev/null 2>&1; then
-					log "Updating package index..."
-					sudo apk update >/dev/null 2>&1
-					for dep in "${system_deps[@]}"; do
-						if command -v "$dep" >/dev/null 2>&1; then
-							log "Updating $dep..."
-							sudo apk upgrade "$dep" 2>/dev/null || log "$dep already up to date"
-						fi
-					done
-				else
-					log "No supported package manager found for updating system packages"
-				fi
+			local pkg_manager=""
+			if command -v apt-get >/dev/null 2>&1; then pkg_manager="apt-get"; fi
+			if command -v pacman >/dev/null 2>&1; then pkg_manager="pacman"; fi
+			if command -v dnf >/dev/null 2>&1; then pkg_manager="dnf"; fi
+			if command -v yum >/dev/null 2>&1; then pkg_manager="yum"; fi
+			if command -v zypper >/dev/null 2>&1; then pkg_manager="zypper"; fi
+			if command -v apk >/dev/null 2>&1; then pkg_manager="apk"; fi
+
+			if [[ -z "$pkg_manager" ]]; then
+				warning "Unsupported package manager. Skipping CLI tool updates."
+				return
 			fi
+
+			log "Updating package manager..."
+			case "$pkg_manager" in
+			"apt-get") sudo apt-get update -qq ;;
+			"pacman") sudo pacman -Sy --noconfirm ;;
+			esac
+
+			for dep in "${system_deps[@]}"; do
+				if command -v "$dep" >/dev/null 2>&1; then
+					local install_name="$dep"
+					if [[ "$dep" == "tesseract" && "$pkg_manager" == "apt-get" ]]; then
+						install_name="tesseract-ocr"
+					fi
+					log "Updating $dep..."
+					case "$pkg_manager" in
+					"apt-get") sudo apt-get install --only-upgrade -y "$install_name" 2>/dev/null || log "$dep already up to date" ;;
+					"pacman") sudo pacman -S --noconfirm "$install_name" 2>/dev/null || log "$dep already up to date" ;;
+					"dnf") sudo dnf upgrade -y "$install_name" 2>/dev/null || log "$dep already up to date" ;;
+					"yum") sudo yum update -y "$install_name" 2>/dev/null || log "$dep already up to date" ;;
+					"zypper") sudo zypper update -y "$install_name" 2>/dev/null || log "$dep already up to date" ;;
+					"apk") sudo apk upgrade "$install_name" 2>/dev/null || log "$dep already up to date" ;;
+					esac
+				fi
+			done
 		else
 			warning "sudo not available - skipping system package updates"
 		fi
 		;;
 	esac
-
-	local venv_pip="$VENV_DIR/bin/pip"
-	if [[ -f "$venv_pip" ]]; then
-		log "Updating Python dependencies in virtual environment..."
-		for dep in "${pip_deps[@]}"; do
-			if "$venv_pip" list | grep -qi "^$dep "; then
-				log "Updating $dep..."
-				"$venv_pip" install --upgrade "$dep" 2>/dev/null || warning "Failed to update $dep"
-			fi
-		done
-	else
-		for dep in "${pip_deps[@]}"; do
-			if command -v "$dep" >/dev/null 2>&1; then
-				log "Updating $dep..."
-				case "$dep" in
-				"yt-dlp")
-					if [[ "$os" != "android" ]]; then
-						yt-dlp --update 2>/dev/null || {
-							if command -v pip3 >/dev/null 2>&1; then
-								pip3 install --upgrade --user yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
-							else
-								pip install --upgrade --user yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
-							fi
-						}
-					else
-						if command -v pip >/dev/null 2>&1; then
-							pip install --upgrade yt-dlp 2>/dev/null || warning "Failed to update yt-dlp"
-						fi
-					fi
-					;;
-				esac
-			fi
-		done
-	fi
 
 	log "CLI tools update complete"
 }
