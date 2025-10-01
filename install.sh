@@ -249,6 +249,11 @@ build_ch() {
 	if [[ "$os" == "android" ]]; then
 		log "Building for Android (disabling CGO)..."
 		CGO_ENABLED=0 go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
+	elif [[ "$os" == "macos" ]] && [[ "$(uname -m)" == "arm64" ]]; then
+		log "Building for macOS on Apple Silicon with Homebrew flags..."
+		local brew_prefix
+		brew_prefix=$(brew --prefix)
+		CGO_CPPFLAGS="-I${brew_prefix}/include" CGO_LDFLAGS="-L${brew_prefix}/lib" go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
 	else
 		go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
 	fi
@@ -431,6 +436,13 @@ build_only() {
 	if [[ "$os" == "android" ]]; then
 		log "Building for Android (disabling CGO)..."
 		CGO_ENABLED=0 make build || error "Build failed"
+	elif [[ "$os" == "macos" ]] && [[ "$(uname -m)" == "arm64" ]]; then
+		log "Building for macOS on Apple Silicon with Homebrew flags..."
+		local brew_prefix
+		brew_prefix=$(brew --prefix)
+		export CGO_CPPFLAGS="-I${brew_prefix}/include"
+		export CGO_LDFLAGS="-L${brew_prefix}/lib"
+		make build || error "Build failed"
 	else
 		log "Building project..."
 		make build || error "Build failed"
