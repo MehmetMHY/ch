@@ -157,22 +157,43 @@ func main() {
 		return
 	}
 
-	// handle platform switching
-	if *platformFlag != "" {
-		result, err := platformManager.SelectPlatform(*platformFlag, *modelFlag, terminal.FzfSelect)
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("%v", err))
-			return
-		}
-		if result != nil {
-			chatManager.SetCurrentPlatform(result["platform_name"].(string))
-			chatManager.SetCurrentModel(result["picked_model"].(string))
-		}
+	// Set platform and model based on precedence: flags > env vars > config file
+	finalPlatform := state.Config.CurrentPlatform
+	finalModel := state.Config.CurrentModel
+
+	// Environment variables
+	if p := os.Getenv("CH_DEFAULT_PLATFORM"); p != "" {
+		finalPlatform = p
+	}
+	if m := os.Getenv("CH_DEFAULT_MODEL"); m != "" {
+		finalModel = m
 	}
 
-	// handle model switching
-	if *modelFlag != "" && *platformFlag == "" {
-		chatManager.SetCurrentModel(*modelFlag)
+	// Command-line flags override everything
+	if *platformFlag != "" {
+		finalPlatform = *platformFlag
+	}
+	if *modelFlag != "" {
+		finalModel = *modelFlag
+	}
+
+	// Apply the final platform and model
+	if finalPlatform != state.Config.CurrentPlatform || finalModel != state.Config.CurrentModel {
+		// If the platform was changed via flag/env, we may need to select a model for it
+		if *platformFlag != "" {
+			result, err := platformManager.SelectPlatform(finalPlatform, finalModel, terminal.FzfSelect)
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("%v", err))
+				return
+			}
+			if result != nil {
+				chatManager.SetCurrentPlatform(result["platform_name"].(string))
+				chatManager.SetCurrentModel(result["picked_model"].(string))
+			}
+		} else {
+			chatManager.SetCurrentPlatform(finalPlatform)
+			chatManager.SetCurrentModel(finalModel)
+		}
 	}
 
 	// initialize platform client

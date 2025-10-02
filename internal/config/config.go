@@ -153,22 +153,11 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 
 // DefaultConfig returns the default configuration merged with user config from config.json
 func DefaultConfig() *types.Config {
-	// Get default platform from environment variable, fallback to default platform
-	defaultPlatform := os.Getenv("CH_DEFAULT_PLATFORM")
-	if defaultPlatform == "" {
-		defaultPlatform = "openai"
-	}
-
-	// Get default model from environment variable, fallback to hardcoded default model
-	defaultModel := os.Getenv("CH_DEFAULT_MODEL")
-	if defaultModel == "" {
-		defaultModel = "gpt-4.1-mini"
-	}
-
+	// Start with hardcoded defaults
 	defaultConfig := &types.Config{
 		OpenAIAPIKey:      "", // API keys are fetched per-platform in Initialize()
-		DefaultModel:      defaultModel,
-		CurrentModel:      defaultModel,
+		DefaultModel:      "gpt-4.1-mini",
+		CurrentModel:      "gpt-4.1-mini",
 		SystemPrompt:      "You are a helpful assistant powered by Ch who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. But still, do NOT go crazy long with your response if you DON'T HAVE TO. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
 		ExitKey:           "!q",
 		ModelSwitch:       "!m",
@@ -196,7 +185,7 @@ func DefaultConfig() *types.Config {
 		EditorAlias:       "!v",
 		MultiLine:         "\\",
 		PreferredEditor:   "hx",
-		CurrentPlatform:   defaultPlatform,
+		CurrentPlatform:   "openai",
 		MuteNotifications: false,
 		Platforms: map[string]types.Platform{
 			"groq": {
@@ -276,13 +265,20 @@ func DefaultConfig() *types.Config {
 
 	// Load user config from config.json and merge with defaults
 	userConfig, err := loadConfigFromFile()
-	if err != nil {
-		// If we can't load user config, just return defaults
-		// In a production app you might want to log this error
-		return defaultConfig
+	if err == nil {
+		defaultConfig = mergeConfigs(defaultConfig, userConfig)
 	}
 
-	return mergeConfigs(defaultConfig, userConfig)
+	// Override with environment variables, giving them higher precedence
+	if platformEnv := os.Getenv("CH_DEFAULT_PLATFORM"); platformEnv != "" {
+		defaultConfig.CurrentPlatform = platformEnv
+	}
+	if modelEnv := os.Getenv("CH_DEFAULT_MODEL"); modelEnv != "" {
+		defaultConfig.CurrentModel = modelEnv
+		defaultConfig.DefaultModel = modelEnv
+	}
+
+	return defaultConfig
 }
 
 // InitializeAppState creates and returns initial application state
