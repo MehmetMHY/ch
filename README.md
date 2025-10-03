@@ -269,24 +269,23 @@ ls -la | ch "Summarize this directory"
 
 When in interactive mode (`ch`), use these commands:
 
-- **`!q`** - Exit interface
-- **`!h`** - Interactive help menu
-- **`!m`** - Switch models (with fuzzy finder)
-- **`!p`** - Switch platforms (with fuzzy finder)
-- **`!c`** - Clear chat history
-- **`!t`** - Text editor input mode
-- **`!b`** - Backtrack to previous message
-- **`!l`** - Load files from current directory
-- **`!l <dir>`** - Load files from specified directory
-- **`!d`** - Generate code dump
-- **`!e`** - Export chat history with auto or manual export
-- **`!s [url] ...`** - Scrape content from URLs (supports multiple URLs and YouTube)
-- **`!w [query]`** - Search web using Brave Search
-- **`!y`** - Copy selected responses to clipboard
-- **`!x`** - Record shell session or run command (`!x ls` streams output live)
-- **`\`** - Enter/exit multi-line input mode
-- **`ctrl+c`** - Clear current prompt input
-- **`ctrl+d`** - Exit interface
+- **`!q`** - exit interface
+- **`!h`** - help page
+- **`!c`** - clear chat history
+- **`!b`** - backtrack messages
+- **`!t`** - text editor mode
+- **`\`** - multi-line input mode
+- **`!m`** - switch models
+- **`!p`** - switch platforms
+- **`!l [dir]`** - load files/dirs
+- **`!x`** - record shell a session
+- **`!s [url]...`** - scrape URL(s)
+- **`!w [query]`** - web search
+- **`!d`** - generate codedump
+- **`!e`** - export chat(s) to a file
+- **`!y`** - add to clipboard
+- **`ctrl+c`** - clear prompt input
+- **`ctrl+d`** - exit completely
 
 ### Advanced Features
 

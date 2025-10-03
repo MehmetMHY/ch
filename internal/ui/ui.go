@@ -182,27 +182,27 @@ func (t *Terminal) IsTerminal() bool {
 
 // ShowHelp displays the help information
 func (t *Terminal) ShowHelp() {
-	fmt.Println("Ch - A lightweight CLI tool for AI model interaction")
+	fmt.Println("ch - lightweight CLI for AI models")
 	fmt.Println("")
-	fmt.Println("Usage:")
-	fmt.Printf("  ch [-h] [-d [DIRECTORY]] [-p [PLATFORM]] [-m MODEL] [-l FILE/URL] [-w QUERY] [-s URL] [-e] [query]\n")
+	fmt.Println("usage:")
+	fmt.Printf("  ch [-h] [-d [dir]] [-p [platform]] [-m model] [-l file/url] [-w query] [-s url] [-e] [query]\n")
 	fmt.Println("")
-	fmt.Println("Options:")
-	fmt.Printf("  %-18s %s\n", "-h, --help", "show this help message and exit")
-	fmt.Printf("  %-18s %s\n", "-d [DIRECTORY]", "generate codedump file (optionally specify directory path)")
-	fmt.Printf("  %-18s %s\n", "-p [PLATFORM]", "switch platform (leave empty for interactive selection)")
-	fmt.Printf("  %-18s %s\n", "-m MODEL", "specify model to use")
-	fmt.Printf("  %-18s %s\n", "-l FILE/URL", "load and display file content or scrape URL")
-	fmt.Printf("  %-18s %s\n", "-w QUERY", "perform a web search and print results")
-	fmt.Printf("  %-18s %s\n", "-s URL", "scrape a URL and print content")
-	fmt.Printf("  %-18s %s\n", "-e, --export", "export code blocks from the last response")
+	fmt.Println("options:")
+	fmt.Printf("  %-18s %s\n", "-h, --help", "show help and exit")
+	fmt.Printf("  %-18s %s\n", "-d [dir]", "generate codedump")
+	fmt.Printf("  %-18s %s\n", "-p [platform]", "switch platform")
+	fmt.Printf("  %-18s %s\n", "-m model", "specify model")
+	fmt.Printf("  %-18s %s\n", "-l file/url", "load file or scrape URL")
+	fmt.Printf("  %-18s %s\n", "-w query", "web search")
+	fmt.Printf("  %-18s %s\n", "-s url", "scrape URL")
+	fmt.Printf("  %-18s %s\n", "-e, --export", "export code blocks")
 	fmt.Println("")
-	fmt.Println("Examples:")
-	fmt.Println("  ch \"What is artificial intelligence?\"")
-	fmt.Println("  ch -p groq -m llama3-8b-8192 \"Explain quantum computing\"")
+	fmt.Println("examples:")
+	fmt.Println("  ch \"what is AI?\"")
+	fmt.Println("  ch -p groq -m llama3-8b-8192 \"explain quantum computing\"")
 	fmt.Println("  ch -l document.pdf")
 	fmt.Println("  ch -d /path/to/project")
-	fmt.Println("  cat main.py | ch \"What does this code do?\"")
+	fmt.Println("  cat main.py | ch \"what does this do?\"")
 	fmt.Println("")
 
 	// Dynamically generate platforms list
@@ -213,11 +213,11 @@ func (t *Terminal) ShowHelp() {
 			platforms = append(platforms, name)
 		}
 	}
-	fmt.Println("Available Platforms:")
+	fmt.Println("available platforms:")
 	fmt.Printf("  %s\n", strings.Join(platforms, ", "))
 	fmt.Println("")
-	fmt.Println("Interactive Mode:")
-	fmt.Println("  Run 'ch' without arguments to start. Use '!h' for a full list of commands.")
+	fmt.Println("interactive mode:")
+	fmt.Println("  run 'ch' for interactive. use '!h' for help.")
 }
 
 // RecordShellSession records the entire shell session and returns the content as a string.
@@ -364,22 +364,22 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		">all - show all help options",
 		">state - show current state",
 		fmt.Sprintf("%s - exit interface", t.config.ExitKey),
-		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
-		fmt.Sprintf("%s - text editor input mode", t.config.EditorInput),
-		fmt.Sprintf("%s - clear chat history", t.config.ClearHistory),
-		fmt.Sprintf("%s - backtrack to a previous message", t.config.Backtrack),
 		fmt.Sprintf("%s - help page", t.config.HelpKey),
-		fmt.Sprintf("%s - switch platforms (interactive)", t.config.PlatformSwitch),
-		fmt.Sprintf("%s [dir] - load files/dirs from current or specified dir", t.config.LoadFiles),
-		fmt.Sprintf("%s - generate codedump (all text-based files)", t.config.CodeDump),
-		fmt.Sprintf("%s - export selected chat entries to a file", t.config.ExportChat),
-		fmt.Sprintf("%s - record a shell session and use it as context", t.config.ShellRecord),
-		fmt.Sprintf("%s [url] ... - scrape content from URLs", t.config.ScrapeURL),
-		fmt.Sprintf("%s [query] - search web using Brave Search", t.config.WebSearch),
-		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
-		fmt.Sprintf("%s - enter/exit multi-line input mode", t.config.MultiLine),
-		"ctrl+c - clear current prompt input",
-		"ctrl+d - exit interface completely",
+		fmt.Sprintf("%s - clear chat history", t.config.ClearHistory),
+		fmt.Sprintf("%s - backtrack messages", t.config.Backtrack),
+		fmt.Sprintf("%s - text editor mode", t.config.EditorInput),
+		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
+		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
+		fmt.Sprintf("%s - switch platforms", t.config.PlatformSwitch),
+		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
+		fmt.Sprintf("%s - record shell a session", t.config.ShellRecord),
+		fmt.Sprintf("%s [url]... - scrape URL(s)", t.config.ScrapeURL),
+		fmt.Sprintf("%s [query] - web search", t.config.WebSearch),
+		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
+		fmt.Sprintf("%s - export chat(s) to a file", t.config.ExportChat),
+		fmt.Sprintf("%s - add to clipboard", t.config.CopyToClipboard),
+		"ctrl+c - clear prompt input",
+		"ctrl+d - exit completely",
 	}
 
 	return options
