@@ -252,7 +252,7 @@ func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 		items[i], items[j] = items[j], items[i]
 	}
 
-	selected, err := terminal.FzfSelect(items, "Backtrack to: ")
+	selected, err := terminal.FzfSelect(items, "backtrack to: ")
 	if err != nil {
 		return 0, fmt.Errorf("fzf selection failed: %v", err)
 	}
@@ -391,7 +391,7 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 		// Generate filename options and let user select
 		filenameOptions := m.generateFilenameOptions(code)
 
-		prompt := fmt.Sprintf("File %d/%d: ", i+1, len(matches))
+		prompt := fmt.Sprintf("file %d/%d: ", i+1, len(matches))
 		selectedFilename, err := terminal.FzfSelect(filenameOptions, prompt)
 		if err != nil {
 			return filePaths, fmt.Errorf("filename selection failed: %v", err)
@@ -428,12 +428,12 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	}
 
 	// Ask for edit mode
-	editMode, err := terminal.FzfSelect([]string{"Auto Export Mode", "Manual Export Mode"}, "Select export mode: ")
+	editMode, err := terminal.FzfSelect([]string{"auto export", "manual export"}, "select export mode: ")
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled or failed: %v", err)
 	}
 
-	if editMode == "Auto Export Mode" {
+	if editMode == "auto export" {
 		return m.ExportChatAuto(terminal)
 	}
 
@@ -466,11 +466,11 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no chat entries to export")
 	}
 
-	// Add [ALL] option at the top of the list
-	fzfOptions := append([]string{"[ALL]"}, items...)
+	// Add >all option at the top of the list
+	fzfOptions := append([]string{">all"}, items...)
 
 	// Use fzf for selection
-	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "Export entries (TAB=multi): ")
+	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "export entries (tab=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled or failed: %v", err)
 	}
@@ -479,11 +479,11 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no entries selected")
 	}
 
-	// Check if [ALL] was selected
+	// Check if >all was selected
 	var selectedEntries []types.ChatHistory
 	allSelected := false
 	for _, item := range selectedItems {
-		if strings.HasPrefix(item, "[ALL]") {
+		if strings.HasPrefix(item, ">all") {
 			allSelected = true
 			break
 		}
@@ -583,14 +583,14 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		var optionsWithOverwrite []string
 		if len(newFileOptions) >= 1 {
 			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[:1]...)
-			optionsWithOverwrite = append(optionsWithOverwrite, "[OVERWRITE]")
+			optionsWithOverwrite = append(optionsWithOverwrite, ">overwrite")
 			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[1:]...)
 		} else {
 			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions...)
-			optionsWithOverwrite = append(optionsWithOverwrite, "[OVERWRITE]")
+			optionsWithOverwrite = append(optionsWithOverwrite, ">overwrite")
 		}
 
-		selectedOption, err := terminal.FzfSelect(optionsWithOverwrite, "Save to file: ")
+		selectedOption, err := terminal.FzfSelect(optionsWithOverwrite, "save to file: ")
 		if err != nil {
 			return "", fmt.Errorf("file selection failed: %v", err)
 		}
@@ -598,14 +598,14 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 			return "", fmt.Errorf("export cancelled")
 		}
 
-		if selectedOption == "[OVERWRITE]" {
+		if selectedOption == ">overwrite" {
 			existingFileOptions := m.createPrioritizedFileOptions(".txt", allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
-			selectedOverwrite, err := terminal.FzfSelect(existingFileOptions, "Overwrite file: ")
+			selectedOverwrite, err := terminal.FzfSelect(existingFileOptions, "overwrite file: ")
 			if err != nil {
 				return "", fmt.Errorf("file selection failed: %v", err)
 			}
 
-			if selectedOverwrite == "[CREATE]" {
+			if selectedOverwrite == ">create" {
 				continue // Loop back to new file selection
 			}
 			if selectedOverwrite == "" {
@@ -662,8 +662,8 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no chat entries to export")
 	}
 
-	fzfOptions := append([]string{"[ALL]"}, items...)
-	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "Export entries (TAB=multi): ")
+	fzfOptions := append([]string{">all"}, items...)
+	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "export entries (tab=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled or failed: %v", err)
 	}
@@ -674,7 +674,7 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 	var selectedEntries []types.ChatHistory
 	allSelected := false
 	for _, item := range selectedItems {
-		if strings.HasPrefix(item, "[ALL]") {
+		if strings.HasPrefix(item, ">all") {
 			allSelected = true
 			break
 		}
@@ -736,7 +736,7 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 		snippetOptions = append(snippetOptions, fmt.Sprintf("[%d] (%s) %s", i+1, snippet.Language, preview))
 	}
 
-	selectedSnippetItems, err := terminal.FzfMultiSelect(snippetOptions, "Select snippets to save (TAB=multi): ")
+	selectedSnippetItems, err := terminal.FzfMultiSelect(snippetOptions, "select snippets to save (tab=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("snippet selection failed: %v", err)
 	}
@@ -778,18 +778,18 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 		if language == "" || ext == ".txt" {
 			language = "?"
 		}
-		prompt := fmt.Sprintf("[%s %d] Save to file: ", language, i+1)
+		prompt := fmt.Sprintf("[%s %d] save to file: ", language, i+1)
 
 		// Generate new filename options first
 		newFileOptions := m.generatePrioritizedFilenameOptions(snippet.Content, ext)
 		var optionsWithOverwrite []string
 		if len(newFileOptions) >= 1 {
 			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[:1]...)
-			optionsWithOverwrite = append(optionsWithOverwrite, "[OVERWRITE]")
+			optionsWithOverwrite = append(optionsWithOverwrite, ">overwrite")
 			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[1:]...)
 		} else {
 			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions...)
-			optionsWithOverwrite = append(optionsWithOverwrite, "[OVERWRITE]")
+			optionsWithOverwrite = append(optionsWithOverwrite, ">overwrite")
 		}
 
 		selectedOption, err := terminal.FzfSelect(optionsWithOverwrite, prompt)
@@ -801,15 +801,15 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 		}
 
 		var filename string
-		if selectedOption == "[OVERWRITE]" {
+		if selectedOption == ">overwrite" {
 			// Show existing files
 			existingFileOptions := m.createPrioritizedFileOptions(ext, allFiles, loadedFiles, recentlyCreatedFiles)
-			overwritePrompt := fmt.Sprintf("[%s %d] Overwrite file: ", language, i+1)
+			overwritePrompt := fmt.Sprintf("[%s %d] overwrite file: ", language, i+1)
 			selectedOverwrite, err := terminal.FzfSelect(existingFileOptions, overwritePrompt)
 			if err != nil {
 				return "", fmt.Errorf("file selection failed: %v", err)
 			}
-			if selectedOverwrite == "" || selectedOverwrite == "[CREATE]" {
+			if selectedOverwrite == "" || selectedOverwrite == ">create" {
 				i-- // Redo this snippet
 				continue
 			}
@@ -890,16 +890,16 @@ func (m *Manager) createPrioritizedFileOptions(priorityExt string, allFiles, loa
 		}
 	}
 
-	// Insert [CREATE] at the 2nd position or at the end if less than 1 file
+	// Insert >create at the 2nd position or at the end if less than 1 file
 	if len(fileOptions) >= 1 {
 		finalOptions := make([]string, 0, len(fileOptions)+1)
 		finalOptions = append(finalOptions, fileOptions[:1]...)
-		finalOptions = append(finalOptions, "[CREATE]")
+		finalOptions = append(finalOptions, ">create")
 		finalOptions = append(finalOptions, fileOptions[1:]...)
 		return finalOptions
 	}
 
-	fileOptions = append(fileOptions, "[CREATE]")
+	fileOptions = append(fileOptions, ">create")
 	return fileOptions
 }
 

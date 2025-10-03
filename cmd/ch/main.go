@@ -284,7 +284,7 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 
 func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) {
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          "\033[94mUser: \033[0m",
+		Prompt:          "\033[94muser: \033[0m",
 		InterruptPrompt: "", // Don't show ^C when Ctrl+C is pressed
 		EOFPrompt:       "exit",
 	})
@@ -299,7 +299,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 			if err == readline.ErrInterrupt {
 				// Ctrl+C pressed - clear input and continue
 				if !state.Config.MuteNotifications {
-					fmt.Printf("\033[93mpress CTRL+D to exit\033[0m\n")
+					fmt.Printf("\033[93mpress ctrl+d to exit\033[0m\n")
 				}
 				continue
 			}
@@ -364,7 +364,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	case input == config.HelpKey || input == "help":
 		selectedCommand := terminal.ShowHelpFzf()
-		if selectedCommand == "[STATE]" {
+		if selectedCommand == ">state" {
 			err := handleShowState(chatManager, terminal, state)
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("error showing state: %v", err))
@@ -389,30 +389,26 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			return true
 		}
 
-		selectedModel, err := terminal.FzfSelect(models, "Model: ")
+		selectedModel, err := terminal.FzfSelect(models, "model: ")
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error selecting model: %v", err))
 			return true
 		}
 
 		if selectedModel != "" {
-			oldModel := chatManager.GetCurrentModel()
 			chatManager.SetCurrentModel(selectedModel)
 			if !config.MuteNotifications {
 				terminal.PrintModelSwitch(selectedModel)
 			}
-			chatManager.AddToHistory(config.ModelSwitch, fmt.Sprintf("Switched model from %s to %s", oldModel, selectedModel))
 		}
 		return true
 
 	case strings.HasPrefix(input, config.ModelSwitch+" "):
 		modelName := strings.TrimPrefix(input, config.ModelSwitch+" ")
-		oldModel := chatManager.GetCurrentModel()
 		chatManager.SetCurrentModel(modelName)
 		if !config.MuteNotifications {
 			terminal.PrintModelSwitch(modelName)
 		}
-		chatManager.AddToHistory(fmt.Sprintf("%s %s", config.ModelSwitch, modelName), fmt.Sprintf("Switched model from %s to %s", oldModel, modelName))
 		return true
 
 	case input == config.PlatformSwitch:
@@ -420,8 +416,6 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 		} else if result != nil {
-			oldPlatform := chatManager.GetCurrentPlatform()
-			oldModel := chatManager.GetCurrentModel()
 			chatManager.SetCurrentPlatform(result["platform_name"].(string))
 			chatManager.SetCurrentModel(result["picked_model"].(string))
 			err = platformManager.Initialize()
@@ -431,7 +425,6 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 				if !config.MuteNotifications {
 					terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
 				}
-				chatManager.AddToHistory(config.PlatformSwitch, fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
 		return true
@@ -442,8 +435,6 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 		} else if result != nil {
-			oldPlatform := chatManager.GetCurrentPlatform()
-			oldModel := chatManager.GetCurrentModel()
 			chatManager.SetCurrentPlatform(result["platform_name"].(string))
 			chatManager.SetCurrentModel(result["picked_model"].(string))
 			err = platformManager.Initialize()
@@ -453,7 +444,6 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 				if !config.MuteNotifications {
 					terminal.PrintPlatformSwitch(result["platform_name"].(string), result["picked_model"].(string))
 				}
-				chatManager.AddToHistory(fmt.Sprintf("%s %s", config.PlatformSwitch, platformName), fmt.Sprintf("Switched from %s/%s to %s/%s", oldPlatform, oldModel, result["platform_name"].(string), result["picked_model"].(string)))
 			}
 		}
 		return true
@@ -671,7 +661,7 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 		}
 	}
 
-	selections, err := terminal.FzfMultiSelect(files, "Files: ")
+	selections, err := terminal.FzfMultiSelect(files, "files: ")
 	if err != nil {
 		terminal.PrintError(fmt.Sprintf("error selecting files: %v", err))
 		return true

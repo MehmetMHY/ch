@@ -240,7 +240,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	}
 	defer os.Remove(tempFile.Name()) // Clean up the temp file
 
-	t.PrintInfo(fmt.Sprintf("starting shell session in %s (press CTRL+D to exit)", shell))
+	t.PrintInfo(fmt.Sprintf("starting shell session in %s (press ctrl+d to exit)", shell))
 
 	// Use the 'script' command to record the session with cross-platform compatibility
 	// The issue is that different Unix systems expect different syntax:
@@ -296,7 +296,7 @@ func (t *Terminal) ShowHelpFzf() string {
 
 	fzfArgs := []string{
 		"--reverse", "--height=40%", "--border",
-		"--prompt=Option: ", "--multi",
+		"--prompt=option: ", "--multi",
 	}
 	inputText := strings.Join(options, "\n")
 
@@ -312,19 +312,19 @@ func (t *Terminal) ShowHelpFzf() string {
 
 	selectedItems := strings.Split(output, "\n")
 
-	// If [ALL] is selected along with other items, ignore [ALL] and process others
+	// If >all is selected along with other items, ignore >all and process others
 	if len(selectedItems) > 1 {
 		for _, item := range selectedItems {
-			if !strings.HasPrefix(item, "[ALL]") {
+			if !strings.HasPrefix(item, ">all") {
 				return t.processHelpSelection(item, options)
 			}
 		}
 	}
 
-	// If only [ALL] is selected, show all options
-	if len(selectedItems) == 1 && strings.HasPrefix(selectedItems[0], "[ALL]") {
+	// If only >all is selected, show all options
+	if len(selectedItems) == 1 && strings.HasPrefix(selectedItems[0], ">all") {
 		for _, option := range options {
-			if !strings.HasPrefix(option, "[ALL]") && !strings.HasPrefix(option, "[STATE]") {
+			if !strings.HasPrefix(option, ">all") && !strings.HasPrefix(option, ">state") {
 				fmt.Printf("\033[93m%s\033[0m\n", option)
 			}
 		}
@@ -336,11 +336,11 @@ func (t *Terminal) ShowHelpFzf() string {
 }
 
 func (t *Terminal) processHelpSelection(selected string, options []string) string {
-	if strings.HasPrefix(selected, "[STATE]") {
-		return "[STATE]"
+	if strings.HasPrefix(selected, ">state") {
+		return ">state"
 	}
-	// If line contains [ or ], just print it in yellow and return
-	if strings.Contains(selected, "[") || strings.Contains(selected, "]") {
+	// If line contains >, just print it in yellow and return
+	if strings.HasPrefix(selected, ">") {
 		fmt.Printf("\033[93m%s\033[0m\n", selected)
 		return ""
 	}
@@ -361,8 +361,8 @@ func (t *Terminal) processHelpSelection(selected string, options []string) strin
 // getInteractiveHelpOptions returns a slice of strings containing the help information.
 func (t *Terminal) getInteractiveHelpOptions() []string {
 	options := []string{
-		"[ALL] - show all help options",
-		"[STATE] - show current state",
+		">all - show all help options",
+		">state - show current state",
 		fmt.Sprintf("%s - exit interface", t.config.ExitKey),
 		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - text editor input mode", t.config.EditorInput),
@@ -374,12 +374,12 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - generate codedump (all text-based files)", t.config.CodeDump),
 		fmt.Sprintf("%s - export selected chat entries to a file", t.config.ExportChat),
 		fmt.Sprintf("%s - record a shell session and use it as context", t.config.ShellRecord),
-		fmt.Sprintf("%s <url1> [url2] ... - scrape content from URLs", t.config.ScrapeURL),
-		fmt.Sprintf("%s <query> - search web using Brave Search", t.config.WebSearch),
+		fmt.Sprintf("%s [url] ... - scrape content from URLs", t.config.ScrapeURL),
+		fmt.Sprintf("%s [query] - search web using Brave Search", t.config.WebSearch),
 		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
-		fmt.Sprintf("%s - multi-line input mode (exit with '\\')", t.config.MultiLine),
-		"CTRL+C - clear current prompt input",
-		"CTRL+D - exit interface completely",
+		fmt.Sprintf("%s - enter/exit multi-line input mode", t.config.MultiLine),
+		"ctrl+c - clear current prompt input",
+		"ctrl+d - exit interface completely",
 	}
 
 	return options
@@ -399,8 +399,8 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
 	fmt.Printf("\033[93m%s - multi-line input\033[0m\n", t.config.MultiLine)
-	fmt.Printf("\033[93mCTRL+C - clear prompt input\033[0m\n")
-	fmt.Printf("\033[93mCTRL+D - exit interface completely\033[0m\n")
+	fmt.Printf("\033[93mctrl+c - clear prompt input\033[0m\n")
+	fmt.Printf("\033[93mctrl+d - exit interface completely\033[0m\n")
 }
 
 // ShowLoadingAnimation displays a loading animation
@@ -1138,10 +1138,10 @@ func (t *Terminal) CodeDumpFromDir(targetDir string) (string, error) {
 	}
 
 	// Add NONE option at the top of the list
-	fzfOptions := append([]string{"[NONE]"}, allFiles...)
+	fzfOptions := append([]string{">none"}, allFiles...)
 
 	// Use fzf to let user exclude files/directories
-	excludedItems, err := t.FzfMultiSelect(fzfOptions, "Exclude from dump (TAB=multi): ")
+	excludedItems, err := t.FzfMultiSelect(fzfOptions, "exclude from dump (tab=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("failed to get exclusions: %v", err)
 	}
@@ -1149,7 +1149,7 @@ func (t *Terminal) CodeDumpFromDir(targetDir string) (string, error) {
 	// Filter out the NONE option if selected
 	var filteredExclusions []string
 	for _, item := range excludedItems {
-		if !strings.HasPrefix(item, "[NONE") {
+		if !strings.HasPrefix(item, ">none") {
 			filteredExclusions = append(filteredExclusions, item)
 		}
 	}
@@ -1185,10 +1185,10 @@ func (t *Terminal) CodeDumpFromDirForCLI(targetDir string) (string, error) {
 	}
 
 	// Add NONE option at the top of the list
-	fzfOptions := append([]string{"[NONE]"}, allFiles...)
+	fzfOptions := append([]string{">none"}, allFiles...)
 
 	// Use CLI-specific fzf that detects cancellation
-	excludedItems, err := t.FzfMultiSelectForCLI(fzfOptions, "Exclude from dump (TAB=multi): ")
+	excludedItems, err := t.FzfMultiSelectForCLI(fzfOptions, "exclude from dump (tab=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("failed to get exclusions: %v", err)
 	}
@@ -1196,7 +1196,7 @@ func (t *Terminal) CodeDumpFromDirForCLI(targetDir string) (string, error) {
 	// Filter out the NONE option if selected
 	var filteredExclusions []string
 	for _, item := range excludedItems {
-		if !strings.HasPrefix(item, "[NONE") {
+		if !strings.HasPrefix(item, ">none") {
 			filteredExclusions = append(filteredExclusions, item)
 		}
 	}
@@ -1901,7 +1901,7 @@ func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory) err
 	}
 
 	// Use fzf for multi-selection
-	selected, err := t.FzfMultiSelect(responseOptions, "Select responses to copy (TAB=multi): ")
+	selected, err := t.FzfMultiSelect(responseOptions, "select responses to copy (tab=multi): ")
 	if err != nil {
 		return fmt.Errorf("selection failed: %w", err)
 	}

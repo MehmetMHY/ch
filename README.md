@@ -279,14 +279,14 @@ When in interactive mode (`ch`), use these commands:
 - **`!l`** - Load files from current directory
 - **`!l <dir>`** - Load files from specified directory
 - **`!d`** - Generate code dump
-- **`!e`** - Export chat history with Auto or Manual modes
-- **`!s`** - Scrape content from URLs (supports multiple URLs and YouTube)
-- **`!w`** - Search web using Brave Search
+- **`!e`** - Export chat history with auto or manual export
+- **`!s [url] ...`** - Scrape content from URLs (supports multiple URLs and YouTube)
+- **`!w [query]`** - Search web using Brave Search
 - **`!y`** - Copy selected responses to clipboard
 - **`!x`** - Record shell session or run command (`!x ls` streams output live)
-- **`\`** - Multi-line input mode
-- **`CTRL+C`** - Clear current prompt input
-- **`CTRL+D`** - Exit interface
+- **`\`** - Enter/exit multi-line input mode
+- **`ctrl+c`** - Clear current prompt input
+- **`ctrl+d`** - Exit interface
 
 ### Advanced Features
 
@@ -300,8 +300,8 @@ When in interactive mode (`ch`), use these commands:
 
 Offers two modes for exporting chat history:
 
-1. **Auto Export Mode**: Automatically extracts all code blocks from selected chats. It then lets you save each snippet individually, intelligently suggesting file names and extensions based on the code's language.
-2. **Manual Export Mode**: Combines selected chat entries into a single file for you to edit and save manually.
+1. **auto export**: Automatically extracts all code blocks from selected chats. It then lets you save each snippet individually, intelligently suggesting file names and extensions based on the code's language.
+2. **manual export**: Combines selected chat entries into a single file for you to edit and save manually.
 
 **URL Scraping (`!s` and `-l` with URLs):**
 
