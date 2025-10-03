@@ -99,7 +99,7 @@ func main() {
 		// Validate directory
 		if !isValidCodedumpDir(targetDir) {
 			if targetDir != "." {
-				terminal.PrintError("Invalid directory path or permission denied")
+				terminal.PrintError("invalid directory path or permission denied")
 				return
 			}
 		}
@@ -271,7 +271,7 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 	if exportCode {
 		filePaths, exportErr := chatManager.ExportCodeBlocks(terminal)
 		if exportErr != nil {
-			terminal.PrintError(fmt.Sprintf("Error exporting code blocks: %v", exportErr))
+			terminal.PrintError(fmt.Sprintf("error exporting code blocks: %v", exportErr))
 		} else if len(filePaths) > 0 {
 			for _, filePath := range filePaths {
 				fmt.Println(filePath)
@@ -299,7 +299,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 			if err == readline.ErrInterrupt {
 				// Ctrl+C pressed - clear input and continue
 				if !state.Config.MuteNotifications {
-					fmt.Printf("\033[93mPress Ctrl+D to exit\033[0m\n")
+					fmt.Printf("\033[93mpress CTRL+D to exit\033[0m\n")
 				}
 				continue
 			}
@@ -322,9 +322,8 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 		var loadingDone chan bool
 		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
 			loadingDone = make(chan bool)
-			go terminal.ShowLoadingAnimation("Thinking", loadingDone)
+			go terminal.ShowLoadingAnimation("thinking", loadingDone)
 		}
-
 		response, err := platformManager.SendChatRequest(chatManager.GetMessages(), chatManager.GetCurrentModel(), &state.StreamingCancel, &state.IsStreaming)
 
 		// Stop loading animation if it was started
@@ -830,7 +829,7 @@ func handleShellCommand(command string, chatManager *chat.Manager, terminal *ui.
 		if err := cmd.Process.Kill(); err != nil {
 			terminal.PrintError(fmt.Sprintf("failed to kill command: %v", err))
 		}
-		fmt.Println("\nCommand interrupted")
+		fmt.Println("\ncommand interrupted")
 
 		// Wait for goroutines to finish reading any remaining output
 		go func() {
@@ -944,10 +943,10 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 
 	// Print the state
 	combinedDateTime := currentDate + " " + currentTime
-	fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "Date:", combinedDateTime)
-	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Platform:", platform)
-	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Model:", model)
-	fmt.Printf("\033[96m%s\033[0m \033[91m%d (%d chats)\033[0m\n", "Tokens:", tokenCount, chatCount)
+	fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "date:", combinedDateTime)
+	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "platform:", platform)
+	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", model)
+	fmt.Printf("\033[96m%s\033[0m \033[91m%d (%d chats)\033[0m\n", "tokens:", tokenCount, chatCount)
 
 	return nil
 }
@@ -1001,9 +1000,9 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 	}
 
 	// Print results with colors matching the project's style
-	fmt.Printf("\033[96m%s\033[0m %s\n", "File:", filePath)
-	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "Model:", targetModel)
-	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "Tokens:", len(tokens))
+	fmt.Printf("\033[96m%s\033[0m %s\n", "file:", filePath)
+	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", targetModel)
+	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", len(tokens))
 
 	return nil
 }

@@ -240,7 +240,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	}
 	defer os.Remove(tempFile.Name()) // Clean up the temp file
 
-	t.PrintInfo(fmt.Sprintf("starting shell session in %s (CTRL-D to exit)", shell))
+	t.PrintInfo(fmt.Sprintf("starting shell session in %s (press CTRL+D to exit)", shell))
 
 	// Use the 'script' command to record the session with cross-platform compatibility
 	// The issue is that different Unix systems expect different syntax:
@@ -378,8 +378,8 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s <query> - search web using Brave Search", t.config.WebSearch),
 		fmt.Sprintf("%s - copy selected responses to clipboard", t.config.CopyToClipboard),
 		fmt.Sprintf("%s - multi-line input mode (exit with '\\')", t.config.MultiLine),
-		"Ctrl+C - clear current prompt input",
-		"Ctrl+D - exit interface completely",
+		"CTRL+C - clear current prompt input",
+		"CTRL+D - exit interface completely",
 	}
 
 	return options
@@ -399,8 +399,8 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
 	fmt.Printf("\033[93m%s - multi-line input\033[0m\n", t.config.MultiLine)
-	fmt.Printf("\033[93mCtrl+C - clear prompt input\033[0m\n")
-	fmt.Printf("\033[93mCtrl+D - exit interface completely\033[0m\n")
+	fmt.Printf("\033[93mCTRL+C - clear prompt input\033[0m\n")
+	fmt.Printf("\033[93mCTRL+D - exit interface completely\033[0m\n")
 }
 
 // ShowLoadingAnimation displays a loading animation
@@ -770,13 +770,13 @@ func (t *Terminal) loadImage(filePath string) (string, error) {
 	defer file.Close()
 
 	var content strings.Builder
-	content.WriteString(fmt.Sprintf("Image Analysis for: %s\n\n", filepath.Base(filePath)))
+	content.WriteString(fmt.Sprintf("image analysis for: %s\n\n", filepath.Base(filePath)))
 
 	// Get basic file info
 	fileInfo, err := file.Stat()
 	if err == nil {
-		content.WriteString(fmt.Sprintf("File Size: %d bytes (%.2f KB)\n", fileInfo.Size(), float64(fileInfo.Size())/1024.0))
-		content.WriteString(fmt.Sprintf("Modified: %s\n", fileInfo.ModTime().Format("2006-01-02 15:04:05")))
+		content.WriteString(fmt.Sprintf("file size: %d bytes (%.2f KB)\n", fileInfo.Size(), float64(fileInfo.Size())/1024.0))
+		content.WriteString(fmt.Sprintf("modified: %s\n", fileInfo.ModTime().Format("2006-01-02 15:04:05")))
 	}
 
 	// Reset file pointer
@@ -789,8 +789,8 @@ func (t *Terminal) loadImage(filePath string) (string, error) {
 	}
 
 	bounds := img.Bounds()
-	content.WriteString(fmt.Sprintf("Format: %s\n", strings.ToUpper(format)))
-	content.WriteString(fmt.Sprintf("Dimensions: %dx%d pixels\n", bounds.Dx(), bounds.Dy()))
+	content.WriteString(fmt.Sprintf("format: %s\n", strings.ToUpper(format)))
+	content.WriteString(fmt.Sprintf("dimensions: %dx%d pixels\n", bounds.Dx(), bounds.Dy()))
 
 	// Reset file pointer for EXIF reading
 	file.Seek(0, 0)
@@ -798,36 +798,36 @@ func (t *Terminal) loadImage(filePath string) (string, error) {
 	// Try to extract EXIF metadata
 	exifData, err := exif.Decode(file)
 	if err == nil {
-		content.WriteString("\nEXIF Metadata:\n")
+		content.WriteString("\nEXIF metadata:\n")
 
 		// Common EXIF tags to extract
 		exifTags := []struct {
 			name string
 			tag  exif.FieldName
 		}{
-			{"Camera Make", exif.Make},
-			{"Camera Model", exif.Model},
-			{"DateTime", exif.DateTime},
-			{"DateTimeOriginal", exif.DateTimeOriginal},
-			{"DateTimeDigitized", exif.DateTimeDigitized},
-			{"Software", exif.Software},
-			{"Artist", exif.Artist},
-			{"Copyright", exif.Copyright},
-			{"ImageDescription", exif.ImageDescription},
-			{"UserComment", exif.UserComment},
-			{"Orientation", exif.Orientation},
-			{"XResolution", exif.XResolution},
-			{"YResolution", exif.YResolution},
-			{"ResolutionUnit", exif.ResolutionUnit},
-			{"Flash", exif.Flash},
-			{"FocalLength", exif.FocalLength},
-			{"ExposureTime", exif.ExposureTime},
-			{"FNumber", exif.FNumber},
-			{"ISO", exif.ISOSpeedRatings},
-			{"WhiteBalance", exif.WhiteBalance},
-			{"GPS Latitude", exif.GPSLatitude},
-			{"GPS Longitude", exif.GPSLongitude},
-			{"GPS Altitude", exif.GPSAltitude},
+			{"camera make", exif.Make},
+			{"camera model", exif.Model},
+			{"date time", exif.DateTime},
+			{"date time original", exif.DateTimeOriginal},
+			{"date time digitized", exif.DateTimeDigitized},
+			{"software", exif.Software},
+			{"artist", exif.Artist},
+			{"copyright", exif.Copyright},
+			{"image description", exif.ImageDescription},
+			{"user comment", exif.UserComment},
+			{"orientation", exif.Orientation},
+			{"x resolution", exif.XResolution},
+			{"y resolution", exif.YResolution},
+			{"resolution unit", exif.ResolutionUnit},
+			{"flash", exif.Flash},
+			{"focal length", exif.FocalLength},
+			{"exposure time", exif.ExposureTime},
+			{"f number", exif.FNumber},
+			{"iso", exif.ISOSpeedRatings},
+			{"white balance", exif.WhiteBalance},
+			{"gps latitude", exif.GPSLatitude},
+			{"gps longitude", exif.GPSLongitude},
+			{"gps altitude", exif.GPSAltitude},
 		}
 
 		for _, tagInfo := range exifTags {
@@ -853,40 +853,40 @@ func (t *Terminal) loadImage(filePath string) (string, error) {
 							lonDeg = -lonDeg
 						}
 						if latDeg != 0 || lonDeg != 0 {
-							content.WriteString(fmt.Sprintf("  GPS Coordinates: %.6f, %.6f\n", latDeg, lonDeg))
+							content.WriteString(fmt.Sprintf("  gps coordinates: %.6f, %.6f\n", latDeg, lonDeg))
 						}
 					}
 				}
 			}
 		}
 	} else {
-		content.WriteString("\nNo EXIF metadata found or failed to read EXIF data\n")
+		content.WriteString("\nno EXIF metadata found or failed to read EXIF data\n")
 	}
 
 	// Color analysis - sample some pixels to get dominant colors
-	content.WriteString(fmt.Sprintf("\nImage Properties:\n"))
-	content.WriteString(fmt.Sprintf("  Color Mode: %T\n", img.ColorModel()))
-	content.WriteString(fmt.Sprintf("  Aspect Ratio: %.2f:1\n", float64(bounds.Dx())/float64(bounds.Dy())))
+	content.WriteString(fmt.Sprintf("\nimage properties:\n"))
+	content.WriteString(fmt.Sprintf("  color mode: %T\n", img.ColorModel()))
+	content.WriteString(fmt.Sprintf("  aspect ratio: %.2f:1\n", float64(bounds.Dx())/float64(bounds.Dy())))
 
 	megapixels := float64(bounds.Dx()*bounds.Dy()) / 1000000.0
 	if megapixels > 1.0 {
-		content.WriteString(fmt.Sprintf("  Megapixels: %.1f MP\n", megapixels))
+		content.WriteString(fmt.Sprintf("  megapixels: %.1f MP\n", megapixels))
 	} else {
-		content.WriteString(fmt.Sprintf("  Resolution: %.0f K pixels\n", megapixels*1000))
+		content.WriteString(fmt.Sprintf("  resolution: %.0f K pixels\n", megapixels*1000))
 	}
 
 	// Extract text using OCR
 	content.WriteString("\n" + strings.Repeat("=", 50) + "\n")
-	content.WriteString("TEXT EXTRACTION (OCR):\n")
+	content.WriteString("text extraction (OCR):\n")
 	content.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	extractedText, err := t.extractTextFromImage(filePath)
 	if err != nil {
-		content.WriteString(fmt.Sprintf("OCR Error: %v\n", err))
+		content.WriteString(fmt.Sprintf("OCR error: %v\n", err))
 	} else if strings.TrimSpace(extractedText) == "" {
-		content.WriteString("No text detected in the image.\n")
+		content.WriteString("no text detected in the image.\n")
 	} else {
-		content.WriteString("Extracted Text:\n")
+		content.WriteString("extracted text:\n")
 		content.WriteString(strings.Repeat("-", 30) + "\n")
 		content.WriteString(extractedText)
 		content.WriteString("\n" + strings.Repeat("-", 30) + "\n")
@@ -942,7 +942,7 @@ func parseFraction(fraction string) float64 {
 func (t *Terminal) extractTextFromImage(filePath string) (string, error) {
 	// Check if tesseract is installed
 	if _, err := exec.LookPath("tesseract"); err != nil {
-		return "", fmt.Errorf("Tesseract OCR is not installed. Please install it to enable image-to-text extraction")
+		return "", fmt.Errorf("tesseract OCR is not installed. Please install it to enable image-to-text extraction")
 	}
 
 	client := gosseract.NewClient()
@@ -1428,9 +1428,9 @@ func (t *Terminal) generateCodeDump(files []string) (string, error) {
 func (t *Terminal) generateCodeDumpFromDir(files []string, sourceDir string) (string, error) {
 	var result strings.Builder
 
-	result.WriteString("=== CODE DUMP ===\n\n")
-	result.WriteString(fmt.Sprintf("Generated from directory: %s\n", sourceDir))
-	result.WriteString(fmt.Sprintf("Total files: %d\n\n", len(files)))
+	result.WriteString("=== Code Dump ===\n\n")
+	result.WriteString(fmt.Sprintf("generated from directory: %s\n", sourceDir))
+	result.WriteString(fmt.Sprintf("total files: %d\n\n", len(files)))
 
 	for _, file := range files {
 		// Build full path for reading
@@ -1624,7 +1624,7 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	var result strings.Builder
 
 	// Get metadata
-	result.WriteString("--- METADATA ---\n")
+	result.WriteString("--- Metadata ---\n")
 	metadataCmd := exec.Command("yt-dlp", "-j", urlStr)
 	metadataOutput, err := metadataCmd.Output()
 	if err != nil {
@@ -1636,7 +1636,7 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	result.WriteString(t.parseYouTubeMetadata(metadata))
 
 	// Get subtitles
-	result.WriteString("\n--- SUBTITLES ---\n")
+	result.WriteString("\n--- Subtitles ---\n")
 
 	tempDir, err := t.getTempDir()
 	if err != nil {
@@ -1695,26 +1695,26 @@ func (t *Terminal) parseYouTubeMetadata(jsonStr string) string {
 	}
 
 	if title := extractField("title"); title != "" {
-		result.WriteString(fmt.Sprintf("Title: %s\n", title))
+		result.WriteString(fmt.Sprintf("title: %s\n", title))
 	}
 	if duration := extractField("duration"); duration != "" {
-		result.WriteString(fmt.Sprintf("Duration: %s seconds\n", duration))
+		result.WriteString(fmt.Sprintf("duration: %s seconds\n", duration))
 	}
 	if viewCount := extractField("view_count"); viewCount != "" {
-		result.WriteString(fmt.Sprintf("View count: %s\n", viewCount))
+		result.WriteString(fmt.Sprintf("view count: %s\n", viewCount))
 	}
 	if uploader := extractField("uploader"); uploader != "" {
-		result.WriteString(fmt.Sprintf("Uploader: %s\n", uploader))
+		result.WriteString(fmt.Sprintf("uploader: %s\n", uploader))
 	}
 	if uploadDate := extractField("upload_date"); uploadDate != "" {
-		result.WriteString(fmt.Sprintf("Upload date: %s\n", uploadDate))
+		result.WriteString(fmt.Sprintf("upload date: %s\n", uploadDate))
 	}
 	if description := extractField("description"); description != "" {
 		// Truncate description if too long
 		if len(description) > 500 {
 			description = description[:500] + "..."
 		}
-		result.WriteString(fmt.Sprintf("Description: %s\n", description))
+		result.WriteString(fmt.Sprintf("description: %s\n", description))
 	}
 
 	return result.String()
@@ -1745,7 +1745,7 @@ func (t *Terminal) ScrapeURLs(urls []string) (string, error) {
 func (t *Terminal) WebSearch(query string) (string, error) {
 	apiKey := os.Getenv("BRAVE_API_KEY")
 	if apiKey == "" {
-		return "", fmt.Errorf("BRAVE_API_KEY environment variable not set")
+		return "", fmt.Errorf("the BRAVE_API_KEY environment variable is not set")
 	}
 
 	req, err := http.NewRequest("GET", "https://api.search.brave.com/res/v1/web/search", nil)
@@ -1819,7 +1819,7 @@ func (t *Terminal) formatBraveSearchResults(results []BraveWebResult, query stri
 	var result strings.Builder
 
 	if len(results) == 0 {
-		result.WriteString(fmt.Sprintf("No search results found for: %s\n", query))
+		result.WriteString(fmt.Sprintf("no search results found for: %s\n", query))
 		return result.String()
 	}
 

@@ -285,8 +285,8 @@ When in interactive mode (`ch`), use these commands:
 - **`!y`** - Copy selected responses to clipboard
 - **`!x`** - Record shell session or run command (`!x ls` streams output live)
 - **`\`** - Multi-line input mode
-- **`Ctrl+C`** - Clear current prompt input
-- **`Ctrl+D`** - Exit interface
+- **`CTRL+C`** - Clear current prompt input
+- **`CTRL+D`** - Exit interface
 
 ### Advanced Features
 
