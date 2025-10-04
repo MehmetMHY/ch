@@ -74,11 +74,25 @@ func (m *Manager) getWorkingEditor(testFile string) string {
 	return "nano"
 }
 
-// runEditorWithFallback tries to run helix first, then falls back to vim/nano on failure
+// runEditorWithFallback tries to run the user's preferred editor, then falls back to common editors.
 func (m *Manager) runEditorWithFallback(filePath string) error {
-	editors := []string{m.state.Config.PreferredEditor, "vim", "nano"}
+	var editors []string
+	if envEditor := os.Getenv("EDITOR"); envEditor != "" {
+		editors = append(editors, envEditor)
+	}
+	editors = append(editors, m.state.Config.PreferredEditor, "vim", "nano")
 
-	for i, editor := range editors {
+	// Remove duplicates
+	seen := make(map[string]bool)
+	uniqueEditors := []string{}
+	for _, editor := range editors {
+		if editor != "" && !seen[editor] {
+			uniqueEditors = append(uniqueEditors, editor)
+			seen[editor] = true
+		}
+	}
+
+	for i, editor := range uniqueEditors {
 		// Check if the editor exists
 		if _, err := exec.LookPath(editor); err != nil {
 			continue
@@ -90,7 +104,7 @@ func (m *Manager) runEditorWithFallback(filePath string) error {
 
 		// For the first attempts, suppress stderr to avoid showing error messages
 		// Only show stderr for the final attempt
-		if i < len(editors)-1 {
+		if i < len(uniqueEditors)-1 {
 			cmd.Stderr = nil // Suppress error messages for fallback attempts
 		} else {
 			cmd.Stderr = os.Stderr // Show errors for final attempt
