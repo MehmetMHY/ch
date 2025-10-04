@@ -375,12 +375,13 @@ print_success() {
 	echo -e "Ch is installed in: \033[90m$CH_HOME\033[0m"
 
 	if [[ "$os" == "android" ]]; then
-		echo -e "A symlink has been created at \$PREFIX/bin/ch, so you can run 'ch' from anywhere."
+		echo -e "A symlink was created at \$PREFIX/bin/ch"
 		echo
 		echo -e "\033[93mImportant:\033[0m"
-		echo -e "- Make sure '\$PREFIX/bin' is in your \$PATH (it should be by default in Termux)."
+		echo -e "- Make sure '\$PREFIX/bin' is in your \$PATH (should default to Termux)"
 		echo -e "- You can check by running: \033[90mecho \$PATH\033[0m"
-		echo -e "- You may need to restart your terminal."
+		echo -e "- You may need to restart your terminal"
+		echo -e "- Curl/wget installs should remove cloned repo"
 	elif [[ "${SYMLINK_SKIPPED:-false}" == true ]]; then
 		echo
 		echo -e "\033[93mTo complete the installation, please add Ch to your PATH:\033[0m"
@@ -390,19 +391,18 @@ print_success() {
 		echo
 		echo -e "After adding it, restart your shell or run 'source <your_profile_file>'."
 	else
-		echo -e "A symlink has been created at /usr/local/bin/ch, so you can run 'ch' from anywhere."
+		echo -e "A symlink was created at /usr/local/bin/ch"
 		echo
 		echo -e "\033[93mImportant:\033[0m"
-		echo -e "- Make sure '/usr/local/bin' is in your \$PATH."
+		echo -e "- Make sure '/usr/local/bin' is in your \$PATH"
 		echo -e "- You can check by running: \033[90mecho \$PATH\033[0m"
-		echo -e "- You may need to restart your terminal."
+		echo -e "- You may need to restart your terminal"
+		echo -e "- Curl/wget installs should remove cloned repo"
 	fi
 
 	echo
 	echo -e "To get started, simply type:"
-	echo -e "  \033[96mch\033[0m"
-	echo
-	echo -e "If you installed via curl/wget, the cloned repository should have been removed."
+	echo -e "\033[91mch\033[0m"
 }
 
 check_git_and_pull() {
