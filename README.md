@@ -299,8 +299,8 @@ When in interactive mode (`ch`), use these commands:
 
 Offers two modes for exporting chat history:
 
-1. **auto export**: Automatically extracts all code blocks from selected chats. It then lets you save each snippet individually, intelligently suggesting file names and extensions based on the code's language.
-2. **manual export**: Combines selected chat entries into a single file for you to edit and save manually.
+1.  **auto export**: Automatically extracts all code blocks from your entire chat history. It then lets you save each snippet individually, intelligently suggesting file names and extensions based on the code's language and content. It presents a single, prioritized list of suggested new names and existing files (marked with `[w]` for overwrite).
+2.  **manual export**: Allows you to select specific chat entries, which are then combined into a single file for you to edit and save manually. This mode also benefits from the smart file-saving interface.
 
 **URL Scraping (`!s` and `-l` with URLs):**
 

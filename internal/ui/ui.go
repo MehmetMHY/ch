@@ -240,7 +240,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	}
 	defer os.Remove(tempFile.Name()) // Clean up the temp file
 
-	t.PrintInfo(fmt.Sprintf("starting shell session in %s (press ctrl+d to exit)", shell))
+	t.PrintInfo(fmt.Sprintf("%s session started", shell))
 
 	// Use the 'script' command to record the session with cross-platform compatibility
 	// The issue is that different Unix systems expect different syntax:
