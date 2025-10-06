@@ -582,7 +582,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no content to save")
 	}
 
-	// Get all files in current directory (including subdirectories) and add option to create new file
+	// Get all files in current directory (including subdirectories)
 	allFiles, err := m.getAllFilesInCurrentDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current directory files: %v", err)
@@ -591,47 +591,25 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	// Extract loaded files from chat history to prioritize them
 	loadedFiles := m.extractLoadedFilesFromHistory()
 
+	// Generate new filename options
+	newFileOptions := m.generateFilenameOptions(editedContent)
+
+	// Create unified list of new and existing files, prioritizing .txt
+	unifiedOptions := m.createUnifiedFileOptions(".txt", newFileOptions, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
+
+	selectedOption, err := terminal.FzfSelect(unifiedOptions, "save to file: ")
+	if err != nil {
+		return "", fmt.Errorf("file selection failed: %v", err)
+	}
+	if selectedOption == "" {
+		return "", fmt.Errorf("export cancelled")
+	}
+
 	var filename string
-	for {
-		newFileOptions := m.generateFilenameOptions(editedContent)
-		var optionsWithOverwrite []string
-		if len(newFileOptions) >= 1 {
-			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[:1]...)
-			optionsWithOverwrite = append(optionsWithOverwrite, ">overwrite")
-			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[1:]...)
-		} else {
-			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions...)
-			optionsWithOverwrite = append(optionsWithOverwrite, ">overwrite")
-		}
-
-		selectedOption, err := terminal.FzfSelect(optionsWithOverwrite, "save to file: ")
-		if err != nil {
-			return "", fmt.Errorf("file selection failed: %v", err)
-		}
-		if selectedOption == "" {
-			return "", fmt.Errorf("export cancelled")
-		}
-
-		if selectedOption == ">overwrite" {
-			existingFileOptions := m.createPrioritizedFileOptions(".txt", allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
-			selectedOverwrite, err := terminal.FzfSelect(existingFileOptions, "overwrite file: ")
-			if err != nil {
-				return "", fmt.Errorf("file selection failed: %v", err)
-			}
-
-			if selectedOverwrite == ">create" {
-				continue // Loop back to new file selection
-			}
-			if selectedOverwrite == "" {
-				// If user cancels overwrite, go back to new file selection
-				continue
-			}
-			filename = selectedOverwrite
-			break
-		} else {
-			filename = selectedOption
-			break
-		}
+	if strings.HasPrefix(selectedOption, "[w] ") {
+		filename = strings.TrimPrefix(selectedOption, "[w] ")
+	} else {
+		filename = selectedOption
 	}
 
 	// Save to file
@@ -654,64 +632,19 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 
 // ExportChatAuto allows user to automatically extract and save code blocks from chat history
 func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
-	// Step 1: Select chats (re-using logic from ExportChatInteractive)
-	var items []string
-	var chatEntries []types.ChatHistory
+	// Step 1: Get all chat entries
+	var selectedEntries []types.ChatHistory
 
 	// Iterate in reverse order (newest to oldest)
 	for i := len(m.state.ChatHistory) - 1; i >= 1; i-- {
 		entry := m.state.ChatHistory[i]
 		if entry.User != "" || entry.Bot != "" {
-			userPreview := strings.Split(entry.User, "\n")[0]
-			if len(userPreview) > 60 {
-				userPreview = userPreview[:60] + "..."
-			}
-			timestamp := time.Unix(entry.Time, 0).Format("2006-01-02 15:04:05")
-			items = append(items, fmt.Sprintf("%d: %s - %s", i, timestamp, userPreview))
-			chatEntries = append(chatEntries, entry)
-		}
-	}
-
-	if len(items) == 0 {
-		return "", fmt.Errorf("no chat entries to export")
-	}
-
-	fzfOptions := append([]string{">all"}, items...)
-	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "export entries (tab=multi): ")
-	if err != nil {
-		return "", fmt.Errorf("selection cancelled or failed: %v", err)
-	}
-	if len(selectedItems) == 0 {
-		return "", fmt.Errorf("no entries selected")
-	}
-
-	var selectedEntries []types.ChatHistory
-	allSelected := false
-	for _, item := range selectedItems {
-		if strings.HasPrefix(item, ">all") {
-			allSelected = true
-			break
-		}
-	}
-
-	if allSelected {
-		selectedEntries = chatEntries
-	} else {
-		for _, selectedItem := range selectedItems {
-			var index int
-			if _, err := fmt.Sscanf(selectedItem, "%d:", &index); err == nil {
-				for i, entry := range m.state.ChatHistory {
-					if i == index {
-						selectedEntries = append(selectedEntries, entry)
-						break
-					}
-				}
-			}
+			selectedEntries = append(selectedEntries, entry)
 		}
 	}
 
 	if len(selectedEntries) == 0 {
-		return "", fmt.Errorf("no valid entries found")
+		return "", fmt.Errorf("no chat entries to export")
 	}
 
 	// Step 2: Extract content
@@ -794,19 +727,13 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 		}
 		prompt := fmt.Sprintf("[%s %d] save to file: ", language, i+1)
 
-		// Generate new filename options first
+		// Generate new filename options
 		newFileOptions := m.generatePrioritizedFilenameOptions(snippet.Content, ext)
-		var optionsWithOverwrite []string
-		if len(newFileOptions) >= 1 {
-			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[:1]...)
-			optionsWithOverwrite = append(optionsWithOverwrite, ">overwrite")
-			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions[1:]...)
-		} else {
-			optionsWithOverwrite = append(optionsWithOverwrite, newFileOptions...)
-			optionsWithOverwrite = append(optionsWithOverwrite, ">overwrite")
-		}
 
-		selectedOption, err := terminal.FzfSelect(optionsWithOverwrite, prompt)
+		// Create unified list of new and existing files
+		unifiedOptions := m.createUnifiedFileOptions(ext, newFileOptions, allFiles, loadedFiles, recentlyCreatedFiles)
+
+		selectedOption, err := terminal.FzfSelect(unifiedOptions, prompt)
 		if err != nil {
 			return "", fmt.Errorf("file selection failed: %v", err)
 		}
@@ -815,19 +742,8 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 		}
 
 		var filename string
-		if selectedOption == ">overwrite" {
-			// Show existing files
-			existingFileOptions := m.createPrioritizedFileOptions(ext, allFiles, loadedFiles, recentlyCreatedFiles)
-			overwritePrompt := fmt.Sprintf("[%s %d] overwrite file: ", language, i+1)
-			selectedOverwrite, err := terminal.FzfSelect(existingFileOptions, overwritePrompt)
-			if err != nil {
-				return "", fmt.Errorf("file selection failed: %v", err)
-			}
-			if selectedOverwrite == "" || selectedOverwrite == ">create" {
-				i-- // Redo this snippet
-				continue
-			}
-			filename = selectedOverwrite
+		if strings.HasPrefix(selectedOption, "[w] ") {
+			filename = strings.TrimPrefix(selectedOption, "[w] ")
 		} else {
 			filename = selectedOption
 		}
@@ -844,77 +760,104 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 	return "", nil
 }
 
-// createPrioritizedFileOptions creates a list of file options for fzf, prioritizing files with the given extension.
-func (m *Manager) createPrioritizedFileOptions(priorityExt string, allFiles, loadedFiles, recentlyCreated []string) []string {
-	var fileOptions []string
-	var matchingFiles, otherFiles []string
-
-	// Separate files by extension
-	for _, file := range allFiles {
-		if filepath.Ext(file) == priorityExt {
-			matchingFiles = append(matchingFiles, file)
-		} else {
-			otherFiles = append(otherFiles, file)
-		}
-	}
-
-	// Use a map to avoid duplicates
+// createUnifiedFileOptions creates a single list of filename options for fzf,
+// interleaving suggested new files and existing files for better prioritization.
+func (m *Manager) createUnifiedFileOptions(priorityExt string, suggestedFilenames, allFiles, loadedFiles, recentlyCreated []string) []string {
+	var options []string
 	seen := make(map[string]bool)
 
-	// Add recently created matching files
+	// --- Step 1: Separate suggested files ---
+	var suggestedMatching, suggestedOther []string
+	for _, file := range suggestedFilenames {
+		// The suggested filenames are already prioritized, just need to split them
+		if strings.HasSuffix(file, priorityExt) {
+			suggestedMatching = append(suggestedMatching, file)
+		} else {
+			suggestedOther = append(suggestedOther, file)
+		}
+	}
+
+	// --- Step 2: Build prioritized lists of existing files ---
+	var existingMatching, existingOther []string
+	seenExisting := make(map[string]bool)
+
+	add := func(file string, list *[]string) {
+		if !seenExisting[file] && !strings.HasSuffix(file, "/") {
+			*list = append(*list, file)
+			seenExisting[file] = true
+		}
+	}
+
+	// Get all non-directory files
+	var allNonDirFiles []string
+	for _, file := range allFiles {
+		if !strings.HasSuffix(file, "/") {
+			allNonDirFiles = append(allNonDirFiles, file)
+		}
+	}
+
+	// Prioritize matching files
 	for _, file := range recentlyCreated {
-		if filepath.Ext(file) == priorityExt && !seen[file] {
-			fileOptions = append(fileOptions, file)
-			seen[file] = true
+		if filepath.Ext(file) == priorityExt {
+			add(file, &existingMatching)
 		}
 	}
-	// Add recently loaded matching files
 	for _, file := range loadedFiles {
-		if filepath.Ext(file) == priorityExt && !seen[file] {
-			fileOptions = append(fileOptions, file)
-			seen[file] = true
+		if filepath.Ext(file) == priorityExt {
+			add(file, &existingMatching)
 		}
 	}
-	// Add all other matching files
-	for _, file := range matchingFiles {
-		if !seen[file] {
-			fileOptions = append(fileOptions, file)
-			seen[file] = true
+	for _, file := range allNonDirFiles {
+		if filepath.Ext(file) == priorityExt {
+			add(file, &existingMatching)
 		}
 	}
 
-	// Add other recently created/loaded files
+	// Prioritize other files
 	for _, file := range recentlyCreated {
-		if filepath.Ext(file) != priorityExt && !seen[file] {
-			fileOptions = append(fileOptions, file)
-			seen[file] = true
+		if filepath.Ext(file) != priorityExt {
+			add(file, &existingOther)
 		}
 	}
 	for _, file := range loadedFiles {
-		if filepath.Ext(file) != priorityExt && !seen[file] {
-			fileOptions = append(fileOptions, file)
-			seen[file] = true
+		if filepath.Ext(file) != priorityExt {
+			add(file, &existingOther)
 		}
 	}
-	// Add all other files
-	for _, file := range otherFiles {
-		if !seen[file] {
-			fileOptions = append(fileOptions, file)
-			seen[file] = true
+	for _, file := range allNonDirFiles {
+		if filepath.Ext(file) != priorityExt {
+			add(file, &existingOther)
 		}
 	}
 
-	// Insert >create at the 2nd position or at the end if less than 1 file
-	if len(fileOptions) >= 1 {
-		finalOptions := make([]string, 0, len(fileOptions)+1)
-		finalOptions = append(finalOptions, fileOptions[:1]...)
-		finalOptions = append(finalOptions, ">create")
-		finalOptions = append(finalOptions, fileOptions[1:]...)
-		return finalOptions
+	// --- Step 3: Assemble the final list ---
+	addToOptions := func(file string, isWrite bool) {
+		if seen[file] {
+			return
+		}
+		if isWrite {
+			options = append(options, "[w] "+file)
+		} else {
+			options = append(options, file)
+		}
+		seen[file] = true
 	}
 
-	fileOptions = append(fileOptions, ">create")
-	return fileOptions
+	// Add in order: suggested matching, existing matching, suggested other, existing other
+	for _, file := range suggestedMatching {
+		addToOptions(file, false)
+	}
+	for _, file := range existingMatching {
+		addToOptions(file, true)
+	}
+	for _, file := range suggestedOther {
+		addToOptions(file, false)
+	}
+	for _, file := range existingOther {
+		addToOptions(file, true)
+	}
+
+	return options
 }
 
 // generatePrioritizedFilenameOptions creates filename options, prioritizing the correct extension.
