@@ -299,9 +299,9 @@ create_symlink() {
 		# If it fails, prompt the user
 		warning "Could not create symlink in $target_dir without elevated permissions."
 		echo "Please choose an option:"
-		echo "  1) Attempt to create symlink with sudo (recommended)"
-		echo "  2) Install to $BIN_DIR only (you will need to add this to your PATH manually)"
-		echo "  3) Abort installation"
+		echo "1) Attempt to create symlink with sudo (recommended)"
+		echo "2) Install to $BIN_DIR only (you will need to add this to your PATH manually)"
+		echo "3) Abort installation"
 		read -p "Enter your choice [1]: " choice
 		choice=${choice:-1}
 
@@ -387,7 +387,7 @@ print_success() {
 		echo -e "\033[93mTo complete the installation, please add Ch to your PATH:\033[0m"
 		echo -e "Add the following line to your shell profile (e.g., ~/.zshrc, ~/.bash_profile):"
 		echo
-		echo -e "  \033[92mexport PATH=\"$HOME/.ch/bin:\$PATH\"\033[0m"
+		echo -e "\033[92mexport PATH=\"$HOME/.ch/bin:\$PATH\"\033[0m"
 		echo
 		echo -e "After adding it, restart your shell or run 'source <your_profile_file>'."
 	else
