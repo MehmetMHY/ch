@@ -15,7 +15,7 @@
   - [API Keys](#api-keys)
   - [Default Settings](#default-settings)
   - [Config File](#config-file)
-  - [Local & Open-Source Setup (Ollama)](#local--open-source-setup-ollama)
+  - [Local & Open-Source Setup](#local--open-source-setup)
 - [Usage](#usage)
   - [Basic Usage](#basic-usage)
   - [Interactive Commands](#interactive-commands)
@@ -214,20 +214,18 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `shallow_load_dirs` - Directories to load with only 1-level depth (default: ["/", "/Users/", "/home/", "/usr/", "/var/", "/opt/", "/Library/", "/System/", "/mnt/", "/media/", "/Applications/", "/tmp/", "$HOME"]). Set to `[]` to disable shallow loading entirely.
 - Plus all other configuration options using snake_case JSON field names
 
-For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go).
+For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). But note that config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
 
-The config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
+### Local & Open-Source Setup
 
-### Local & Open-Source Setup (Ollama)
-
-Ch supports local models via Ollama, allowing you to run it without relying on third-party services. This provides a completely private, open-source, and offline-capable environment.
+Ch supports local models via [Ollama](https://ollama.com/), allowing you to run it without relying on third-party services. This provides a completely private, open-source, and offline-capable environment.
 
 1.  **Install Ollama**: Follow the official instructions at [ollama.com](https://ollama.com).
 2.  **Pull a model**: `ollama pull llama3`
 
 3.  **Run Ch with Ollama**: `ch -p ollama "What is the capital of France?"`
 
-Since Ollama runs locally, no API key is required.
+Since **Ollama** runs locally, no API key is required.
 
 ## Usage
 
@@ -381,11 +379,11 @@ Switch platforms during conversation:
 
 - Go 1.21 or higher
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube video scraping
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (optional) for image-to-text extraction from images. The installer will warn you if it's missing.
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for [YouTube](https://www.youtube.com/) video scraping
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) **(optional)** for image-to-text extraction from images. The installer will warn you if it's missing.
 - `BRAVE_API_KEY` for web search (see [API Keys](#api-keys))
-- Clipboard utilities (auto-detected): pbcopy, xclip, xsel, wl-copy, termux-clipboard-set
-- [Helix editor](https://helix-editor.com/) (optional but recommended for enhanced text editing)
+- **Clipboard utils (auto-detected)**: [pbcopy](https://ss64.com/mac/pbcopy.html), [xclip](https://github.com/astrand/xclip), [xsel](https://github.com/kfish/xsel), [wl-copy](https://man.archlinux.org/man/wl-copy.1.en), [termux-clipboard-set](https://wiki.termux.com/wiki/Termux-clipboard-set)
+- [Vim](https://www.vim.org/) but [Helix IDE](https://helix-editor.com/) is recommended
 
 ### Build from Source
 
@@ -460,4 +458,4 @@ rm -rf ~/.ch
 
 ## License
 
-Ch is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+Ch is licensed under the **MIT License**. See [LICENSE](./LICENSE) for details.
