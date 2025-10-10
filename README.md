@@ -205,7 +205,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `default_model` - Set default model (automatically sets current_model if not specified)
 - `current_model` - Set current active model
 - `current_platform` - Set default platform
-- `preferred_editor` - Set preferred text editor (default: "hx")
+- `preferred_editor` - Set preferred text editor (default: "vim")
 - `show_search_results` - Show/hide web search results (default: false)
 - `num_search_results` - Number of search results to display (default: 5)
 - `search_country` - Set the country for web searches (default: "us")

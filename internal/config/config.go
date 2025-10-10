@@ -210,7 +210,7 @@ func DefaultConfig() *types.Config {
 		LoadHistory:       "!r",
 		EditorAlias:       "!v",
 		MultiLine:         "\\",
-		PreferredEditor:   "hx",
+		PreferredEditor:   "vim",
 		CurrentPlatform:   "openai",
 		MuteNotifications: false,
 		ShallowLoadDirs:   shallowDirs,
