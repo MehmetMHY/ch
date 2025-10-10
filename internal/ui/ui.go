@@ -1049,7 +1049,16 @@ func (t *Terminal) GetCurrentDirFilesRecursive() ([]string, error) {
 func (t *Terminal) GetDirFilesRecursive(targetDir string) ([]string, error) {
 	var items []string
 
-	err := filepath.WalkDir(targetDir, func(path string, d fs.DirEntry, err error) error {
+	// Convert targetDir to absolute path for comparison
+	absTargetDir, err := filepath.Abs(targetDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path: %v", err)
+	}
+
+	// Check if this directory should be loaded shallowly
+	isShallow := t.isShallowLoadDir(absTargetDir)
+
+	err = filepath.WalkDir(targetDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip files we can't access
 		}
@@ -1063,6 +1072,19 @@ func (t *Terminal) GetDirFilesRecursive(targetDir string) ([]string, error) {
 		relPath, err := filepath.Rel(targetDir, path)
 		if err != nil {
 			return nil // Skip if we can't get relative path
+		}
+
+		// For shallow directories, only include direct children (depth 1)
+		if isShallow {
+			depth := strings.Count(relPath, string(filepath.Separator))
+			if d.IsDir() && depth > 0 {
+				// Skip subdirectories beyond depth 1
+				return filepath.SkipDir
+			}
+			if !d.IsDir() && depth > 0 {
+				// Skip files beyond depth 1
+				return nil
+			}
 		}
 
 		// Skip certain system directories but allow hidden files
@@ -1085,6 +1107,46 @@ func (t *Terminal) GetDirFilesRecursive(targetDir string) ([]string, error) {
 	}
 
 	return items, nil
+}
+
+// isShallowLoadDir checks if a directory should be loaded shallowly (only 1 level deep)
+func (t *Terminal) isShallowLoadDir(dirPath string) bool {
+	// Normalize the directory path
+	absPath, err := filepath.Abs(dirPath)
+	if err != nil {
+		return false
+	}
+	absPath = filepath.Clean(absPath)
+
+	// Check against each shallow load directory
+	for _, shallowDir := range t.config.ShallowLoadDirs {
+		if shallowDir == "" {
+			continue
+		}
+
+		// Expand ~ to home directory
+		if strings.HasPrefix(shallowDir, "~") {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				continue
+			}
+			shallowDir = filepath.Join(homeDir, shallowDir[1:])
+		}
+
+		// Normalize shallow directory path
+		absShallowDir, err := filepath.Abs(shallowDir)
+		if err != nil {
+			continue
+		}
+		absShallowDir = filepath.Clean(absShallowDir)
+
+		// Check for exact match
+		if absPath == absShallowDir {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetCurrentDirFilesOnly returns non-directory files in the current directory

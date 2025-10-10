@@ -141,6 +141,11 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	defaultConfig.ShowSearchResults = defaultConfig.ShowSearchResults || userConfig.ShowSearchResults
 	defaultConfig.MuteNotifications = defaultConfig.MuteNotifications || userConfig.MuteNotifications
 
+	// Merge ShallowLoadDirs if provided
+	if userConfig.ShallowLoadDirs != nil {
+		defaultConfig.ShallowLoadDirs = userConfig.ShallowLoadDirs
+	}
+
 	// Merge platforms if provided
 	if userConfig.Platforms != nil {
 		for name, platform := range userConfig.Platforms {
@@ -153,6 +158,27 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 
 // DefaultConfig returns the default configuration merged with user config from config.json
 func DefaultConfig() *types.Config {
+	// Get home directory for default shallow load dirs
+	homeDir, _ := os.UserHomeDir()
+	// Include common parent directories that are typically large and high up in the filesystem
+	shallowDirs := []string{
+		"/",              // root directory
+		"/Users/",        // macOS user home parent
+		"/home/",         // Linux/Unix user home parent
+		"/usr/",          // Unix system resources
+		"/var/",          // Unix variable data
+		"/opt/",          // Optional software packages
+		"/Library/",      // macOS system library
+		"/System/",       // macOS system files
+		"/mnt/",          // mount points for external drives/network shares
+		"/media/",        // removable media mount points (Linux)
+		"/Applications/", // macOS applications folder
+		"/tmp/",          // temporary files directory
+	}
+	if homeDir != "" {
+		shallowDirs = append(shallowDirs, homeDir)
+	}
+
 	// Start with hardcoded defaults
 	defaultConfig := &types.Config{
 		OpenAIAPIKey:      "", // API keys are fetched per-platform in Initialize()
@@ -187,6 +213,7 @@ func DefaultConfig() *types.Config {
 		PreferredEditor:   "hx",
 		CurrentPlatform:   "openai",
 		MuteNotifications: false,
+		ShallowLoadDirs:   shallowDirs,
 		Platforms: map[string]types.Platform{
 			"groq": {
 				Name:    "groq",
