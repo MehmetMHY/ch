@@ -66,7 +66,7 @@ ch "What are the key features of Go programming language?"
 - **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, Mistral AI, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
-- **Smart File Handling**: Load text files, PDFs, Word docs, spreadsheets (XLSX/CSV), images (with OCR text extraction), and directories
+- **Smart File Handling**: Load text files, PDFs, Word docs (DOCX/ODT/RTF), spreadsheets (XLSX/CSV), images (with OCR text extraction), and directories
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
 - **Session State Viewer**: Check current session details like model, platform, and token usage
@@ -249,6 +249,7 @@ ch -e "Write a Python script to sort a list"
 
 # load and display file content
 ch -l document.pdf
+ch -l document.docx  # or .odt, .rtf
 ch -l spreadsheet.xlsx
 ch -l screenshot.png
 

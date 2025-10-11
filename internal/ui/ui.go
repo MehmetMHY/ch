@@ -24,7 +24,7 @@ import (
 
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/ledongthuc/pdf"
-	"github.com/nguyenthenguyen/docx"
+	"github.com/lu4p/cat"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/tealeg/xlsx/v3"
@@ -587,7 +587,7 @@ func (t *Terminal) loadTextFile(filePath string) (string, error) {
 	switch ext {
 	case ".pdf":
 		content, err = t.loadPDF(filePath)
-	case ".docx":
+	case ".docx", ".odt", ".rtf":
 		content, err = t.loadDOCX(filePath)
 	case ".xlsx":
 		content, err = t.loadXLSX(filePath)
@@ -687,16 +687,13 @@ func (t *Terminal) loadPDF(filePath string) (string, error) {
 	return content.String(), nil
 }
 
-// loadDOCX extracts text content from DOCX files
+// loadDOCX extracts text content from DOCX, ODT, and RTF files
 func (t *Terminal) loadDOCX(filePath string) (string, error) {
-	doc, err := docx.ReadDocxFile(filePath)
+	text, err := cat.File(filePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to open DOCX file: %w", err)
+		return "", fmt.Errorf("failed to extract text from document: %w", err)
 	}
-	defer doc.Close()
-
-	docx := doc.Editable()
-	return docx.GetContent(), nil
+	return text, nil
 }
 
 // loadXLSX extracts text content from XLSX files
@@ -1412,7 +1409,7 @@ func (t *Terminal) isTextFileByPath(filePath string) bool {
 		".vim": true, ".lua": true, ".rs": true, ".swift": true, ".m": true,
 		".mm": true, ".cs": true, ".vb": true, ".fs": true, ".clj": true,
 		// Document files
-		".pdf": true, ".docx": true, ".xlsx": true, ".csv": true,
+		".pdf": true, ".docx": true, ".odt": true, ".rtf": true, ".xlsx": true, ".csv": true,
 		// Image files
 		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".bmp": true, ".tiff": true, ".tif": true, ".webp": true,
 		".hs": true, ".elm": true, ".ex": true, ".exs": true, ".erl": true,
@@ -1501,7 +1498,7 @@ func (t *Terminal) generateCodeDumpFromDir(files []string, sourceDir string) (st
 		// Check if this is a supported file type that we can process
 		ext := strings.ToLower(filepath.Ext(file))
 		// Image files are excluded from codedump, only document types are processed as special files.
-		supportedTypes := []string{".pdf", ".docx", ".xlsx", ".csv"}
+		supportedTypes := []string{".pdf", ".docx", ".odt", ".rtf", ".xlsx", ".csv"}
 		isSpecialFile := false
 		for _, supportedExt := range supportedTypes {
 			if ext == supportedExt {
