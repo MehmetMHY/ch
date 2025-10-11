@@ -1962,6 +1962,11 @@ func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory) err
 		return fmt.Errorf("no responses found in chat history")
 	}
 
+	// Reverse the order so latest responses are at the top
+	for i, j := 0, len(responseOptions)-1; i < j; i, j = i+1, j-1 {
+		responseOptions[i], responseOptions[j] = responseOptions[j], responseOptions[i]
+	}
+
 	// Use fzf for multi-selection
 	selected, err := t.FzfMultiSelect(responseOptions, "select responses to copy (tab=multi): ")
 	if err != nil {
@@ -1998,7 +2003,11 @@ func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory) err
 		return fmt.Errorf("failed to copy to clipboard: %w", err)
 	}
 
-	fmt.Printf("\033[93madded %d response(s) to clipboard\033[0m\n", len(selected))
+	responseWord := "response"
+	if len(selected) > 1 {
+		responseWord = "responses"
+	}
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(selected), responseWord)
 	return nil
 }
 

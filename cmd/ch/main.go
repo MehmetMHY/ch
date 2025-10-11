@@ -546,13 +546,9 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		return handleWebSearch(query, chatManager, terminal, state)
 
 	case input == config.CopyToClipboard:
-		if fromHelp {
-			fmt.Printf("\033[93m%s - copy selected responses to clipboard\033[0m\n", config.CopyToClipboard)
-		} else {
-			err := terminal.CopyResponsesInteractive(chatManager.GetChatHistory())
-			if err != nil {
-				terminal.PrintError(fmt.Sprintf("error copying to clipboard: %v", err))
-			}
+		err := terminal.CopyResponsesInteractive(chatManager.GetChatHistory())
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error copying to clipboard: %v", err))
 		}
 		return true
 
