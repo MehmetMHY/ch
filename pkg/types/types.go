@@ -66,6 +66,7 @@ type Config struct {
 	CurrentPlatform   string              `json:"current_platform,omitempty"`
 	MuteNotifications bool                `json:"mute_notifications,omitempty"`
 	ShallowLoadDirs   []string            `json:"shallow_load_dirs,omitempty"`
+	IsPipedOutput     bool                `json:"-"` // Runtime detection, not from config file
 	Platforms         map[string]Platform `json:"platforms,omitempty"`
 }
 

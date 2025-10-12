@@ -28,6 +28,12 @@ func main() {
 	// initialize application state
 	state := config.InitializeAppState()
 
+	// detect if stdout is being piped
+	stdoutStat, _ := os.Stdout.Stat()
+	if (stdoutStat.Mode() & os.ModeCharDevice) == 0 {
+		state.Config.IsPipedOutput = true
+	}
+
 	// initialize components
 	terminal := ui.NewTerminal(state.Config)
 	chatManager := chat.NewManager(state)
@@ -342,7 +348,11 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 
 		// Print response for non-streaming models
 		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
-			fmt.Printf("\033[92m%s\033[0m\n", response)
+			if state.Config.IsPipedOutput {
+				fmt.Printf("%s\n", response)
+			} else {
+				fmt.Printf("\033[92m%s\033[0m\n", response)
+			}
 		}
 
 		chatManager.AddAssistantMessage(response)
@@ -613,7 +623,11 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 		// Print response for non-streaming models
 		if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
-			fmt.Printf("\033[92m%s\033[0m\n", response)
+			if state.Config.IsPipedOutput {
+				fmt.Printf("%s\n", response)
+			} else {
+				fmt.Printf("\033[92m%s\033[0m\n", response)
+			}
 		}
 
 		chatManager.AddAssistantMessage(response)
@@ -937,10 +951,17 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 
 	// Print the state
 	combinedDateTime := currentDate + " " + currentTime
-	fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "date:", combinedDateTime)
-	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "platform:", platform)
-	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", model)
-	fmt.Printf("\033[96m%s\033[0m \033[91m%d (%d chats)\033[0m\n", "tokens:", tokenCount, chatCount)
+	if state.Config.IsPipedOutput {
+		fmt.Printf("%s %s\n", "date:", combinedDateTime)
+		fmt.Printf("%s %s\n", "platform:", platform)
+		fmt.Printf("%s %s\n", "model:", model)
+		fmt.Printf("%s %d (%d chats)\n", "tokens:", tokenCount, chatCount)
+	} else {
+		fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "date:", combinedDateTime)
+		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "platform:", platform)
+		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", model)
+		fmt.Printf("\033[96m%s\033[0m \033[91m%d (%d chats)\033[0m\n", "tokens:", tokenCount, chatCount)
+	}
 
 	return nil
 }
@@ -994,9 +1015,15 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 	}
 
 	// Print results with colors matching the project's style
-	fmt.Printf("\033[96m%s\033[0m %s\n", "file:", filePath)
-	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", targetModel)
-	fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", len(tokens))
+	if state.Config.IsPipedOutput {
+		fmt.Printf("%s %s\n", "file:", filePath)
+		fmt.Printf("%s %s\n", "model:", targetModel)
+		fmt.Printf("%s %d\n", "tokens:", len(tokens))
+	} else {
+		fmt.Printf("\033[96m%s\033[0m %s\n", "file:", filePath)
+		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", targetModel)
+		fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", len(tokens))
+	}
 
 	return nil
 }

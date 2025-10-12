@@ -405,6 +405,10 @@ func (t *Terminal) PrintTitle() {
 
 // ShowLoadingAnimation displays a loading animation
 func (t *Terminal) ShowLoadingAnimation(message string, done chan bool) {
+	if t.config.IsPipedOutput {
+		<-done // Just wait for done signal, don't show animation
+		return
+	}
 	chars := []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"}
 	i := 0
 	for {
@@ -510,26 +514,43 @@ func (t *Terminal) FzfSelectOrQuery(items []string, prompt string) (string, erro
 
 // PrintSuccess prints a success message
 func (t *Terminal) PrintSuccess(message string) {
-	fmt.Printf("\033[92m%s\033[0m\n", message)
+	if t.config.IsPipedOutput {
+		fmt.Printf("%s\n", message)
+	} else {
+		fmt.Printf("\033[92m%s\033[0m\n", message)
+	}
 }
 
 // PrintError prints an error message
 func (t *Terminal) PrintError(message string) {
-	fmt.Printf("\033[91m%s\033[0m\n", message)
+	if t.config.IsPipedOutput {
+		fmt.Fprintf(os.Stderr, "%s\n", message)
+	} else {
+		fmt.Printf("\033[91m%s\033[0m\n", message)
+	}
 }
 
 // PrintInfo prints an informational message
 func (t *Terminal) PrintInfo(message string) {
+	if t.config.IsPipedOutput {
+		return // Suppress info messages when piped
+	}
 	fmt.Printf("\033[93m%s\033[0m\n", message)
 }
 
 // PrintModelSwitch prints model switch confirmation
 func (t *Terminal) PrintModelSwitch(model string) {
+	if t.config.IsPipedOutput {
+		return // Suppress when piped
+	}
 	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", t.config.CurrentPlatform, model)
 }
 
 // PrintPlatformSwitch prints platform switch confirmation
 func (t *Terminal) PrintPlatformSwitch(platform, model string) {
+	if t.config.IsPipedOutput {
+		return // Suppress when piped
+	}
 	fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", platform, model)
 }
 
@@ -1884,10 +1905,18 @@ func (t *Terminal) formatBraveSearchResults(results []BraveWebResult, query stri
 
 	for i, searchResult := range results {
 		if searchResult.Title != "" && searchResult.URL != "" {
-			result.WriteString(fmt.Sprintf("\033[93m%d) \033[93m%s\033[0m\n", i+1, searchResult.Title))
-			result.WriteString(fmt.Sprintf("\033[95m%s\033[0m\n", searchResult.URL))
-			if searchResult.Description != "" {
-				result.WriteString(fmt.Sprintf("\033[92m%s\033[0m\n", searchResult.Description))
+			if t.config.IsPipedOutput {
+				result.WriteString(fmt.Sprintf("%d) %s\n", i+1, searchResult.Title))
+				result.WriteString(fmt.Sprintf("%s\n", searchResult.URL))
+				if searchResult.Description != "" {
+					result.WriteString(fmt.Sprintf("%s\n", searchResult.Description))
+				}
+			} else {
+				result.WriteString(fmt.Sprintf("\033[93m%d) \033[93m%s\033[0m\n", i+1, searchResult.Title))
+				result.WriteString(fmt.Sprintf("\033[95m%s\033[0m\n", searchResult.URL))
+				if searchResult.Description != "" {
+					result.WriteString(fmt.Sprintf("\033[92m%s\033[0m\n", searchResult.Description))
+				}
 			}
 			if i < len(results)-1 {
 				result.WriteString("\n")

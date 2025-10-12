@@ -308,7 +308,11 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 		if len(completion.Choices) > 0 {
 			delta := completion.Choices[0].Delta.Content
 			if delta != "" {
-				fmt.Print("\033[92m" + delta + "\033[0m")
+				if m.config.IsPipedOutput {
+					fmt.Print(delta)
+				} else {
+					fmt.Print("\033[92m" + delta + "\033[0m")
+				}
 				response.WriteString(delta)
 			}
 		}

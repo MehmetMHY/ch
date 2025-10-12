@@ -66,6 +66,7 @@ ch "What are the key features of Go programming language?"
 - **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, Mistral AI, and Ollama
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
+- **Seamless Pipe Output**: Automatically suppresses colors and UI elements when output is piped, perfect for shell pipelines and automation
 - **Smart File Handling**: Load text files, PDFs, Word docs (DOCX/ODT/RTF), spreadsheets (XLSX/CSV), images (with OCR text extraction), and directories
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
@@ -261,10 +262,15 @@ ch -l https://youtube.com/watch?v=example
 ch -t ./README.md
 ch -m "gpt-4" -t ./main.go
 
-# piping support
+# piping support (colors/UI automatically suppressed)
 cat main.py | ch "What does this code do?"
 echo "hello world" | ch "Translate to Spanish"
 ls -la | ch "Summarize this directory"
+
+# perfect for shell pipelines and automation
+ch "list 5 fruits" | grep apple
+ch "explain golang" > output.txt
+ch -w "golang features" | head -10
 ```
 
 ### Interactive Commands
