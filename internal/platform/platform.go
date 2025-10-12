@@ -196,7 +196,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 }
 
 // isSlowModel checks if the model is a slow/reasoning model that requires non-streaming
-// NOTE: This is hard-coded for what is considered a slow model - last updated on July 25, 2025
+// NOTE: This is hard-coded for what is considered a slow model
 func (m *Manager) isSlowModel(modelName string) bool {
 	// Special handling for gpt-5 models: only consider them slow if they don't end with nano or mini
 	if strings.HasPrefix(modelName, "gpt-5") {
@@ -206,8 +206,8 @@ func (m *Manager) isSlowModel(modelName string) bool {
 		return true
 	}
 
-	// NOTE: (9-22-2025) Special handling for grok-4-fast models
-	if strings.HasPrefix(modelName, "grok-4-fast") {
+	// NOTE: (9-22-2025) Special handling for grok-4-fast-non-reasoning model
+	if strings.HasPrefix(modelName, "grok-4-fast") && strings.Contains(modelName, "non-reasoning") {
 		return false
 	}
 
