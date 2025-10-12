@@ -4397,6 +4397,15 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 		return nil, fmt.Errorf("failed to get current directory: %v", err)
 	}
 
+	// Get absolute path for shallow check
+	absCurrentDir, err := filepath.Abs(currentDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path: %v", err)
+	}
+
+	// Check if this directory should be loaded shallowly
+	isShallow := m.isShallowLoadDir(absCurrentDir)
+
 	var files []string
 
 	err = filepath.WalkDir(currentDir, func(path string, d os.DirEntry, err error) error {
@@ -4415,12 +4424,22 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 			return nil // Skip if we can't get relative path
 		}
 
-		// Skip hidden files and directories (starting with .)
-		if strings.HasPrefix(filepath.Base(relPath), ".") {
-			if d.IsDir() {
+		// For shallow directories, only include direct children (depth 1)
+		if isShallow {
+			depth := strings.Count(relPath, string(filepath.Separator))
+			if d.IsDir() && depth > 0 {
+				// Skip subdirectories beyond depth 1
 				return filepath.SkipDir
 			}
-			return nil
+			if !d.IsDir() && depth > 0 {
+				// Skip files beyond depth 1
+				return nil
+			}
+		}
+
+		// Skip version control directories but allow other hidden files/directories for export
+		if d.IsDir() && (filepath.Base(relPath) == ".git" || filepath.Base(relPath) == ".svn" || filepath.Base(relPath) == ".hg") {
+			return filepath.SkipDir
 		}
 
 		// Only include files, not directories
@@ -4436,6 +4455,46 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	}
 
 	return files, nil
+}
+
+// isShallowLoadDir checks if a directory should be loaded shallowly (only 1 level deep)
+func (m *Manager) isShallowLoadDir(dirPath string) bool {
+	// Normalize the directory path
+	absPath, err := filepath.Abs(dirPath)
+	if err != nil {
+		return false
+	}
+	absPath = filepath.Clean(absPath)
+
+	// Check against each shallow load directory
+	for _, shallowDir := range m.state.Config.ShallowLoadDirs {
+		if shallowDir == "" {
+			continue
+		}
+
+		// Expand ~ to home directory
+		if strings.HasPrefix(shallowDir, "~") {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				continue
+			}
+			shallowDir = filepath.Join(homeDir, shallowDir[1:])
+		}
+
+		// Normalize shallow directory path
+		absShallowDir, err := filepath.Abs(shallowDir)
+		if err != nil {
+			continue
+		}
+		absShallowDir = filepath.Clean(absShallowDir)
+
+		// Check for exact match
+		if absPath == absShallowDir {
+			return true
+		}
+	}
+
+	return false
 }
 
 // AddRecentlyCreatedFile adds a file to the recently created files list

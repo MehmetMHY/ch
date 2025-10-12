@@ -211,7 +211,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `search_country` - Set the country for web searches (default: "us")
 - `search_lang` - Set the language for web searches (default: "en")
 - `system_prompt` - Customize the system prompt
-- `shallow_load_dirs` - Directories to load with only 1-level depth (default: ["/", "/Users/", "/home/", "/usr/", "/var/", "/opt/", "/Library/", "/System/", "/mnt/", "/media/", "/Applications/", "/tmp/", "$HOME"]). Set to `[]` to disable shallow loading entirely.
+- `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
 - Plus all other configuration options using snake_case JSON field names
 
 For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). But note that config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
