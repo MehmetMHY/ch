@@ -2119,3 +2119,134 @@ func (t *Terminal) runEditorWithFallback(filePath string) error {
 
 	return fmt.Errorf("no working editor found")
 }
+
+// ExtractURLsFromText extracts all URLs from a given text using regex
+func (t *Terminal) ExtractURLsFromText(text string) []string {
+	// URL regex pattern
+	urlRegex := regexp.MustCompile(`https?://[^\s<>"{}|\\^` + "`" + `\[\]]+`)
+	matches := urlRegex.FindAllString(text, -1)
+
+	// Remove duplicates
+	seen := make(map[string]bool)
+	var uniqueURLs []string
+	for _, url := range matches {
+		if url != "" && !seen[url] {
+			uniqueURLs = append(uniqueURLs, url)
+			seen[url] = true
+		}
+	}
+
+	return uniqueURLs
+}
+
+// ExtractURLsFromChatHistory scans the entire chat history and extracts all unique URLs
+func (t *Terminal) ExtractURLsFromChatHistory(chatHistory []types.ChatHistory) []string {
+	var allURLs []string
+	seen := make(map[string]bool)
+
+	for _, entry := range chatHistory {
+		// Extract URLs from user messages
+		userURLs := t.ExtractURLsFromText(entry.User)
+		for _, url := range userURLs {
+			if !seen[url] {
+				allURLs = append(allURLs, url)
+				seen[url] = true
+			}
+		}
+
+		// Extract URLs from bot messages
+		botURLs := t.ExtractURLsFromText(entry.Bot)
+		for _, url := range botURLs {
+			if !seen[url] {
+				allURLs = append(allURLs, url)
+				seen[url] = true
+			}
+		}
+	}
+
+	return allURLs
+}
+
+// ExtractURLsFromMessages scans all chat messages and extracts all unique URLs
+func (t *Terminal) ExtractURLsFromMessages(messages []types.ChatMessage) []string {
+	var allURLs []string
+	seen := make(map[string]bool)
+
+	for _, message := range messages {
+		// Extract URLs from message content
+		urls := t.ExtractURLsFromText(message.Content)
+		for _, url := range urls {
+			if !seen[url] {
+				allURLs = append(allURLs, url)
+				seen[url] = true
+			}
+		}
+	}
+
+	return allURLs
+}
+
+// ExtractSentencesFromText extracts all sentences from a given text
+func (t *Terminal) ExtractSentencesFromText(text string) []string {
+	// Split by sentence terminators
+	sentenceRegex := regexp.MustCompile(`[.!?]+\s+`)
+	rawSentences := sentenceRegex.Split(text, -1)
+
+	var sentences []string
+	for _, sentence := range rawSentences {
+		// Strip whitespace (like Python's strip())
+		cleaned := strings.TrimSpace(sentence)
+
+		// Skip empty or whitespace-only lines
+		if cleaned == "" {
+			continue
+		}
+
+		// Only keep sentences that are at least 10 characters and not too long
+		if len(cleaned) >= 10 && len(cleaned) <= 200 {
+			sentences = append(sentences, cleaned)
+		}
+	}
+
+	return sentences
+}
+
+// ExtractSentencesFromChatHistory scans the entire chat history and extracts all unique sentences
+func (t *Terminal) ExtractSentencesFromChatHistory(chatHistory []types.ChatHistory, messages []types.ChatMessage) []string {
+	var allSentences []string
+	seen := make(map[string]bool)
+
+	// Extract from chat history
+	for _, entry := range chatHistory {
+		// Extract from user messages
+		userSentences := t.ExtractSentencesFromText(entry.User)
+		for _, sentence := range userSentences {
+			if !seen[sentence] {
+				allSentences = append(allSentences, sentence)
+				seen[sentence] = true
+			}
+		}
+
+		// Extract from bot messages
+		botSentences := t.ExtractSentencesFromText(entry.Bot)
+		for _, sentence := range botSentences {
+			if !seen[sentence] {
+				allSentences = append(allSentences, sentence)
+				seen[sentence] = true
+			}
+		}
+	}
+
+	// Extract from messages
+	for _, message := range messages {
+		sentences := t.ExtractSentencesFromText(message.Content)
+		for _, sentence := range sentences {
+			if !seen[sentence] {
+				allSentences = append(allSentences, sentence)
+				seen[sentence] = true
+			}
+		}
+	}
+
+	return allSentences
+}

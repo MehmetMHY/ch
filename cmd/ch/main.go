@@ -534,10 +534,45 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 	case input == config.ScrapeURL:
 		if fromHelp {
 			fmt.Printf("\033[93m%s <url1> [url2] ... - scrape content from URLs\033[0m\n", config.ScrapeURL)
-		} else {
-			terminal.PrintError("no URLs provided")
+			return true
 		}
-		return true
+
+		// Extract all URLs from both chat history and messages
+		historyURLs := terminal.ExtractURLsFromChatHistory(chatManager.GetChatHistory())
+		messageURLs := terminal.ExtractURLsFromMessages(chatManager.GetMessages())
+
+		// Combine and deduplicate URLs
+		urlMap := make(map[string]bool)
+		for _, url := range historyURLs {
+			urlMap[url] = true
+		}
+		for _, url := range messageURLs {
+			urlMap[url] = true
+		}
+
+		var allURLs []string
+		for url := range urlMap {
+			allURLs = append(allURLs, url)
+		}
+
+		if len(allURLs) == 0 {
+			terminal.PrintError("no URLs found in chat history")
+			return true
+		}
+
+		// Let user select URLs using fzf with multi-select (tab key)
+		selectedURLs, err := terminal.FzfMultiSelect(allURLs, "select urls to scrape (tab=multi): ")
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error selecting URLs: %v", err))
+			return true
+		}
+
+		if len(selectedURLs) == 0 {
+			return true
+		}
+
+		// Scrape the selected URLs
+		return handleScrapeURLs(selectedURLs, chatManager, terminal, state)
 
 	case strings.HasPrefix(input, config.ScrapeURL+" "):
 		urls := strings.Fields(strings.TrimPrefix(input, config.ScrapeURL+" "))
@@ -546,10 +581,30 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 	case input == config.WebSearch:
 		if fromHelp {
 			fmt.Printf("\033[93m%s <query> - search web using ddgr\033[0m\n", config.WebSearch)
-		} else {
-			terminal.PrintError("no search query provided")
+			return true
 		}
-		return true
+
+		// Extract all sentences from chat history
+		allSentences := terminal.ExtractSentencesFromChatHistory(chatManager.GetChatHistory(), chatManager.GetMessages())
+
+		if len(allSentences) == 0 {
+			terminal.PrintError("no sentences found in chat history")
+			return true
+		}
+
+		// Let user select a sentence using fzf
+		selectedSentence, err := terminal.FzfSelect(allSentences, "select sentence to search: ")
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error selecting sentence: %v", err))
+			return true
+		}
+
+		if selectedSentence == "" {
+			return true
+		}
+
+		// Use the selected sentence as the search query
+		return handleWebSearch(selectedSentence, chatManager, terminal, state)
 
 	case strings.HasPrefix(input, config.WebSearch+" "):
 		query := strings.TrimPrefix(input, config.WebSearch+" ")

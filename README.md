@@ -287,8 +287,8 @@ When in interactive mode (`ch`), use these commands:
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
 - **`!x`** - record shell a session
-- **`!s [url]...`** - scrape URL(s)
-- **`!w [query]`** - web search
+- **`!s [url]...`** - scrape URL(s) or from history
+- **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump
 - **`!e`** - export chat(s) to a file
 - **`!y`** - add to clipboard
@@ -316,13 +316,14 @@ Offers two modes for exporting chat history:
 - Extracts clean text content from web pages using a built-in parser
 - YouTube videos include metadata and subtitle extraction via yt-dlp
 - Multiple URL support: `!s https://site1.com https://site2.com`
+- Interactive URL selection: When called without arguments (`!s`), scans chat history for all URLs, removes duplicates, and presents them via fzf for multi-selection with tab key
 - Integrated with file loading: `ch -l https://example.com`
 
 **Web Search (`!w`):**
 
 - Built-in Brave Search integration via the Brave Search API
 - Requires `BRAVE_API_KEY` to be set in your environment variables
-- Usage: `!w "search query"`
+- Usage: `!w "search query"` or `!w` to select a sentence from chat history
 - Results are automatically added to conversation context
 - No need for external tools, but requires an API key
 
