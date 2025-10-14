@@ -1964,6 +1964,115 @@ func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory) err
 		return fmt.Errorf("no chat history available")
 	}
 
+	// Ask for copy mode
+	copyMode, err := t.FzfSelect([]string{"auto copy", "manual copy"}, "select copy mode: ")
+	if err != nil {
+		return fmt.Errorf("selection cancelled or failed: %v", err)
+	}
+
+	if copyMode == "auto copy" {
+		return t.copyResponsesAuto(chatHistory)
+	}
+
+	if copyMode == "" {
+		return nil // User cancelled
+	}
+
+	// Manual copy mode - proceed with original logic
+	return t.copyResponsesManual(chatHistory)
+}
+
+// copyResponsesAuto automatically extracts code blocks from chat history
+func (t *Terminal) copyResponsesAuto(chatHistory []types.ChatHistory) error {
+	// Extract code blocks from chat history
+	type ExtractedSnippet struct {
+		Content  string
+		Language string
+	}
+	var snippets []ExtractedSnippet
+	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
+
+	// Iterate through chat history
+	for i := len(chatHistory) - 1; i >= 0; i-- {
+		entry := chatHistory[i]
+		if entry.Bot != "" {
+			matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
+			for _, match := range matches {
+				language := match[1]
+				if language == "" {
+					language = "text"
+				}
+				content := match[2]
+				snippets = append(snippets, ExtractedSnippet{Content: content, Language: language})
+			}
+		}
+	}
+
+	if len(snippets) == 0 {
+		return fmt.Errorf("no code blocks found in chat history")
+	}
+
+	// Create options for fzf selection
+	var snippetOptions []string
+	for i, snippet := range snippets {
+		preview := strings.Split(snippet.Content, "\n")[0]
+		if len(preview) > 80 {
+			preview = preview[:80] + "..."
+		}
+		snippetOptions = append(snippetOptions, fmt.Sprintf("[%d] (%s) %s", i+1, snippet.Language, preview))
+	}
+
+	// Use fzf for multi-selection
+	selectedItems, err := t.FzfMultiSelect(snippetOptions, "select code blocks (tab=multi): ")
+	if err != nil {
+		return fmt.Errorf("selection failed: %w", err)
+	}
+
+	if len(selectedItems) == 0 {
+		t.PrintInfo("no code blocks selected")
+		return nil
+	}
+
+	// Parse selected indices
+	var selectedSnippets []ExtractedSnippet
+	for _, item := range selectedItems {
+		var index int
+		if _, err := fmt.Sscanf(item, "[%d]", &index); err == nil && index > 0 && index <= len(snippets) {
+			selectedSnippets = append(selectedSnippets, snippets[index-1])
+		}
+	}
+
+	if len(selectedSnippets) == 0 {
+		return fmt.Errorf("no valid code blocks selected")
+	}
+
+	// Combine selected snippets
+	var combinedContent strings.Builder
+	for i, snippet := range selectedSnippets {
+		if i > 0 {
+			combinedContent.WriteString("\n\n")
+		}
+		combinedContent.WriteString(snippet.Content)
+	}
+
+	finalContent := combinedContent.String()
+
+	// Copy to clipboard directly (no editor)
+	err = t.CopyToClipboard(finalContent)
+	if err != nil {
+		return fmt.Errorf("failed to copy to clipboard: %w", err)
+	}
+
+	blockWord := "code block"
+	if len(selectedSnippets) > 1 {
+		blockWord = "code blocks"
+	}
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(selectedSnippets), blockWord)
+	return nil
+}
+
+// copyResponsesManual allows user to manually select responses to copy
+func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
 	// Create list of responses for fzf selection
 	var responseOptions []string
 	var responseMap = make(map[string]types.ChatHistory)
