@@ -318,6 +318,61 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 			continue
 		}
 
+		// Check if input ends with backslash for automatic multi-line continuation
+		if strings.HasSuffix(input, state.Config.MultiLine) && input != state.Config.MultiLine {
+			// Remove trailing backslash from the first line
+			input = strings.TrimSuffix(input, state.Config.MultiLine)
+			input = strings.TrimRight(input, " \t")
+
+			var lines []string
+			if input != "" {
+				lines = append(lines, input)
+			}
+
+			// Create a new readline instance for multi-line input
+			multiLineRl, err := readline.NewEx(&readline.Config{
+				Prompt:      "... ",
+				HistoryFile: "/dev/null", // Disable history for multi-line
+			})
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error creating multi-line input: %v", err))
+				continue
+			}
+
+			multiLineActive := true
+			for multiLineActive {
+				line, err := multiLineRl.Readline()
+				if err != nil {
+					if err == readline.ErrInterrupt || err == io.EOF {
+						multiLineRl.Close()
+						multiLineActive = false
+						break
+					}
+					break
+				}
+
+				// Check if line ends with backslash
+				if strings.HasSuffix(line, state.Config.MultiLine) {
+					// Remove trailing backslash and continue to next line
+					line = strings.TrimSuffix(line, state.Config.MultiLine)
+					line = strings.TrimRight(line, " \t")
+					lines = append(lines, line)
+				} else {
+					// No backslash at end - this is the final line
+					lines = append(lines, line)
+					multiLineActive = false
+					break
+				}
+			}
+
+			multiLineRl.Close()
+
+			input = strings.Join(lines, "\n")
+			if strings.TrimSpace(input) == "" {
+				continue
+			}
+		}
+
 		if handleSpecialCommands(input, chatManager, platformManager, terminal, state) {
 			continue
 		}

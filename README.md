@@ -282,7 +282,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!c`** - clear chat history
 - **`!b`** - backtrack messages
 - **`!t`** - text editor mode
-- **`\`** - multi-line input mode
+- **`\`** - multi-line input (end lines with `\` to continue like in [Claude Code](https://github.com/anthropics/claude-code))
 - **`!m`** - switch models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
