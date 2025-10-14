@@ -546,6 +546,103 @@ refresh_deps() {
 	log "All dependencies refreshed successfully"
 }
 
+safe_input() {
+	local prompt="$1"
+	read -p "$prompt" response
+	echo "$response"
+}
+
+update_version() {
+	local makefile="Makefile"
+
+	# Check if Makefile exists
+	if [[ ! -f "$makefile" ]]; then
+		error "Makefile not found. Please run from the Ch repository root."
+	fi
+
+	# Extract current version from Makefile
+	local current_version
+	current_version=$(grep "^VERSION?=" "$makefile" | cut -d'=' -f2)
+
+	if [[ -z "$current_version" ]]; then
+		error "Could not find VERSION in Makefile"
+	fi
+
+	echo "Current version: $current_version"
+
+	# Remove 'v' prefix if it exists for parsing
+	local version_number="${current_version#v}"
+
+	# Parse version components
+	if [[ ! "$version_number" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+		error "Invalid version format. Expected format: v1.2.3 or 1.2.3"
+	fi
+
+	local major="${BASH_REMATCH[1]}"
+	local minor="${BASH_REMATCH[2]}"
+	local patch="${BASH_REMATCH[3]}"
+
+	# Calculate version bumps
+	local patch_bump="$major.$minor.$((patch + 1))"
+	local minor_bump="$major.$((minor + 1)).0"
+	local major_bump="$((major + 1)).0.0"
+
+	echo "Select the new version:"
+	echo "  1. Patch -> v$patch_bump"
+	echo "  2. Minor -> v$minor_bump"
+	echo "  3. Major -> v$major_bump"
+	echo "  4. Custom version"
+	echo "  5. Keep current version ($current_version)"
+
+	local choice
+	choice=$(safe_input "Enter your choice (1-5): ")
+
+	local new_version
+	case "$choice" in
+	1)
+		new_version="v$patch_bump"
+		;;
+	2)
+		new_version="v$minor_bump"
+		;;
+	3)
+		new_version="v$major_bump"
+		;;
+	4)
+		local custom
+		custom=$(safe_input "Enter custom version (e.g., v1.2.3): ")
+		# Ensure it starts with 'v'
+		if [[ ! "$custom" =~ ^v ]]; then
+			custom="v$custom"
+		fi
+		new_version="$custom"
+		;;
+	5)
+		echo "Keeping current version: $current_version"
+		exit 0
+		;;
+	*)
+		error "Invalid choice"
+		;;
+	esac
+
+	# Update Makefile
+	echo "Updating version to: $new_version"
+
+	# Use sed to replace the VERSION line (works on both macOS and Linux)
+	if [[ "$OSTYPE" == "darwin"* ]]; then
+		sed -i '' "s/^VERSION?=.*/VERSION?=$new_version/" "$makefile"
+	else
+		sed -i "s/^VERSION?=.*/VERSION?=$new_version/" "$makefile"
+	fi
+
+	echo "Version updated to $new_version in Makefile"
+	echo "Next steps:"
+	echo "1. Commit the Makefile changes"
+	echo "2. Build with: make build"
+	echo "3. Create release with: make release"
+}
+
 show_help() {
 	echo "Usage: $0 [OPTIONS]"
 	echo ""
@@ -555,11 +652,12 @@ show_help() {
 	echo "  -u, --uninstall     Uninstall Ch from the system"
 	echo "  -b, --build         Build Ch locally (requires local repository)"
 	echo "  -r, --refresh-deps  Refresh Go dependencies before building (local only)"
+	echo "  -v, --version       Update version in Makefile (local only)"
 	echo "  -h, --help          Show this help message"
 	echo ""
 	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
 	echo ""
-	echo "Note: Build options (-b, -r) only work when run locally from the repository,"
+	echo "Note: Build options (-b, -r, -v) only work when run locally from the repository,"
 	echo "      not through curl/wget installation."
 }
 
@@ -588,6 +686,13 @@ main() {
 				error "Refresh deps option is only available when running locally from the repository"
 			fi
 			refresh_deps_flag=true
+			;;
+		-v | --version)
+			if [[ "$is_remote_install" == true ]]; then
+				error "Version option is only available when running locally from the repository"
+			fi
+			update_version
+			exit 0
 			;;
 		-h | --help)
 			show_help

@@ -410,6 +410,7 @@ cd ch
 # using the install script (local build options)
 ./install.sh -b     # build locally without installing
 ./install.sh -r -b  # refresh/update all dependencies and build
+./install.sh -v     # update version in Makefile interactively
 ./install.sh -h     # show help with all options
 
 # using Make directly
@@ -420,6 +421,21 @@ make lint     # run linter
 make fmt      # format code
 make dev      # build and run in dev mode
 ```
+
+### Version Management
+
+Update the project version interactively:
+
+```bash
+./install.sh -v
+```
+
+This will:
+
+- Display the current version from Makefile
+- Offer semantic version bump options (patch, minor, major)
+- Allow custom version input
+- Update the VERSION in Makefile automatically
 
 ## Contributing
 
