@@ -367,7 +367,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - help page", t.config.HelpKey),
 		fmt.Sprintf("%s - clear chat history", t.config.ClearHistory),
 		fmt.Sprintf("%s - backtrack messages", t.config.Backtrack),
-		fmt.Sprintf("%s - text editor mode", t.config.EditorInput),
+		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
 		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
 		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - switch platforms", t.config.PlatformSwitch),
@@ -390,7 +390,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - exit interface\033[0m\n", t.config.ExitKey)
 	fmt.Printf("\033[93m%s - switch models\033[0m\n", t.config.ModelSwitch)
 	fmt.Printf("\033[93m%s - switch platforms\033[0m\n", t.config.PlatformSwitch)
-	fmt.Printf("\033[93m%s - text editor input\033[0m\n", t.config.EditorInput)
+	fmt.Printf("\033[93m%s [buff] - text editor input\033[0m\n", t.config.EditorInput)
 	fmt.Printf("\033[93m%s - clear history\033[0m\n", t.config.ClearHistory)
 	fmt.Printf("\033[93m%s - backtrack\033[0m\n", t.config.Backtrack)
 	fmt.Printf("\033[93m%s - help page\033[0m\n", t.config.HelpKey)

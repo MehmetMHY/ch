@@ -530,6 +530,28 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		command := strings.TrimPrefix(input, config.ShellRecord+" ")
 		return handleShellCommand(command, chatManager, terminal, state)
 
+	case strings.HasPrefix(input, config.EditorInput+" "):
+		arg := strings.TrimSpace(strings.TrimPrefix(input, config.EditorInput+" "))
+
+		if arg == "buff" {
+			// Buffer mode: load content into memory without sending to model
+			userInput, err := chatManager.HandleTerminalInput()
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("%v", err))
+				return true
+			}
+
+			fmt.Printf("\033[94m> %s\033[0m\n", strings.ReplaceAll(userInput, "\n", "\n> "))
+
+			chatManager.AddUserMessage(userInput)
+			chatManager.AddToHistory("Text editor buffer loaded", "")
+			return true
+		}
+
+		// Unknown argument
+		terminal.PrintError(fmt.Sprintf("unknown argument '%s'. Use '%s' or '%s buff'", arg, config.EditorInput, config.EditorInput))
+		return true
+
 	case input == config.EditorInput:
 		userInput, err := chatManager.HandleTerminalInput()
 		if err != nil {
