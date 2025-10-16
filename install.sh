@@ -296,38 +296,9 @@ create_symlink() {
 			return
 		fi
 
-		# If it fails, prompt the user
+		# If it fails, skip symlink creation
 		warning "Could not create symlink in $target_dir without elevated permissions."
-		echo "Please choose an option:"
-		echo "1) Attempt to create symlink with sudo (recommended)"
-		echo "2) Install to $BIN_DIR only (you will need to add this to your PATH manually)"
-		echo "3) Abort installation"
-		read -p "Enter your choice [1]: " choice
-		choice=${choice:-1}
-
-		case "$choice" in
-		1)
-			log "Attempting to create symlink with sudo..."
-			if ! command -v sudo >/dev/null 2>&1; then
-				error "sudo command not found. Please choose another option or install sudo."
-			fi
-			if [[ ! -d "$target_dir" ]]; then
-				sudo mkdir -p "$target_dir" || error "Failed to create $target_dir with sudo."
-			fi
-			sudo ln -sf "$source_path" "$symlink_path" || error "Failed to create symlink with sudo."
-			log "Symlink created with sudo: $symlink_path -> $source_path"
-			;;
-		2)
-			log "Skipping symlink creation."
-			SYMLINK_SKIPPED=true
-			;;
-		3)
-			error "Installation aborted by user."
-			;;
-		*)
-			error "Invalid choice. Aborting installation."
-			;;
-		esac
+		SYMLINK_SKIPPED=true
 	fi
 }
 check_api_keys() {
