@@ -284,8 +284,8 @@ When in interactive mode (`ch`), use these commands:
 - **`!m`** - switch models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
-- **`!x`** - record shell a session
-- **`!s [url]...`** - scrape URL(s) or from history
+- **`!x`** - record shell session
+- **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump
 - **`!e`** - export chat(s) to a file

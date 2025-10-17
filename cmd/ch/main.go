@@ -524,14 +524,27 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		return handleCodeDump(chatManager, terminal, state)
 
 	case input == config.ShellRecord:
+		if fromHelp {
+			fmt.Printf("\033[93m%s - record shell session\033[0m\n", config.ShellRecord)
+			return true
+		}
 		return handleShellRecord(chatManager, terminal, state)
 
 	case strings.HasPrefix(input, config.ShellRecord+" "):
 		command := strings.TrimPrefix(input, config.ShellRecord+" ")
+		if fromHelp {
+			fmt.Printf("\033[93m%s [command] - record shell session\033[0m\n", config.ShellRecord)
+			return true
+		}
 		return handleShellCommand(command, chatManager, terminal, state)
 
 	case strings.HasPrefix(input, config.EditorInput+" "):
 		arg := strings.TrimSpace(strings.TrimPrefix(input, config.EditorInput+" "))
+
+		if fromHelp {
+			fmt.Printf("\033[93m%s [buff] - text editor mode\033[0m\n", config.EditorInput)
+			return true
+		}
 
 		if arg == "buff" {
 			// Buffer mode: load content into memory without sending to model
@@ -553,6 +566,11 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		return true
 
 	case input == config.EditorInput:
+		if fromHelp {
+			fmt.Printf("\033[93m%s [buff] - text editor mode\033[0m\n", config.EditorInput)
+			return true
+		}
+
 		userInput, err := chatManager.HandleTerminalInput()
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
@@ -610,7 +628,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	case input == config.ScrapeURL:
 		if fromHelp {
-			fmt.Printf("\033[93m%s <url1> [url2] ... - scrape content from URLs\033[0m\n", config.ScrapeURL)
+			fmt.Printf("\033[93m%s [url] - scrape URL(s)\033[0m\n", config.ScrapeURL)
 			return true
 		}
 
@@ -657,7 +675,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	case input == config.WebSearch:
 		if fromHelp {
-			fmt.Printf("\033[93m%s <query> - search web using ddgr\033[0m\n", config.WebSearch)
+			fmt.Printf("\033[93m%s [query] - web search\033[0m\n", config.WebSearch)
 			return true
 		}
 
