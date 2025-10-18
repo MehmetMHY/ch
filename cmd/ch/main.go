@@ -1105,12 +1105,14 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 		fmt.Printf("%s %s\n", "date:", combinedDateTime)
 		fmt.Printf("%s %s\n", "platform:", platform)
 		fmt.Printf("%s %s\n", "model:", model)
-		fmt.Printf("%s %d (%d chats)\n", "tokens:", tokenCount, chatCount)
+		fmt.Printf("%s %d\n", "chats:", chatCount)
+		fmt.Printf("%s %d\n", "tokens:", tokenCount)
 	} else {
 		fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "date:", combinedDateTime)
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "platform:", platform)
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", model)
-		fmt.Printf("\033[96m%s\033[0m \033[91m%d (%d chats)\033[0m\n", "tokens:", tokenCount, chatCount)
+		fmt.Printf("\033[96m%s\033[0m \033[92m%d\033[0m\n", "chats:", chatCount)
+		fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", tokenCount)
 	}
 
 	return nil
