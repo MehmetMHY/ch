@@ -63,7 +63,8 @@ ch "What are the key features of Go programming language?"
 ## Features
 
 - **High Performance**: Built for speed with minimal startup overhead
-- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, Mistral AI, and Ollama
+- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, Mistral AI, Amazon Bedrock, and Ollama
+- **Multi-Region Support**: Switch between regional endpoints for platforms like Amazon Bedrock (22 AWS regions)
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
 - **Seamless Pipe Output**: Automatically suppresses colors and UI elements when output is piped, perfect for shell pipelines and automation
@@ -154,21 +155,23 @@ export XAI_API_KEY="your-xai-key"
 export TOGETHER_API_KEY="your-together-key"
 export GEMINI_API_KEY="your-gemini-key"
 export MISTRAL_API_KEY="your-mistral-key"
+export AWS_BEDROCK_API_KEY="your-bedrock-key"
 ```
 
 You can find links to obtain API keys below:
 
-| Platform      | Get API Key                                        |
-| ------------- | -------------------------------------------------- |
-| OpenAI        | https://openai.com/api/                            |
-| Brave Search  | https://brave.com/search/api/                      |
-| Google Gemini | https://ai.google.dev/gemini-api/docs/api-key      |
-| xAI           | https://x.ai/api                                   |
-| Groq          | https://console.groq.com/keys                      |
-| Mistral AI    | https://docs.mistral.ai/getting-started/quickstart |
-| Anthropic     | https://console.anthropic.com/                     |
-| Together AI   | https://docs.together.ai/docs/quickstart           |
-| DeepSeek      | https://api-docs.deepseek.com/                     |
+| Platform       | Get API Key                                        |
+| -------------- | -------------------------------------------------- |
+| OpenAI         | https://openai.com/api/                            |
+| Brave Search   | https://brave.com/search/api/                      |
+| Google Gemini  | https://ai.google.dev/gemini-api/docs/api-key      |
+| xAI            | https://x.ai/api                                   |
+| Groq           | https://console.groq.com/keys                      |
+| Mistral AI     | https://docs.mistral.ai/getting-started/quickstart |
+| Anthropic      | https://console.anthropic.com/                     |
+| Together AI    | https://docs.together.ai/docs/quickstart           |
+| DeepSeek       | https://api-docs.deepseek.com/                     |
+| Amazon Bedrock | https://aws.amazon.com/bedrock/                    |
 
 ### Default Settings
 
@@ -204,6 +207,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `default_model` - Set default model (automatically sets current_model if not specified)
 - `current_model` - Set current active model
 - `current_platform` - Set default platform
+- `current_base_url` - Set default base URL/region for multi-region platforms like Amazon Bedrock
 - `preferred_editor` - Set preferred text editor (default: "vim")
 - `show_search_results` - Show/hide web search results (default: false)
 - `num_search_results` - Number of search results to display (default: 5)
@@ -359,17 +363,18 @@ Both commands help in integrating external web content and search results into C
 
 Ch supports multiple AI platforms with seamless switching:
 
-| Platform  | Models                     | Environment Variable |
-| --------- | -------------------------- | -------------------- |
-| OpenAI    | GPT-4o, GPT-4o-mini, etc.  | `OPENAI_API_KEY`     |
-| Groq      | Llama3, Mixtral, etc.      | `GROQ_API_KEY`       |
-| DeepSeek  | DeepSeek-Chat, etc.        | `DEEP_SEEK_API_KEY`  |
-| Anthropic | Claude-3.5, etc.           | `ANTHROPIC_API_KEY`  |
-| xAI       | Grok models                | `XAI_API_KEY`        |
-| Together  | Llama3, Mixtral, etc.      | `TOGETHER_API_KEY`   |
-| Google    | Gemini models              | `GEMINI_API_KEY`     |
-| Mistral   | Mistral-tiny, small, etc.  | `MISTRAL_API_KEY`    |
-| Ollama    | Local models (Llama3, etc) | (none)               |
+| Platform       | Models                      | Environment Variable  | Regions/Endpoints |
+| -------------- | --------------------------- | --------------------- | ----------------- |
+| OpenAI         | GPT-4o, GPT-4o-mini, etc.   | `OPENAI_API_KEY`      | 1                 |
+| Groq           | Llama3, Mixtral, etc.       | `GROQ_API_KEY`        | 1                 |
+| DeepSeek       | DeepSeek-Chat, etc.         | `DEEP_SEEK_API_KEY`   | 1                 |
+| Anthropic      | Claude-3.5, etc.            | `ANTHROPIC_API_KEY`   | 1                 |
+| xAI            | Grok models                 | `XAI_API_KEY`         | 1                 |
+| Together       | Llama3, Mixtral, etc.       | `TOGETHER_API_KEY`    | 1                 |
+| Google         | Gemini models               | `GEMINI_API_KEY`      | 1                 |
+| Mistral        | Mistral-tiny, small, etc.   | `MISTRAL_API_KEY`     | 1                 |
+| Amazon Bedrock | Claude, Llama, Mistral, etc | `AWS_BEDROCK_API_KEY` | 22                |
+| Ollama         | Local models (Llama3, etc)  | (none)                | 1                 |
 
 Switch platforms during conversation:
 
@@ -378,6 +383,18 @@ Switch platforms during conversation:
 !p anthropic
 !m gpt-4o
 ```
+
+**Multi-Region Platforms:**
+
+Some platforms like Amazon Bedrock support multiple regions. When switching to a multi-region platform, you'll be prompted to select a region before choosing a model:
+
+```bash
+!p amazon
+# Prompts: region: (select from 22 AWS regions)
+# Prompts: model: (select from available models in that region)
+```
+
+Supported AWS Bedrock regions: US East (N. Virginia, Ohio), US West (Oregon), Asia Pacific (Tokyo, Seoul, Osaka, Mumbai, Hyderabad, Singapore, Sydney), Canada (Central), Europe (Frankfurt, Ireland, London, Milan, Paris, Spain, Stockholm, Zurich), South America (São Paulo), AWS GovCloud (US-East, US-West), and FIPS endpoints.
 
 ## Development
 
