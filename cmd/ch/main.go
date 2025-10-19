@@ -483,6 +483,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		} else if result != nil {
 			chatManager.SetCurrentPlatform(result["platform_name"].(string))
 			chatManager.SetCurrentModel(result["picked_model"].(string))
+			config.CurrentBaseURL = result["base_url"].(string)
 			err = platformManager.Initialize()
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
@@ -502,6 +503,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		} else if result != nil {
 			chatManager.SetCurrentPlatform(result["platform_name"].(string))
 			chatManager.SetCurrentModel(result["picked_model"].(string))
+			config.CurrentBaseURL = result["base_url"].(string)
 			err = platformManager.Initialize()
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))

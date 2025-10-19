@@ -217,7 +217,7 @@ func DefaultConfig() *types.Config {
 		Platforms: map[string]types.Platform{
 			"groq": {
 				Name:    "groq",
-				BaseURL: "https://api.groq.com/openai/v1",
+				BaseURL: types.BaseURLValue{Single: "https://api.groq.com/openai/v1"},
 				EnvName: "GROQ_API_KEY",
 				Models: types.PlatformModels{
 					URL:      "https://api.groq.com/openai/v1/models",
@@ -226,7 +226,7 @@ func DefaultConfig() *types.Config {
 			},
 			"deepseek": {
 				Name:    "deepseek",
-				BaseURL: "https://api.deepseek.com",
+				BaseURL: types.BaseURLValue{Single: "https://api.deepseek.com"},
 				EnvName: "DEEP_SEEK_API_KEY",
 				Models: types.PlatformModels{
 					URL:      "https://api.deepseek.com/models",
@@ -235,7 +235,7 @@ func DefaultConfig() *types.Config {
 			},
 			"anthropic": {
 				Name:    "anthropic",
-				BaseURL: "https://api.anthropic.com/v1/",
+				BaseURL: types.BaseURLValue{Single: "https://api.anthropic.com/v1/"},
 				EnvName: "ANTHROPIC_API_KEY",
 				Models: types.PlatformModels{
 					URL:      "https://api.anthropic.com/v1/models",
@@ -244,7 +244,7 @@ func DefaultConfig() *types.Config {
 			},
 			"xai": {
 				Name:    "xai",
-				BaseURL: "https://api.x.ai/v1",
+				BaseURL: types.BaseURLValue{Single: "https://api.x.ai/v1"},
 				EnvName: "XAI_API_KEY",
 				Models: types.PlatformModels{
 					URL:      "https://api.x.ai/v1/models",
@@ -253,7 +253,7 @@ func DefaultConfig() *types.Config {
 			},
 			"ollama": {
 				Name:    "ollama",
-				BaseURL: "http://localhost:11434/v1",
+				BaseURL: types.BaseURLValue{Single: "http://localhost:11434/v1"},
 				EnvName: "ollama",
 				Models: types.PlatformModels{
 					URL:      "http://localhost:11434/api/tags",
@@ -262,7 +262,7 @@ func DefaultConfig() *types.Config {
 			},
 			"together": {
 				Name:    "together",
-				BaseURL: "https://api.together.xyz/v1",
+				BaseURL: types.BaseURLValue{Single: "https://api.together.xyz/v1"},
 				EnvName: "TOGETHER_API_KEY",
 				Models: types.PlatformModels{
 					URL:      "https://api.together.xyz/v1/models",
@@ -271,7 +271,7 @@ func DefaultConfig() *types.Config {
 			},
 			"google": {
 				Name:    "google",
-				BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+				BaseURL: types.BaseURLValue{Single: "https://generativelanguage.googleapis.com/v1beta/openai/"},
 				EnvName: "GEMINI_API_KEY",
 				Models: types.PlatformModels{
 					URL:      "https://generativelanguage.googleapis.com/v1beta/models",
@@ -280,11 +280,45 @@ func DefaultConfig() *types.Config {
 			},
 			"mistral": {
 				Name:    "mistral",
-				BaseURL: "https://api.mistral.ai/v1",
+				BaseURL: types.BaseURLValue{Single: "https://api.mistral.ai/v1"},
 				EnvName: "MISTRAL_API_KEY",
 				Models: types.PlatformModels{
 					URL:      "https://api.mistral.ai/v1/models",
 					JSONPath: "data.id",
+				},
+			},
+			"amazon": {
+				Name: "amazon",
+				BaseURL: types.BaseURLValue{
+					Multi: []string{
+						"https://bedrock-runtime.us-west-2.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.us-east-2.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.ap-northeast-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.ap-northeast-2.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.ap-northeast-3.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.ap-south-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.ap-south-2.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.ap-southeast-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.ap-southeast-2.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.ca-central-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.eu-central-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.eu-central-2.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.eu-north-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.eu-south-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.eu-south-2.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.eu-west-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.eu-west-2.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.eu-west-3.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.sa-east-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.us-gov-east-1.amazonaws.com/openai/v1",
+						"https://bedrock-runtime.us-gov-west-1.amazonaws.com/openai/v1",
+					},
+				},
+				EnvName: "AWS_BEDROCK_API_KEY",
+				Models: types.PlatformModels{
+					URL:      "https://bedrock.us-west-2.amazonaws.com/foundation-models",
+					JSONPath: "modelSummaries.modelId",
 				},
 			},
 		},
