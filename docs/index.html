@@ -632,7 +632,9 @@
         setupCopyables();
 
         // Disable hash in URL for section links
-        const navLinks = document.querySelectorAll(".links-container a[href^='#']");
+        const navLinks = document.querySelectorAll(
+          ".links-container a[href^='#']",
+        );
         navLinks.forEach((link) => {
           link.addEventListener("click", function (e) {
             e.preventDefault();
