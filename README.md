@@ -30,6 +30,7 @@
   - [Development Setup](#development-setup)
   - [Code Standards](#code-standards)
 - [Uninstall](#uninstall)
+  - [Clean Temporary Files](#clean-temporary-files)
 - [License](#license)
 
 ## Overview
@@ -494,6 +495,16 @@ rm -rf ~/.ch
 rm -f $PREFIX/bin/ch
 rm -rf ~/.ch
 ```
+
+### Clean Temporary Files
+
+If you want to safely remove all Ch temporary files without uninstalling the application:
+
+```bash
+[ -d "${HOME}/.ch/tmp/" ] && rm -rf "${HOME}/.ch/tmp/"
+```
+
+This is useful for reclaiming disk space if temporary files from shell sessions, file loads, or other operations have accumulated.
 
 ## License
 

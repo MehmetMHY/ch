@@ -709,10 +709,10 @@ main() {
 		fi
 
 		local temp_dir
-		temp_dir="$HOME/.ch/tmp/ch-install-$"
+		temp_dir="$HOME/.ch/tmp/ch-install-$$"
 		mkdir -p "$temp_dir" || error "Failed to create temporary directory"
 
-		trap "log 'Cleaning up temporary files...'; rm -rf '$temp_dir'" EXIT
+		trap "rm -rf '$temp_dir'" EXIT
 
 		log "Cloning Ch repository into a temporary directory..."
 		git clone --depth 1 "$REPO_URL" "$temp_dir" || error "Failed to clone the repository."
@@ -720,6 +720,8 @@ main() {
 		cd "$temp_dir" || error "Failed to enter the temporary directory."
 
 		_install_ch_from_repo
+
+		log "Cleaning up temporary files..."
 	fi
 }
 
