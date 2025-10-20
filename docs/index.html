@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+    <meta
+      name="description"
+      content="Ch is a lightweight AI CLI Tool. Direct terminal access to powerful AI models with minimal overhead."
+    />
+
+    <!-- Meta Tags -->
+    <meta property="og:url" content="" id="og:url" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ch: Lightweight AI CLI Tool" />
+    <meta
+      property="og:description"
+      content="Direct terminal access to powerful AI models with minimal overhead."
+    />
+    <meta property="og:image" content="" id="og:image" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="twitter:domain" content="" id="twitter:domain" />
+    <meta property="twitter:url" content="" id="twitter:url" />
+    <meta name="twitter:title" content="Ch: Lightweight AI CLI Tool" />
+    <meta
+      name="twitter:description"
+      content="Direct terminal access to powerful AI models with minimal overhead."
+    />
+    <meta name="twitter:image" content="" id="twitter:image" />
+
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="shortcut icon" href="favicon.ico" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Droid+Sans:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>Lightweight AI CLI Tool</title>
+    <style>
+      body {
+        font-family: "Droid Sans", sans-serif;
+        font-size: 18px;
+        color: #111;
+        background-color: white;
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 50px;
+        box-sizing: border-box;
+        transition:
+          background-color 0.3s,
+          color 0.3s;
+      }
+      body.dark-mode {
+        background-color: #1a1a1a;
+        color: #e0e0e0;
+      }
+      body.dark-mode .install-command {
+        background-color: #2a2a2a;
+        border-color: #444;
+      }
+      body.dark-mode .install-command code {
+        color: #e0e0e0;
+      }
+      body.dark-mode table {
+        border-color: #333;
+      }
+      body.dark-mode td {
+        border-color: #333;
+      }
+      body.dark-mode pre {
+        background-color: #2a2a2a !important;
+        color: #e0e0e0;
+      }
+      body.dark-mode .feature {
+        border-left-color: #e0e0e0;
+      }
+      a {
+        color: inherit;
+        text-decoration: underline;
+      }
+      body.dark-mode .copyable button {
+        background-color: #2a2a2a;
+        color: #aaa;
+        border-color: #555;
+      }
+      body.dark-mode .copyable button:hover {
+        background-color: #e0e0e0;
+        color: #111;
+        border-color: #e0e0e0;
+      }
+      body.dark-mode .demo-container {
+        background-color: #2a2a2a;
+      }
+      .footer-text {
+        margin-top: 500px !important;
+      }
+      body.dark-mode .footer-text {
+        color: #999 !important;
+      }
+      body.dark-mode .install-note {
+        color: #aaa !important;
+      }
+      header {
+        padding: 20px 0 10px 0;
+        text-align: center;
+      }
+      .logo {
+        font-size: 85px;
+        font-weight: bold;
+        letter-spacing: 6px;
+        margin-bottom: 5px;
+        color: #000;
+      }
+      body.dark-mode .logo {
+        color: #e0e0e0;
+      }
+      .subtitle {
+        font-size: 22.5px;
+        color: #666;
+        margin-bottom: 3px;
+        font-weight: normal;
+      }
+      body.dark-mode .subtitle {
+        color: #999;
+      }
+      nav {
+        text-align: center;
+        padding: 0;
+        margin-bottom: 0;
+      }
+      .separator {
+        letter-spacing: -9px;
+      }
+      h2 {
+        margin-top: 40px;
+        margin-bottom: 20px;
+      }
+      h2:first-of-type {
+        margin-top: 30px;
+      }
+      .links-container {
+        font-size: 24px;
+        margin: 8px 20px;
+      }
+      .links-container a {
+        text-decoration: underline;
+        margin: 0 10px;
+        color: inherit;
+      }
+      .theme-toggle {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        font-family: "Droid Sans", sans-serif;
+        font-size: inherit;
+        padding: 0;
+        margin: 0 10px;
+        text-decoration: underline;
+      }
+      .theme-toggle:hover {
+        text-decoration: underline;
+      }
+      .demo-container {
+        background-color: #f5f5f5;
+        padding: 0;
+        border-radius: 8px;
+        margin: 30px 0;
+        overflow: hidden;
+      }
+      .demo-video {
+        width: 100%;
+        height: 600px;
+        display: block;
+      }
+      @media (max-width: 900px) {
+        .demo-video {
+          height: 450px;
+        }
+      }
+      @media (max-width: 600px) {
+        .demo-video {
+          height: 300px;
+        }
+      }
+      table {
+        border-collapse: collapse;
+        text-align: center;
+        width: 100%;
+      }
+      td {
+        padding: 5px 20px;
+        border: 1px solid #dddddd;
+      }
+      .install-command {
+        background-color: #f5f5f5;
+        border-radius: 6px;
+        margin: 20px 0 20px 0;
+        border: 1px solid #ddd;
+        overflow-x: auto;
+        overflow-y: hidden;
+        position: relative;
+      }
+      .install-command::-webkit-scrollbar {
+        display: none;
+      }
+      .install-command {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .install-command pre {
+        margin: 0;
+        padding: 20px 60px 20px 20px;
+        overflow: visible;
+      }
+      .install-command code {
+        font-family: "Courier New", monospace;
+        font-size: 18px;
+        color: #111;
+        white-space: nowrap;
+      }
+      .cmd-keyword {
+        color: #0066cc;
+        font-weight: bold;
+      }
+      .cmd-flag {
+        color: #cc6600;
+      }
+      .cmd-url {
+        color: #009900;
+      }
+      .cmd-pipe {
+        color: #666;
+      }
+      body.dark-mode .cmd-keyword {
+        color: #66b3ff;
+      }
+      body.dark-mode .cmd-flag {
+        color: #ffcc99;
+      }
+      body.dark-mode .cmd-url {
+        color: #66ff66;
+      }
+      body.dark-mode .cmd-pipe {
+        color: #999;
+      }
+      .copyable {
+        position: relative;
+      }
+      .copyable button {
+        position: absolute;
+        top: 50%;
+        right: 20px;
+        transform: translateY(-50%);
+        background-color: #f5f5f5;
+        color: #666;
+        border: 1px solid #999;
+        padding: 8px 18px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 15px;
+        font-family: "Droid Sans", sans-serif;
+        font-weight: normal;
+        transition: all 0.15s ease;
+      }
+      .copyable button:hover {
+        background-color: #111;
+        color: #fff;
+        border-color: #111;
+      }
+      .features {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin: 30px 0;
+        text-align: left;
+      }
+      .feature {
+        padding: 15px;
+        border-left: 3px solid #000;
+      }
+      .feature-title {
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
+      .feature-desc {
+        font-size: 16px;
+        color: #666;
+      }
+      body.dark-mode .feature-desc {
+        color: #aaa;
+      }
+      .quiet {
+        color: inherit;
+      }
+      .license-link {
+        text-decoration: none;
+      }
+      .license-link:hover {
+        text-decoration: underline;
+      }
+      @media (max-width: 768px) {
+        body {
+          padding: 0 20px;
+          font-size: 16px;
+        }
+        .logo {
+          font-size: 80px;
+        }
+        .subtitle {
+          font-size: 20px;
+        }
+        .links-container {
+          font-size: 16px;
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          align-items: center;
+          gap: 5px;
+        }
+        .features {
+          grid-template-columns: 1fr;
+        }
+        .install-command pre {
+          padding: 15px 55px 15px 15px;
+        }
+        .install-command code {
+          font-size: 13px;
+        }
+        .copyable button {
+          padding: 6px 12px;
+          font-size: 13px;
+          right: 10px;
+        }
+        .separator {
+          display: none;
+        }
+      }
+      @media (max-width: 480px) {
+        .logo {
+          font-size: 70px;
+        }
+        .subtitle {
+          font-size: 17.5px;
+        }
+        .links-container {
+          font-size: 14px;
+        }
+        h2:first-of-type {
+          margin-top: 25px;
+        }
+        .install-command pre {
+          padding: 12px 50px 12px 12px;
+        }
+        .install-command code {
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">Ch</div>
+      <div class="subtitle">Lightweight AI CLI Tool</div>
+    </header>
+
+    <nav>
+      <div class="links-container">
+        <a href="#install">install</a><span class="separator">|</span>
+        <a href="#demo">demo</a><span class="separator">|</span>
+        <a href="#features">features</a><span class="separator">|</span>
+        <a href="https://github.com/MehmetMHY/ch/blob/main/README.md">docs</a
+        ><span class="separator">|</span>
+        <button class="theme-toggle" onclick="toggleTheme()">dark</button>
+      </div>
+    </nav>
+
+    <h2 id="install">Installation</h2>
+    <div class="copyable">
+      <div class="install-command">
+        <pre><code><span class="cmd-keyword">curl</span> <span class="cmd-flag">-fsSL</span> <span class="cmd-url">https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh</span> <span class="cmd-pipe">|</span> <span class="cmd-keyword">bash</span></code></pre>
+      </div>
+    </div>
+
+    <h2 id="demo">Demo</h2>
+    <div class="demo-container">
+      <iframe
+        class="demo-video"
+        src="https://www.youtube.com/embed/AH0xG1iStf4"
+        title="Ch Demo Video"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen
+      ></iframe>
+    </div>
+
+    <h2 id="features">Features</h2>
+    <p>Ch brings powerful AI capabilities directly to your terminal:</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-title">High Performance</div>
+        <div class="feature-desc">
+          10x faster startup time and noticeably faster than its predecessor
+          <a href="https://github.com/MehmetMHY/cha" target="_blank">Cha</a>,
+          built with GoLang instead of Python for speed and efficiency
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Multi-Platform</div>
+        <div class="feature-desc">
+          <a href="https://openai.com/api/" target="_blank">OpenAI</a>,
+          <a href="https://aws.amazon.com/bedrock/" target="_blank"
+            >Amazon Bedrock</a
+          >,
+          <a href="https://console.anthropic.com/" target="_blank">Anthropic</a
+          >, <a href="https://ai.google.dev/" target="_blank">Google Gemini</a>,
+          <a href="https://x.ai/api" target="_blank">xAI</a>,
+          <a href="https://console.groq.com/" target="_blank">Groq</a>,
+          <a href="https://api-docs.deepseek.com/" target="_blank">DeepSeek</a>,
+          <a href="https://api.together.xyz/" target="_blank">Together</a>,
+          <a href="https://docs.mistral.ai/api/" target="_blank">Mistral AI</a>,
+          and <a href="https://ollama.com/" target="_blank">Ollama</a>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Interactive & Direct</div>
+        <div class="feature-desc">
+          Chat interactively or run single queries. Your choice.
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Unix Piping</div>
+        <div class="feature-desc">
+          Pipe any command output or file content directly to Ch. Automatically
+          suppresses colors and UI elements for seamless shell pipeline
+          integration
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Shell Session Recording</div>
+        <div class="feature-desc">
+          Record terminal sessions as context. Capture CLI tool outputs from
+          <a href="https://www.claude.com/product/claude-code" target="_blank"
+            >Claude Code</a
+          >,
+          <a href="https://github.com/google-gemini/gemini-cli" target="_blank"
+            >Gemini CLI</a
+          >,
+          <a
+            href="https://aws.amazon.com/developer/learning/q-developer-cli/"
+            target="_blank"
+            >Amazon Q CLI</a
+          >,
+          <a href="https://developers.openai.com/codex/cli/" target="_blank"
+            >Codex CLI</a
+          >, and other developer tools
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Smart File Handling</div>
+        <div class="feature-desc">
+          Load PDFs, Word docs, spreadsheets, images (with OCR), and directories
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Web Integration</div>
+        <div class="feature-desc">
+          Scrape URLs, search the web using
+          <a href="https://brave.com/search/api/" target="_blank"
+            >Brave Search API</a
+          >, and analyze YouTube content seamlessly
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Code Export & Editing</div>
+        <div class="feature-desc">
+          Extract and save markdown code blocks with proper extensions.
+          Interactive export with fzf selection and text editor integration for
+          composing complex prompts
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Dynamic Switching</div>
+        <div class="feature-desc">
+          Change models and platforms mid-conversation without losing context
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Clipboard Integration</div>
+        <div class="feature-desc">
+          Copy AI responses to clipboard with cross-platform support
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Token Counting</div>
+        <div class="feature-desc">
+          Estimate token usage for files with model-aware tokenization
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Code Dump</div>
+        <div class="feature-desc">
+          Package entire directories for AI analysis. Automatically compile text
+          and document files for comprehensive context
+        </div>
+      </div>
+    </div>
+
+    <p
+      style="text-align: center; color: #666; margin: 120px 0 40px 0"
+      class="footer-text"
+    >
+      Ch is open source and licensed under the
+      <a
+        href="https://opensource.org/license/mit"
+        target="_blank"
+        class="license-link"
+        >MIT License</a
+      >
+    </p>
+
+    <script>
+      // Set dynamic meta tags based on current location
+      function setDynamicMetaTags() {
+        const origin = window.location.origin;
+        const pathname = window.location.pathname;
+        const pageUrl = origin + pathname;
+        const thumbnailUrl = origin + "/thumbnail.png";
+        const domain = window.location.hostname;
+
+        document.getElementById("og:url").setAttribute("content", pageUrl);
+        document
+          .getElementById("og:image")
+          .setAttribute("content", thumbnailUrl);
+        document
+          .getElementById("twitter:domain")
+          .setAttribute("content", domain);
+        document.getElementById("twitter:url").setAttribute("content", pageUrl);
+        document
+          .getElementById("twitter:image")
+          .setAttribute("content", thumbnailUrl);
+      }
+
+      // Initialize theme from localStorage or system preference
+      function initializeTheme() {
+        const savedTheme = localStorage.getItem("theme") || "light";
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        const theme =
+          savedTheme !== "light" && (savedTheme === "dark" || prefersDark)
+            ? "dark"
+            : "light";
+        applyTheme(theme);
+      }
+
+      function applyTheme(theme) {
+        const button = document.querySelector(".theme-toggle");
+        if (theme === "dark") {
+          document.body.classList.add("dark-mode");
+          button.textContent = "light";
+        } else {
+          document.body.classList.remove("dark-mode");
+          button.textContent = "dark";
+        }
+        localStorage.setItem("theme", theme);
+      }
+
+      function toggleTheme() {
+        const isDark = document.body.classList.contains("dark-mode");
+        applyTheme(isDark ? "light" : "dark");
+      }
+
+      async function setupCopyables() {
+        if (navigator.clipboard) {
+          for (const element of document.getElementsByClassName("copyable")) {
+            const codeElement = element.querySelector("code");
+            let text = codeElement
+              ? codeElement.innerText.trim()
+              : element.innerText.trim();
+            if (text.startsWith("$")) {
+              text = text.substr(1).trimLeft();
+            }
+
+            const button = document.createElement("button");
+            button.innerHTML = "Copy";
+            button.setAttribute("aria-label", "Copy to clipboard");
+            button.onclick = () => {
+              navigator.clipboard.writeText(text);
+              button.innerHTML = "Copied!";
+              setTimeout(() => (button.innerHTML = "Copy"), 1000);
+            };
+            element.appendChild(button);
+          }
+        }
+      }
+
+      // Initialize theme and copyables on page load
+      window.addEventListener("DOMContentLoaded", function () {
+        setDynamicMetaTags();
+        initializeTheme();
+        setupCopyables();
+      });
+    </script>
+  </body>
+</html>

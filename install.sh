@@ -519,7 +519,9 @@ refresh_deps() {
 
 safe_input() {
 	local prompt="$1"
-	read -p "$prompt" response
+	trap 'echo; return 1' INT
+	read -p "$prompt" response || return 1
+	trap - INT
 	echo "$response"
 }
 
@@ -559,14 +561,14 @@ update_version() {
 	local major_bump="$((major + 1)).0.0"
 
 	echo "Select the new version:"
-	echo "  1. Patch -> v$patch_bump"
-	echo "  2. Minor -> v$minor_bump"
-	echo "  3. Major -> v$major_bump"
-	echo "  4. Custom version"
-	echo "  5. Keep current version ($current_version)"
+	echo "1) Patch: v$patch_bump"
+	echo "2) Minor: v$minor_bump"
+	echo "3) Major: v$major_bump"
+	echo "4) Stash: $current_version"
+	echo "5) Custom version"
 
 	local choice
-	choice=$(safe_input "Enter your choice (1-5): ")
+	choice=$(safe_input "Enter your choice [1-5]: ") || choice=""
 
 	local new_version
 	case "$choice" in
@@ -580,6 +582,10 @@ update_version() {
 		new_version="v$major_bump"
 		;;
 	4)
+		echo "Keeping current version: $current_version"
+		exit 0
+		;;
+	5)
 		local custom
 		custom=$(safe_input "Enter custom version (e.g., v1.2.3): ")
 		# Ensure it starts with 'v'
@@ -587,10 +593,6 @@ update_version() {
 			custom="v$custom"
 		fi
 		new_version="$custom"
-		;;
-	5)
-		echo "Keeping current version: $current_version"
-		exit 0
 		;;
 	*)
 		error "Invalid choice"
@@ -609,9 +611,9 @@ update_version() {
 
 	echo "Version updated to $new_version in Makefile"
 	echo "Next steps:"
-	echo "1. Commit the Makefile changes"
-	echo "2. Build with: make build"
-	echo "3. Create release with: make release"
+	echo "1) Commit the Makefile changes"
+	echo "2) Build with: make build"
+	echo "3) Create release with: make release"
 }
 
 show_help() {
@@ -707,10 +709,10 @@ main() {
 		fi
 
 		local temp_dir
-		temp_dir="$HOME/.ch/tmp/ch-install-$"
+		temp_dir="$HOME/.ch/tmp/ch-install-$$"
 		mkdir -p "$temp_dir" || error "Failed to create temporary directory"
 
-		trap "log 'Cleaning up temporary files...'; rm -rf '$temp_dir'" EXIT
+		trap "rm -rf '$temp_dir'" EXIT
 
 		log "Cloning Ch repository into a temporary directory..."
 		git clone --depth 1 "$REPO_URL" "$temp_dir" || error "Failed to clone the repository."
@@ -718,6 +720,8 @@ main() {
 		cd "$temp_dir" || error "Failed to enter the temporary directory."
 
 		_install_ch_from_repo
+
+		log "Cleaning up temporary files..."
 	fi
 }
 

@@ -53,7 +53,16 @@ func (m *Manager) Initialize() error {
 	}
 
 	clientConfig := openai.DefaultConfig(apiKey)
-	clientConfig.BaseURL = platform.BaseURL
+	// Use CurrentBaseURL if set, otherwise use the first URL if multi-URL, otherwise use single URL
+	baseURL := m.config.CurrentBaseURL
+	if baseURL == "" {
+		if platform.BaseURL.IsMulti() && len(platform.BaseURL.Multi) > 0 {
+			baseURL = platform.BaseURL.Multi[0]
+		} else {
+			baseURL = platform.BaseURL.Single
+		}
+	}
+	clientConfig.BaseURL = baseURL
 	m.client = openai.NewClientWithConfig(clientConfig)
 
 	return nil
@@ -160,6 +169,21 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 		return nil, fmt.Errorf("platform %s not supported", platformKey)
 	}
 
+	// Handle multi-URL platforms (e.g., Amazon Bedrock with multiple regions)
+	selectedURL := platform.BaseURL.Single
+	if platform.BaseURL.IsMulti() {
+		selected, err := fzfSelector(platform.BaseURL.Multi, "region: ")
+		if err != nil {
+			return nil, err
+		}
+
+		if selected == "" {
+			return nil, fmt.Errorf("no region selected")
+		}
+
+		selectedURL = selected
+	}
+
 	finalModel := modelName
 	var modelsList []string
 
@@ -189,7 +213,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 	return map[string]interface{}{
 		"platform_name": platformKey,
 		"picked_model":  finalModel,
-		"base_url":      platform.BaseURL,
+		"base_url":      selectedURL,
 		"env_name":      platform.EnvName,
 		"models":        modelsList,
 	}, nil
