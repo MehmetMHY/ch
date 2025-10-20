@@ -97,7 +97,7 @@
         background-color: #2a2a2a;
       }
       .footer-text {
-        margin-top: 500px !important;
+        margin-top: 50vh !important;
       }
       body.dark-mode .footer-text {
         color: #999 !important;
@@ -139,6 +139,7 @@
       h2 {
         margin-top: 40px;
         margin-bottom: 20px;
+        scroll-margin-top: 20px;
       }
       h2:first-of-type {
         margin-top: 30px;
@@ -304,6 +305,9 @@
       .license-link:hover {
         text-decoration: underline;
       }
+      .vision-link {
+        text-decoration: none;
+      }
       @media (max-width: 768px) {
         body {
           padding: 0 20px;
@@ -322,6 +326,9 @@
           justify-content: center;
           align-items: center;
           gap: 5px;
+        }
+        .links-container a {
+          margin: 0 5px;
         }
         .features {
           grid-template-columns: 1fr;
@@ -351,6 +358,9 @@
         .links-container {
           font-size: 14px;
         }
+        .links-container a {
+          margin: 0 3px;
+        }
         h2:first-of-type {
           margin-top: 25px;
         }
@@ -371,6 +381,7 @@
 
     <nav>
       <div class="links-container">
+        <a href="#vision">vision</a><span class="separator">|</span>
         <a href="#install">install</a><span class="separator">|</span>
         <a href="#demo">demo</a><span class="separator">|</span>
         <a href="#features">features</a><span class="separator">|</span>
@@ -379,6 +390,18 @@
         <button class="theme-toggle" onclick="toggleTheme()">dark</button>
       </div>
     </nav>
+
+    <h2 id="vision">Vision</h2>
+    <p>
+      <a href="https://github.com/MehmetMHY/ch" class="vision-link">Ch</a> is a
+      Lightweight, fast, and powerful CLI tool for terminal-based AI
+      interactions with full user control. It provides direct terminal access to
+      powerful AI models with minimal overhead, transparent operations, and
+      explicit user control. It integrates seamlessly into developer
+      environments, minimizing context switching and empowering users to
+      leverage AI's full potential through explicit control and flexible,
+      user-driven interactions without automated decisions or hidden costs.
+    </p>
 
     <h2 id="install">Installation</h2>
     <div class="copyable">
