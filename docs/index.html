@@ -105,7 +105,7 @@
         background-color: #2a2a2a;
       }
       .footer-text {
-        margin-top: 50vh !important;
+        margin-top: 25vh !important;
       }
       body.dark-mode .footer-text {
         color: #999 !important;
@@ -171,6 +171,8 @@
         padding: 0;
         margin: 0 10px;
         text-decoration: underline;
+        vertical-align: baseline;
+        line-height: inherit;
       }
       .theme-toggle:hover {
         text-decoration: underline;
@@ -350,7 +352,7 @@
           font-size: 20px;
         }
         .links-container {
-          font-size: 16px;
+          font-size: 18px;
           display: flex;
           flex-wrap: wrap;
           justify-content: center;
@@ -358,6 +360,9 @@
           gap: 5px;
         }
         .links-container a {
+          margin: 0 5px;
+        }
+        .theme-toggle {
           margin: 0 5px;
         }
         .features {
@@ -390,6 +395,9 @@
         }
       }
       @media (max-width: 480px) {
+        body {
+          padding: 0 15px;
+        }
         .logo {
           font-size: 70px;
         }
@@ -397,9 +405,12 @@
           font-size: 17.5px;
         }
         .links-container {
-          font-size: 14px;
+          font-size: 16px;
         }
         .links-container a {
+          margin: 0 3px;
+        }
+        .theme-toggle {
           margin: 0 3px;
         }
         h2:first-of-type {
@@ -428,7 +439,7 @@
       }
       #docs-content {
         margin-top: 30px;
-        display: none;
+        display: block;
       }
       #docs-content pre {
         background-color: #f5f5f5;
@@ -596,7 +607,7 @@
         <a href="#demo">demo</a><span class="separator">|</span>
         <a href="#features">features</a><span class="separator">|</span>
         <a href="#docs">docs</a><span class="separator">|</span>
-        <a href="https://github.com/MehmetMHY/ch">github</a
+        <a href="https://github.com/MehmetMHY/ch">code</a
         ><span class="separator">|</span>
         <button class="theme-toggle" onclick="toggleTheme()">dark</button>
       </div>
@@ -749,11 +760,13 @@
 
     <h2 id="docs">Documentation</h2>
     <p>
-      To see the full documentation, visit the
-      <a href="https://github.com/MehmetMHY/ch">GitHub repository</a>
-      or
+      <span id="docs-github-link" style="display: none"
+        >Visit the
+        <a href="https://github.com/MehmetMHY/ch">GitHub repository</a>
+        or
+      </span>
       <a href="javascript:void(0);" id="docs-toggle" class="docs-toggle-link"
-        >view documentation inline</a
+        >Collapse the project's rendered README below</a
       >.
     </p>
     <div id="docs-content">
@@ -893,7 +906,7 @@
       }
 
       let docsLoaded = false;
-      let docsVisible = false;
+      let docsVisible = true;
       let docsRetryCount = 0;
       const DOCS_TIMEOUT_MS = 10000; // 10 seconds
       const DOCS_MAX_RETRIES = 1;
@@ -997,15 +1010,19 @@
       function applyDocsVisibility(visible) {
         const docsContent = document.getElementById("docs-content");
         const docsToggle = document.getElementById("docs-toggle");
+        const docsGithubLink = document.getElementById("docs-github-link");
 
         if (visible) {
           docsContent.style.display = "block";
-          docsToggle.textContent = "hide documentation";
+          docsToggle.textContent =
+            "Collapse the project's rendered README below";
+          docsGithubLink.style.display = "none";
           docsVisible = true;
           loadDocs();
         } else {
           docsContent.style.display = "none";
-          docsToggle.textContent = "view documentation inline";
+          docsToggle.textContent = "render the project's README below";
+          docsGithubLink.style.display = "inline";
           docsVisible = false;
         }
         localStorage.setItem("docsVisible", visible);
@@ -1013,7 +1030,7 @@
 
       function initializeDocsVisibility() {
         const savedState = localStorage.getItem("docsVisible");
-        const visible = savedState === "true";
+        const visible = savedState !== "false";
         applyDocsVisibility(visible);
       }
 
@@ -1043,12 +1060,6 @@
             const targetElement = document.getElementById(targetId);
             if (targetElement) {
               targetElement.scrollIntoView({ behavior: "smooth" });
-              // If navigating to docs section, show the docs
-              if (targetId === "docs" && !docsVisible) {
-                setTimeout(() => {
-                  toggleDocs();
-                }, 500);
-              }
             }
           });
         });
