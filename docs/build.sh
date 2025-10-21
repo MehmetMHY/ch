@@ -3,7 +3,7 @@
 # display help message
 show_help() {
 	cat <<EOF
-Usage: tool.sh [OPTION]
+Usage: build.sh [OPTION]
 
 A utility tool for managing documentation and images.
 
@@ -51,6 +51,18 @@ convert_images() {
 
 	echo "Loaded $LOGO_FILE (size: $LOGO_SIZE)"
 
+	# clear metadata from logo.png before processing
+	echo "Clearing metadata from $LOGO_FILE..."
+	if mogrify -strip "$LOGO_FILE" 2>/dev/null; then
+		echo "  Metadata cleared successfully"
+		# get new size after metadata removal
+		LOGO_SIZE=$(identify -format "%wx%h" "$LOGO_FILE" 2>/dev/null || echo "unknown")
+		echo "  Size after metadata removal: $LOGO_SIZE"
+	else
+		echo "  Warning: Failed to clear metadata from $LOGO_FILE (mogrify may not be installed)"
+		echo "  Continuing without metadata removal..."
+	fi
+
 	# list of supported image file extensions
 	IMAGE_EXTENSIONS="png ico jpg jpeg gif bmp svg webp tiff tif"
 
@@ -87,15 +99,32 @@ convert_images() {
 		local logo_height=$((thumb_height / 3))
 		echo "  Resizing logo to height: ${logo_height}px"
 
-		# find the most used color in the logo by reducing to 1 color
-		local dominant_color=$(convert "$logo_file" -colors 1 -alpha off txt:- 2>/dev/null | tail -n1 | awk '{print $3}')
+		# find the most popular color in the logo using histogram analysis
+		local dominant_color=$(convert "$logo_file" \
+			-alpha off \
+			-colors 256 \
+			-depth 8 \
+			-format "%c" histogram:info:- 2>/dev/null |
+			sort -rn |
+			head -1 |
+			grep -oE "#[0-9A-Fa-f]{6}" |
+			head -1)
+
+		# if that didn't work, try a simpler approach
+		if [ -z "$dominant_color" ]; then
+			echo "  Trying alternative color detection method..."
+			dominant_color=$(convert "$logo_file" \
+				-scale 1x1! \
+				-alpha off \
+				-format "%[pixel:p{0,0}]" info:- 2>/dev/null)
+		fi
 
 		# fallback to white if color detection fails
 		if [ -z "$dominant_color" ]; then
-			echo "  Could not determine dominant color, using white"
+			echo "  Could not determine most popular color, using white"
 			dominant_color="white"
 		else
-			echo "  Dominant color: $dominant_color"
+			echo "  Most popular color found: $dominant_color"
 		fi
 
 		# create a temporary directory for intermediate files
@@ -275,7 +304,7 @@ case "${1:-}" in
 	;;
 *)
 	echo "Error: Unknown option '$1'"
-	echo "Use 'tool.sh -h' for help"
+	echo "Use 'build.sh -h' for help"
 	exit 1
 	;;
 esac

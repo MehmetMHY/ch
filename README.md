@@ -22,6 +22,7 @@
   - [Advanced Features](#advanced-features)
   - [Web Content Interaction](#web-content-interaction)
 - [Platform Compatibility](#platform-compatibility)
+- [Website](#website)
 - [Development](#development)
   - [Prerequisites](#prerequisites)
   - [Build from Source](#build-from-source)
@@ -396,6 +397,10 @@ Some platforms like Amazon Bedrock support multiple regions. When switching to a
 ```
 
 Supported AWS Bedrock regions: US East (N. Virginia, Ohio), US West (Oregon), Asia Pacific (Tokyo, Seoul, Osaka, Mumbai, Hyderabad, Singapore, Sydney), Canada (Central), Europe (Frankfurt, Ireland, London, Milan, Paris, Spain, Stockholm, Zurich), South America (São Paulo), AWS GovCloud (US-East, US-West), and FIPS endpoints.
+
+## Website
+
+The project website is hosted on **[GitHub Pages](https://docs.github.com/en/pages)** right [HERE](https://mehmetmhy.github.io/ch/). See the [`docs/`](./docs/README.md) sub-directory for the website source and build script.
 
 ## Development
 
