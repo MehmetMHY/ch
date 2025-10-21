@@ -46,7 +46,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-    <title>Lightweight AI CLI Tool</title>
+    <title>Ch: Lightweight AI CLI Tool | Direct Terminal Access to AI</title>
     <style>
       body {
         font-family: "Droid Sans", sans-serif;
@@ -799,7 +799,17 @@
         const origin = window.location.origin;
         const pathname = window.location.pathname;
         const pageUrl = origin + pathname;
-        const thumbnailUrl = origin + "/thumbnail.png";
+
+        // Build the correct path to thumbnail (handle both /ch/ and /ch/index.html formats)
+        let basePath = pathname;
+        if (pathname.includes(".")) {
+          // If the path contains a dot (likely a file), get the directory
+          basePath = pathname.substring(0, pathname.lastIndexOf("/") + 1);
+        } else if (!pathname.endsWith("/")) {
+          // If it's a directory path without trailing slash, add one
+          basePath = pathname + "/";
+        }
+        const thumbnailUrl = origin + basePath + "thumbnail.png";
         const domain = window.location.hostname;
 
         document.getElementById("og:url").setAttribute("content", pageUrl);
