@@ -1982,9 +1982,44 @@ func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory) err
 	return t.copyResponsesManual(chatHistory)
 }
 
-// copyResponsesAuto automatically extracts code blocks from chat history
+// copyResponsesAuto automatically extracts code blocks from selected chat entries
 func (t *Terminal) copyResponsesAuto(chatHistory []types.ChatHistory) error {
-	// Extract code blocks from chat history
+	// Create list of chat entries for fzf selection (same format as !e)
+	var items []string
+	var chatEntries []types.ChatHistory
+
+	// Iterate in reverse order (newest to oldest)
+	for i := len(chatHistory) - 1; i >= 1; i-- {
+		entry := chatHistory[i]
+		if entry.User != "" || entry.Bot != "" {
+			// Create preview for fzf
+			userPreview := strings.Split(entry.User, "\n")[0]
+			if len(userPreview) > 60 {
+				userPreview = userPreview[:60] + "..."
+			}
+
+			timestamp := time.Unix(entry.Time, 0).Format("2006-01-02 15:04:05")
+			items = append(items, fmt.Sprintf("%d: %s - %s", i, timestamp, userPreview))
+			chatEntries = append(chatEntries, entry)
+		}
+	}
+
+	if len(items) == 0 {
+		return fmt.Errorf("no chat entries available")
+	}
+
+	// Use fzf for selection
+	selectedItems, err := t.FzfMultiSelect(items, "select entries to copy (tab=multi): ")
+	if err != nil {
+		return fmt.Errorf("selection failed: %w", err)
+	}
+
+	if len(selectedItems) == 0 {
+		t.PrintInfo("no entries selected")
+		return nil
+	}
+
+	// Parse selected indices and extract code blocks
 	type ExtractedSnippet struct {
 		Content  string
 		Language string
@@ -1992,63 +2027,41 @@ func (t *Terminal) copyResponsesAuto(chatHistory []types.ChatHistory) error {
 	var snippets []ExtractedSnippet
 	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
 
-	// Iterate through chat history
-	for i := len(chatHistory) - 1; i >= 0; i-- {
-		entry := chatHistory[i]
-		if entry.Bot != "" {
-			matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
-			for _, match := range matches {
-				language := match[1]
-				if language == "" {
-					language = "text"
+	for _, item := range selectedItems {
+		var index int
+		parts := strings.SplitN(item, ":", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		_, err := fmt.Sscanf(parts[0], "%d", &index)
+		if err != nil {
+			continue
+		}
+
+		// Find the entry
+		for _, entry := range chatEntries {
+			if entry.Time == chatHistory[index].Time && entry.Bot != "" {
+				matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
+				for _, match := range matches {
+					language := match[1]
+					if language == "" {
+						language = "text"
+					}
+					content := match[2]
+					snippets = append(snippets, ExtractedSnippet{Content: content, Language: language})
 				}
-				content := match[2]
-				snippets = append(snippets, ExtractedSnippet{Content: content, Language: language})
+				break
 			}
 		}
 	}
 
 	if len(snippets) == 0 {
-		return fmt.Errorf("no code blocks found in chat history")
+		return fmt.Errorf("no code blocks found in selected entries")
 	}
 
-	// Create options for fzf selection
-	var snippetOptions []string
-	for i, snippet := range snippets {
-		preview := strings.Split(snippet.Content, "\n")[0]
-		if len(preview) > 80 {
-			preview = preview[:80] + "..."
-		}
-		snippetOptions = append(snippetOptions, fmt.Sprintf("[%d] (%s) %s", i+1, snippet.Language, preview))
-	}
-
-	// Use fzf for multi-selection
-	selectedItems, err := t.FzfMultiSelect(snippetOptions, "select code blocks (tab=multi): ")
-	if err != nil {
-		return fmt.Errorf("selection failed: %w", err)
-	}
-
-	if len(selectedItems) == 0 {
-		t.PrintInfo("no code blocks selected")
-		return nil
-	}
-
-	// Parse selected indices
-	var selectedSnippets []ExtractedSnippet
-	for _, item := range selectedItems {
-		var index int
-		if _, err := fmt.Sscanf(item, "[%d]", &index); err == nil && index > 0 && index <= len(snippets) {
-			selectedSnippets = append(selectedSnippets, snippets[index-1])
-		}
-	}
-
-	if len(selectedSnippets) == 0 {
-		return fmt.Errorf("no valid code blocks selected")
-	}
-
-	// Combine selected snippets
+	// Combine snippets
 	var combinedContent strings.Builder
-	for i, snippet := range selectedSnippets {
+	for i, snippet := range snippets {
 		if i > 0 {
 			combinedContent.WriteString("\n\n")
 		}
@@ -2057,37 +2070,38 @@ func (t *Terminal) copyResponsesAuto(chatHistory []types.ChatHistory) error {
 
 	finalContent := combinedContent.String()
 
-	// Copy to clipboard directly (no editor)
+	// Copy to clipboard
 	err = t.CopyToClipboard(finalContent)
 	if err != nil {
 		return fmt.Errorf("failed to copy to clipboard: %w", err)
 	}
 
 	blockWord := "code block"
-	if len(selectedSnippets) > 1 {
+	if len(snippets) > 1 {
 		blockWord = "code blocks"
 	}
-	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(selectedSnippets), blockWord)
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(snippets), blockWord)
 	return nil
 }
 
 // copyResponsesManual allows user to manually select responses to copy
 func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
-	// Create list of responses for fzf selection
+	// Create list of responses for fzf selection (same format as !e)
 	var responseOptions []string
 	var responseMap = make(map[string]types.ChatHistory)
 
-	for i, entry := range chatHistory {
-		if entry.Bot != "" {
-			// Create display text with truncated response
-			displayText := entry.Bot
-			if len(displayText) > 100 {
-				displayText = displayText[:97] + "..."
+	// Iterate in reverse order (newest to oldest)
+	for i := len(chatHistory) - 1; i >= 1; i-- {
+		entry := chatHistory[i]
+		if entry.User != "" || entry.Bot != "" {
+			// Create preview for fzf
+			userPreview := strings.Split(entry.User, "\n")[0]
+			if len(userPreview) > 60 {
+				userPreview = userPreview[:60] + "..."
 			}
-			// Replace newlines with spaces for better fzf display
-			displayText = strings.ReplaceAll(displayText, "\n", " ")
 
-			optionText := fmt.Sprintf("[%d] %s", i+1, displayText)
+			timestamp := time.Unix(entry.Time, 0).Format("2006-01-02 15:04:05")
+			optionText := fmt.Sprintf("%d: %s - %s", i, timestamp, userPreview)
 			responseOptions = append(responseOptions, optionText)
 			responseMap[optionText] = entry
 		}
@@ -2095,11 +2109,6 @@ func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
 
 	if len(responseOptions) == 0 {
 		return fmt.Errorf("no responses found in chat history")
-	}
-
-	// Reverse the order so latest responses are at the top
-	for i, j := 0, len(responseOptions)-1; i < j; i, j = i+1, j-1 {
-		responseOptions[i], responseOptions[j] = responseOptions[j], responseOptions[i]
 	}
 
 	// Use fzf for multi-selection

@@ -632,75 +632,77 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 
 // ExportChatAuto allows user to automatically extract and save code blocks from chat history
 func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
-	// Step 1: Get all chat entries
-	var selectedEntries []types.ChatHistory
+	// Step 1: Create list of chat entries for fzf selection (same format as manual mode)
+	var items []string
+	var chatEntries []types.ChatHistory
 
 	// Iterate in reverse order (newest to oldest)
 	for i := len(m.state.ChatHistory) - 1; i >= 1; i-- {
 		entry := m.state.ChatHistory[i]
 		if entry.User != "" || entry.Bot != "" {
-			selectedEntries = append(selectedEntries, entry)
+			// Create preview for fzf
+			userPreview := strings.Split(entry.User, "\n")[0]
+			if len(userPreview) > 60 {
+				userPreview = userPreview[:60] + "..."
+			}
+
+			timestamp := time.Unix(entry.Time, 0).Format("2006-01-02 15:04:05")
+			items = append(items, fmt.Sprintf("%d: %s - %s", i, timestamp, userPreview))
+			chatEntries = append(chatEntries, entry)
 		}
 	}
 
-	if len(selectedEntries) == 0 {
+	if len(items) == 0 {
 		return "", fmt.Errorf("no chat entries to export")
 	}
 
-	// Step 2: Extract content
+	// Step 2: Select chat entries with fzf
+	selectedItems, err := terminal.FzfMultiSelect(items, "export entries (tab=multi): ")
+	if err != nil {
+		return "", fmt.Errorf("selection cancelled or failed: %v", err)
+	}
+	if len(selectedItems) == 0 {
+		return "", fmt.Errorf("no entries selected")
+	}
+
+	// Step 3: Parse selected indices and extract code blocks
 	type ExtractedSnippet struct {
 		Content  string
 		Language string
 	}
-	var snippets []ExtractedSnippet
+	var selectedSnippets []ExtractedSnippet
 	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
 
-	for _, entry := range selectedEntries {
-		if entry.Bot != "" {
-			matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
-			for _, match := range matches {
-				language := match[1]
-				if language == "" {
-					language = "text"
+	for _, item := range selectedItems {
+		var index int
+		parts := strings.SplitN(item, ":", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		_, err := fmt.Sscanf(parts[0], "%d", &index)
+		if err != nil {
+			continue
+		}
+
+		// Find the entry
+		for _, entry := range chatEntries {
+			if entry.Time == m.state.ChatHistory[index].Time && entry.Bot != "" {
+				matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
+				for _, match := range matches {
+					language := match[1]
+					if language == "" {
+						language = "text"
+					}
+					content := match[2]
+					selectedSnippets = append(selectedSnippets, ExtractedSnippet{Content: content, Language: language})
 				}
-				content := match[2]
-				snippets = append(snippets, ExtractedSnippet{Content: content, Language: language})
+				break
 			}
 		}
 	}
 
-	if len(snippets) == 0 {
-		return "", fmt.Errorf("no code blocks found in selected chat entries")
-	}
-
-	// Step 3: Select snippets with fzf
-	var snippetOptions []string
-	for i, snippet := range snippets {
-		preview := strings.Split(snippet.Content, "\n")[0]
-		if len(preview) > 80 {
-			preview = preview[:80] + "..."
-		}
-		snippetOptions = append(snippetOptions, fmt.Sprintf("[%d] (%s) %s", i+1, snippet.Language, preview))
-	}
-
-	selectedSnippetItems, err := terminal.FzfMultiSelect(snippetOptions, "select snippets to save (tab=multi): ")
-	if err != nil {
-		return "", fmt.Errorf("snippet selection failed: %v", err)
-	}
-	if len(selectedSnippetItems) == 0 {
-		return "", fmt.Errorf("no snippets selected")
-	}
-
-	var selectedSnippets []ExtractedSnippet
-	for _, item := range selectedSnippetItems {
-		var index int
-		if _, err := fmt.Sscanf(item, "[%d]", &index); err == nil && index > 0 && index <= len(snippets) {
-			selectedSnippets = append(selectedSnippets, snippets[index-1])
-		}
-	}
-
 	if len(selectedSnippets) == 0 {
-		return "", fmt.Errorf("no valid snippets selected")
+		return "", fmt.Errorf("no code blocks found in selected entries")
 	}
 
 	// Step 4 & 5: Get filename and save files for each snippet

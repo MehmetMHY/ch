@@ -39,6 +39,12 @@
       href="https://fonts.googleapis.com/css2?family=Droid+Sans:wght@400;700&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
     <title>Lightweight AI CLI Tool</title>
     <style>
@@ -65,6 +71,8 @@
       }
       body.dark-mode .install-command code {
         color: #e0e0e0;
+        background: none;
+        padding: 0;
       }
       body.dark-mode table {
         border-color: #333;
@@ -207,12 +215,20 @@
         overflow-y: hidden;
         position: relative;
       }
-      .install-command::-webkit-scrollbar {
-        display: none;
-      }
       .install-command {
-        -ms-overflow-style: none;
         scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .install-command::-webkit-scrollbar {
+        display: none !important;
+        height: 0 !important;
+        width: 0 !important;
+      }
+      .install-command::-webkit-scrollbar-track {
+        display: none !important;
+      }
+      .install-command::-webkit-scrollbar-thumb {
+        display: none !important;
       }
       .install-command pre {
         margin: 0;
@@ -224,31 +240,34 @@
         font-size: 18px;
         color: #111;
         white-space: nowrap;
+        display: inline;
+        background: none;
+        padding: 0;
       }
       .cmd-keyword {
-        color: #0066cc;
-        font-weight: bold;
+        color: #0066cc !important;
+        font-weight: bold !important;
       }
       .cmd-flag {
-        color: #cc6600;
+        color: #cc6600 !important;
       }
       .cmd-url {
-        color: #009900;
+        color: #009900 !important;
       }
       .cmd-pipe {
-        color: #666;
+        color: #666 !important;
       }
       body.dark-mode .cmd-keyword {
-        color: #66b3ff;
+        color: #66b3ff !important;
       }
       body.dark-mode .cmd-flag {
-        color: #ffcc99;
+        color: #ffcc99 !important;
       }
       body.dark-mode .cmd-url {
-        color: #66ff66;
+        color: #66ff66 !important;
       }
       body.dark-mode .cmd-pipe {
-        color: #999;
+        color: #999 !important;
       }
       .copyable {
         position: relative;
@@ -305,6 +324,17 @@
       .license-link:hover {
         text-decoration: underline;
       }
+      .back-to-top-link {
+        color: #666;
+        text-decoration: underline;
+        transition: opacity 0.3s ease;
+      }
+      .back-to-top-link:hover {
+        opacity: 0.7;
+      }
+      body.dark-mode .back-to-top-link {
+        color: #999;
+      }
       .vision-link {
         text-decoration: none;
       }
@@ -347,6 +377,17 @@
         .separator {
           display: none;
         }
+        #docs-content pre {
+          padding: 15px 55px 15px 15px;
+        }
+        #docs-content code {
+          font-size: 14px;
+        }
+        .docs-copy-btn {
+          padding: 6px 12px;
+          font-size: 13px;
+          right: 10px;
+        }
       }
       @media (max-width: 480px) {
         .logo {
@@ -370,6 +411,175 @@
         .install-command code {
           font-size: 12px;
         }
+        #docs-content pre {
+          padding: 12px 50px 12px 12px;
+        }
+        #docs-content code {
+          font-size: 13px;
+        }
+      }
+      /* Docs Section Styles */
+      .docs-toggle-link {
+        cursor: pointer;
+        text-decoration: underline;
+      }
+      .docs-toggle-link:hover {
+        opacity: 0.7;
+      }
+      #docs-content {
+        margin-top: 30px;
+        display: none;
+      }
+      #docs-content pre {
+        background-color: #f5f5f5;
+        padding: 20px 60px 20px 20px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        overflow-x: auto;
+        margin: 20px 0;
+        position: relative;
+        white-space: pre;
+      }
+      #docs-content pre::-webkit-scrollbar {
+        height: 8px;
+      }
+      #docs-content pre::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      #docs-content pre::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+      }
+      body.dark-mode #docs-content pre::-webkit-scrollbar-thumb {
+        background: #555;
+      }
+      body.dark-mode #docs-content pre {
+        background-color: #2a2a2a !important;
+        border-color: #444;
+      }
+      #docs-content .hljs {
+        background: none !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+      body.dark-mode #docs-content .hljs {
+        background: none !important;
+        color: #e0e0e0 !important;
+      }
+      body.dark-mode #docs-content .hljs-keyword {
+        color: #66b3ff !important;
+      }
+      body.dark-mode #docs-content .hljs-string {
+        color: #98d982 !important;
+      }
+      body.dark-mode #docs-content .hljs-comment {
+        color: #999 !important;
+      }
+      body.dark-mode #docs-content .hljs-number {
+        color: #ffcc99 !important;
+      }
+      #docs-content code {
+        font-family: "Courier New", monospace;
+        font-size: 16px;
+        background-color: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+      body.dark-mode #docs-content code {
+        background-color: #2a2a2a;
+        color: #e0e0e0;
+      }
+      #docs-content pre code {
+        background: none;
+        padding: 0;
+        font-size: 16px;
+        white-space: pre;
+        display: block;
+      }
+      .docs-copy-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: #f5f5f5;
+        color: #666;
+        border: 1px solid #999;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        font-family: "Droid Sans", sans-serif;
+        transition: all 0.15s ease;
+      }
+      .docs-copy-btn:hover {
+        background-color: #111;
+        color: #fff;
+        border-color: #111;
+      }
+      body.dark-mode .docs-copy-btn {
+        background-color: #2a2a2a;
+        color: #aaa;
+        border-color: #555;
+      }
+      body.dark-mode .docs-copy-btn:hover {
+        background-color: #e0e0e0;
+        color: #111;
+        border-color: #e0e0e0;
+      }
+      #docs-content table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 20px 0;
+        display: block;
+        overflow-x: auto;
+        max-width: 100%;
+      }
+      #docs-content table::-webkit-scrollbar {
+        height: 8px;
+      }
+      #docs-content table::-webkit-scrollbar-track {
+        background: #f5f5f5;
+        border-radius: 4px;
+      }
+      #docs-content table::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+      }
+      body.dark-mode #docs-content table::-webkit-scrollbar-track {
+        background: #2a2a2a;
+      }
+      body.dark-mode #docs-content table::-webkit-scrollbar-thumb {
+        background: #555;
+      }
+      #docs-content th,
+      #docs-content td {
+        border: 1px solid #ddd;
+        padding: 12px 15px;
+        text-align: left;
+        min-width: 100px;
+        white-space: normal;
+      }
+      body.dark-mode #docs-content th,
+      body.dark-mode #docs-content td {
+        border-color: #444;
+      }
+      #docs-content th {
+        background-color: #f5f5f5;
+        font-weight: 700;
+      }
+      body.dark-mode #docs-content th {
+        background-color: #2a2a2a;
+      }
+      #docs-content tr:nth-child(even) {
+        background-color: #fafafa;
+      }
+      body.dark-mode #docs-content tr:nth-child(even) {
+        background-color: #222;
+      }
+      #docs-content tbody tr:hover {
+        background-color: #f0f0f0;
+      }
+      body.dark-mode #docs-content tbody tr:hover {
+        background-color: #2d2d2d;
       }
     </style>
   </head>
@@ -385,7 +595,8 @@
         <a href="#install">install</a><span class="separator">|</span>
         <a href="#demo">demo</a><span class="separator">|</span>
         <a href="#features">features</a><span class="separator">|</span>
-        <a href="https://github.com/MehmetMHY/ch/blob/main/README.md">docs</a
+        <a href="#docs">docs</a><span class="separator">|</span>
+        <a href="https://github.com/MehmetMHY/ch">github</a
         ><span class="separator">|</span>
         <button class="theme-toggle" onclick="toggleTheme()">dark</button>
       </div>
@@ -536,10 +747,30 @@
       </div>
     </div>
 
+    <h2 id="docs">Documentation</h2>
+    <p>
+      To see the full documentation, visit the
+      <a href="https://github.com/MehmetMHY/ch">GitHub repository</a>
+      or
+      <a href="javascript:void(0);" id="docs-toggle" class="docs-toggle-link"
+        >view documentation inline</a
+      >.
+    </p>
+    <div id="docs-content">
+      <p style="text-align: center; color: #666">Loading documentation...</p>
+    </div>
+
     <p
       style="text-align: center; color: #666; margin: 120px 0 40px 0"
       class="footer-text"
     >
+      <a
+        href="javascript:void(0);"
+        onclick="scrollToTop()"
+        class="back-to-top-link"
+        >back to top</a
+      >
+      <br /><br />
       Ch is open source and licensed under the
       <a
         href="https://opensource.org/license/mit"
@@ -601,6 +832,13 @@
         applyTheme(isDark ? "light" : "dark");
       }
 
+      function scrollToTop() {
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      }
+
       async function setupCopyables() {
         if (navigator.clipboard) {
           for (const element of document.getElementsByClassName("copyable")) {
@@ -625,11 +863,174 @@
         }
       }
 
+      // Docs section functions
+      const DOCS_ROOT_URL = "https://github.com/MehmetMHY/ch/blob/main/";
+
+      function addDocsCopyButtons() {
+        document.querySelectorAll("#docs-content pre").forEach((pre) => {
+          const button = document.createElement("button");
+          button.className = "docs-copy-btn";
+          button.textContent = "Copy";
+          button.onclick = () => {
+            const code = pre.querySelector("code") || pre;
+            navigator.clipboard.writeText(code.textContent);
+            button.textContent = "Copied!";
+            setTimeout(() => (button.textContent = "Copy"), 1000);
+          };
+          pre.appendChild(button);
+        });
+      }
+
+      function fixDocsRelativeLinks() {
+        document
+          .querySelectorAll('#docs-content a[href^="./"]')
+          .forEach((link) => {
+            if (!link.closest("pre")) {
+              link.href =
+                DOCS_ROOT_URL + link.getAttribute("href").substring(2);
+            }
+          });
+      }
+
+      let docsLoaded = false;
+      let docsVisible = false;
+      let docsRetryCount = 0;
+      const DOCS_TIMEOUT_MS = 10000; // 10 seconds
+      const DOCS_MAX_RETRIES = 1;
+
+      function fetchWithTimeout(url, timeout = DOCS_TIMEOUT_MS) {
+        return Promise.race([
+          fetch(url),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Request timed out")), timeout),
+          ),
+        ]);
+      }
+
+      function showDocsLoading() {
+        document.getElementById("docs-content").innerHTML =
+          '<p style="text-align: center; color: #666;">Loading documentation...</p>';
+      }
+
+      function showDocsError(isTimeout = false, isRetrying = false) {
+        const docsContent = document.getElementById("docs-content");
+        if (isRetrying) {
+          docsContent.innerHTML =
+            '<p style="text-align: center; color: #666;">Connection issue detected. Retrying...</p>';
+        } else {
+          const errorMsg = isTimeout
+            ? "Request timed out after 10 seconds."
+            : "Failed to load documentation.";
+          docsContent.innerHTML = `
+            <p style="text-align: center; color: #666;">
+              ${errorMsg} GitHub may be temporarily unavailable.<br>
+              Please visit the <a href="https://github.com/MehmetMHY/ch/blob/main/README.md" target="_blank">GitHub README</a> directly
+              or <a href="javascript:void(0);" onclick="retryLoadDocs()" style="text-decoration: underline; cursor: pointer;">click here to retry</a>.
+            </p>
+          `;
+        }
+      }
+
+      function loadDocs(isRetry = false) {
+        if (docsLoaded) return;
+
+        if (isRetry) {
+          docsRetryCount++;
+          showDocsError(false, true);
+        } else {
+          showDocsLoading();
+        }
+
+        fetchWithTimeout(
+          "https://raw.githubusercontent.com/MehmetMHY/ch/refs/heads/main/README.md",
+        )
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
+          })
+          .then((markdown) => {
+            docsLoaded = true;
+            // Configure marked to escape HTML and prevent security issues
+            marked.setOptions({
+              breaks: true,
+              gfm: true,
+            });
+            document.getElementById("docs-content").innerHTML =
+              marked.parse(markdown);
+            addDocsCopyButtons();
+            fixDocsRelativeLinks();
+            // Only highlight code blocks within docs-content
+            document
+              .querySelectorAll("#docs-content pre code")
+              .forEach((codeBlock) => {
+                codeBlock.removeAttribute("data-highlighted");
+                hljs.highlightElement(codeBlock);
+              });
+          })
+          .catch((error) => {
+            console.error("Error loading docs:", error);
+            const isTimeout = error.message === "Request timed out";
+
+            // Retry logic
+            if (docsRetryCount < DOCS_MAX_RETRIES) {
+              setTimeout(() => {
+                loadDocs(true);
+              }, 2000); // Wait 2 seconds before retry
+            } else {
+              showDocsError(isTimeout, false);
+              docsLoaded = false; // Allow manual retry
+            }
+          });
+      }
+
+      function retryLoadDocs() {
+        docsRetryCount = 0;
+        docsLoaded = false;
+        loadDocs();
+      }
+
+      // Make retryLoadDocs available globally for onclick handler
+      window.retryLoadDocs = retryLoadDocs;
+
+      function applyDocsVisibility(visible) {
+        const docsContent = document.getElementById("docs-content");
+        const docsToggle = document.getElementById("docs-toggle");
+
+        if (visible) {
+          docsContent.style.display = "block";
+          docsToggle.textContent = "hide documentation";
+          docsVisible = true;
+          loadDocs();
+        } else {
+          docsContent.style.display = "none";
+          docsToggle.textContent = "view documentation inline";
+          docsVisible = false;
+        }
+        localStorage.setItem("docsVisible", visible);
+      }
+
+      function initializeDocsVisibility() {
+        const savedState = localStorage.getItem("docsVisible");
+        const visible = savedState === "true";
+        applyDocsVisibility(visible);
+      }
+
+      function toggleDocs() {
+        applyDocsVisibility(!docsVisible);
+      }
+
       // Initialize theme and copyables on page load
       window.addEventListener("DOMContentLoaded", function () {
         setDynamicMetaTags();
         initializeTheme();
+        initializeDocsVisibility();
         setupCopyables();
+
+        // Load docs only when toggle is clicked
+        const docsToggle = document.getElementById("docs-toggle");
+        docsToggle.addEventListener("click", toggleDocs);
 
         // Disable hash in URL for section links
         const navLinks = document.querySelectorAll(
@@ -642,6 +1043,12 @@
             const targetElement = document.getElementById(targetId);
             if (targetElement) {
               targetElement.scrollIntoView({ behavior: "smooth" });
+              // If navigating to docs section, show the docs
+              if (targetId === "docs" && !docsVisible) {
+                setTimeout(() => {
+                  toggleDocs();
+                }, 500);
+              }
             }
           });
         });
