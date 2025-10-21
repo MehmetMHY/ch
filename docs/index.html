@@ -879,6 +879,27 @@
         });
       }
 
+      function slugify(text) {
+        return text
+          .toLowerCase()
+          .trim()
+          .replace(/[^\w\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-");
+      }
+
+      function addHeadingIds() {
+        document
+          .querySelectorAll(
+            "#docs-content h1, #docs-content h2, #docs-content h3, #docs-content h4, #docs-content h5, #docs-content h6",
+          )
+          .forEach((heading) => {
+            if (!heading.id) {
+              heading.id = slugify(heading.textContent);
+            }
+          });
+      }
+
       function fixDocsRelativeLinks() {
         document
           .querySelectorAll('#docs-content a[href^="./"]')
@@ -957,6 +978,7 @@
             });
             document.getElementById("docs-content").innerHTML =
               marked.parse(markdown);
+            addHeadingIds();
             addDocsCopyButtons();
             fixDocsRelativeLinks();
             // Only highlight code blocks within docs-content
