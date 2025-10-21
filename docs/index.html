@@ -12,23 +12,29 @@
     />
 
     <!-- Meta Tags -->
-    <meta property="og:url" content="" id="og:url" />
+    <meta property="og:url" content="https://mehmetmhy.github.io/ch/" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Ch: Lightweight AI CLI Tool" />
     <meta
       property="og:description"
       content="Direct terminal access to powerful AI models with minimal overhead."
     />
-    <meta property="og:image" content="" id="og:image" />
+    <meta
+      property="og:image"
+      content="https://mehmetmhy.github.io/ch/thumbnail.png"
+    />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta property="twitter:domain" content="" id="twitter:domain" />
-    <meta property="twitter:url" content="" id="twitter:url" />
+    <meta property="twitter:domain" content="mehmetmhy.github.io" />
+    <meta property="twitter:url" content="https://mehmetmhy.github.io/ch/" />
     <meta name="twitter:title" content="Ch: Lightweight AI CLI Tool" />
     <meta
       name="twitter:description"
       content="Direct terminal access to powerful AI models with minimal overhead."
     />
-    <meta name="twitter:image" content="" id="twitter:image" />
+    <meta
+      name="twitter:image"
+      content="https://mehmetmhy.github.io/ch/thumbnail.png"
+    />
 
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
@@ -794,37 +800,6 @@
     </p>
 
     <script>
-      // Set dynamic meta tags based on current location
-      function setDynamicMetaTags() {
-        const origin = window.location.origin;
-        const pathname = window.location.pathname;
-        const pageUrl = origin + pathname;
-
-        // Build the correct path to thumbnail (handle both /ch/ and /ch/index.html formats)
-        let basePath = pathname;
-        if (pathname.includes(".")) {
-          // If the path contains a dot (likely a file), get the directory
-          basePath = pathname.substring(0, pathname.lastIndexOf("/") + 1);
-        } else if (!pathname.endsWith("/")) {
-          // If it's a directory path without trailing slash, add one
-          basePath = pathname + "/";
-        }
-        const thumbnailUrl = origin + basePath + "thumbnail.png";
-        const domain = window.location.hostname;
-
-        document.getElementById("og:url").setAttribute("content", pageUrl);
-        document
-          .getElementById("og:image")
-          .setAttribute("content", thumbnailUrl);
-        document
-          .getElementById("twitter:domain")
-          .setAttribute("content", domain);
-        document.getElementById("twitter:url").setAttribute("content", pageUrl);
-        document
-          .getElementById("twitter:image")
-          .setAttribute("content", thumbnailUrl);
-      }
-
       // Initialize theme from localStorage or system preference
       function initializeTheme() {
         const savedTheme = localStorage.getItem("theme") || "light";
@@ -1050,7 +1025,6 @@
 
       // Initialize theme and copyables on page load
       window.addEventListener("DOMContentLoaded", function () {
-        setDynamicMetaTags();
         initializeTheme();
         initializeDocsVisibility();
         setupCopyables();
