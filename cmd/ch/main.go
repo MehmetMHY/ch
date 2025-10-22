@@ -45,6 +45,7 @@ func main() {
 		codedumpFlag   = flag.String("d", "", "Generate codedump file (optionally specify directory path)")
 		platformFlag   = flag.String("p", "", "Switch platform (leave empty for interactive selection)")
 		modelFlag      = flag.String("m", "", "Specify model to use")
+		allModelsFlag  = flag.String("o", "", "Specify platform and model (format: platform|model)")
 		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
 		tokenFlag      = flag.String("t", "", "Count tokens in file")
 		loadFileFlag   = flag.String("l", "", "Load and display file content (supports text, PDF, DOCX, XLSX, CSV)")
@@ -161,6 +162,34 @@ func main() {
 			terminal.PrintError(fmt.Sprintf("error counting tokens: %v", err))
 		}
 		return
+	}
+
+	// Handle -o flag (platform|model format)
+	if *allModelsFlag != "" {
+		parts := strings.Split(*allModelsFlag, "|")
+		if len(parts) != 2 {
+			terminal.PrintError("invalid -o format: use platform|model (e.g., openai|gpt-4)")
+			return
+		}
+
+		platformName := strings.TrimSpace(parts[0])
+		modelName := strings.TrimSpace(parts[1])
+
+		if platformName == "" || modelName == "" {
+			terminal.PrintError("invalid -o format: platform and model cannot be empty")
+			return
+		}
+
+		// Validate platform exists
+		if platformName != "openai" {
+			if _, exists := state.Config.Platforms[platformName]; !exists {
+				terminal.PrintError(fmt.Sprintf("platform '%s' not found", platformName))
+				return
+			}
+		}
+
+		*platformFlag = platformName
+		*modelFlag = modelName
 	}
 
 	// Set platform and model based on precedence: flags > env vars > config file

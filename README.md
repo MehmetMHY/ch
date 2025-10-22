@@ -247,6 +247,9 @@ ch -p groq "Write a Go function to reverse a string"
 # model-specific query
 ch -m gpt-4o "Create a REST API in Python"
 
+# platform and model together
+ch -o openai|gpt-4o "Create a REST API in Python"
+
 # export code blocks to files
 ch -e "Write a Python script to sort a list"
 
