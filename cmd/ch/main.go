@@ -515,6 +515,9 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		return true
 
+	case input == config.AllModels:
+		return handleAllModels(chatManager, platformManager, terminal, state)
+
 	case input == config.LoadFiles:
 		return handleFileLoad(chatManager, terminal, state, "")
 
@@ -1327,6 +1330,106 @@ func generateUniqueCodeDumpFilename(currentDir, content string) string {
 
 	// Fallback to original UUID if everything fails
 	return fmt.Sprintf("code_dump_%s.txt", uuid.New().String())
+}
+
+// handleAllModels handles the !o command for selecting from all available models
+func handleAllModels(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	// Create channels for async operation
+	type modelResult struct {
+		models []string
+		err    error
+	}
+	resultChan := make(chan modelResult)
+
+	// Start fetching models in a goroutine
+	go func() {
+		models, err := platformManager.FetchAllModelsAsync()
+		resultChan <- modelResult{models, err}
+	}()
+
+	// Show loading animation
+	done := make(chan bool)
+	go terminal.ShowLoadingAnimation("fetching models", done)
+
+	// Wait for models to be fetched
+	result := <-resultChan
+	done <- true // Stop animation
+
+	if result.err != nil {
+		terminal.PrintError(fmt.Sprintf("%v", result.err))
+		return true
+	}
+
+	if len(result.models) == 0 {
+		terminal.PrintError("no models found")
+		return true
+	}
+
+	models := result.models
+
+	// Create a map to store platform and model info indexed by display string
+	type modelInfo struct {
+		platform string
+		model    string
+	}
+	modelMap := make(map[string]modelInfo)
+
+	for _, m := range models {
+		parts := strings.SplitN(m, "] ", 2)
+		if len(parts) == 2 {
+			platform := strings.TrimPrefix(parts[0], "[")
+			modelName := parts[1]
+			modelMap[m] = modelInfo{platform, modelName}
+		}
+	}
+
+	selectedModel, err := terminal.FzfSelect(models, "model: ")
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("error selecting model: %v", err))
+		return true
+	}
+
+	if selectedModel == "" {
+		return true
+	}
+
+	// Look up the platform and model from the map
+	info, exists := modelMap[selectedModel]
+	if !exists {
+		terminal.PrintError("invalid model selection")
+		return true
+	}
+
+	platformName := info.platform
+	modelName := info.model
+
+	// Store current platform to detect if it changed
+	currentPlatform := state.Config.CurrentPlatform
+
+	// Update the current platform and model in config
+	state.Config.CurrentPlatform = platformName
+	state.Config.CurrentModel = modelName
+
+	// Update chatManager with the new values
+	chatManager.SetCurrentPlatform(platformName)
+	chatManager.SetCurrentModel(modelName)
+
+	// If platform changed, reinitialize the client
+	if platformName != currentPlatform {
+		err := platformManager.Initialize()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
+			// Restore previous state on error
+			state.Config.CurrentPlatform = currentPlatform
+			return true
+		}
+	}
+
+	if !state.Config.MuteNotifications {
+		terminal.PrintModelSwitch(modelName)
+	}
+
+	return true
 }
 
 // isShallowLoadDir checks if a directory is in the shallow load list

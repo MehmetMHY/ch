@@ -111,6 +111,9 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.PlatformSwitch != "" {
 		defaultConfig.PlatformSwitch = userConfig.PlatformSwitch
 	}
+	if userConfig.AllModels != "" {
+		defaultConfig.AllModels = userConfig.AllModels
+	}
 	if userConfig.CodeDump != "" {
 		defaultConfig.CodeDump = userConfig.CodeDump
 	}
@@ -204,6 +207,7 @@ func DefaultConfig() *types.Config {
 		LoadFilesAdv:      "!f",
 		AnswerSearch:      "!a",
 		PlatformSwitch:    "!p",
+		AllModels:         "!o",
 		CodeDump:          "!d",
 		ShellRecord:       "!x",
 		ShellOption:       "!x",

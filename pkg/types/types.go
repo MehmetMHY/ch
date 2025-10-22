@@ -108,6 +108,7 @@ type Config struct {
 	MultiLine         string              `json:"multi_line,omitempty"`
 	PreferredEditor   string              `json:"preferred_editor,omitempty"`
 	CurrentPlatform   string              `json:"current_platform,omitempty"`
+	AllModels         string              `json:"all_models,omitempty"`
 	MuteNotifications bool                `json:"mute_notifications,omitempty"`
 	ShallowLoadDirs   []string            `json:"shallow_load_dirs,omitempty"`
 	IsPipedOutput     bool                `json:"-"` // Runtime detection, not from config file

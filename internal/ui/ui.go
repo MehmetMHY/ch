@@ -370,6 +370,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
 		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
 		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
+		fmt.Sprintf("%s - select from all models", t.config.AllModels),
 		fmt.Sprintf("%s - switch platforms", t.config.PlatformSwitch),
 		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
 		fmt.Sprintf("%s - record shell session", t.config.ShellRecord),

@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MehmetMHY/ch/pkg/types"
@@ -217,6 +218,107 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 		"env_name":      platform.EnvName,
 		"models":        modelsList,
 	}, nil
+}
+
+// FetchAllModelsAsync fetches all models from all platforms asynchronously
+// Returns a list of models formatted as "[platform] model_name"
+// Only fetches from platforms where API keys are defined and not empty
+func (m *Manager) FetchAllModelsAsync() ([]string, error) {
+	var wg sync.WaitGroup
+	results := make(chan string)
+	done := make(chan bool)
+	var models []string
+	var mu sync.Mutex
+
+	// Create a list of all platforms to fetch from
+	platformsToFetch := []struct {
+		name     string
+		platform types.Platform
+	}{
+		{"openai", types.Platform{}}, // OpenAI is a special case
+	}
+
+	// Add other platforms from config
+	for name, platform := range m.config.Platforms {
+		platformsToFetch = append(platformsToFetch, struct {
+			name     string
+			platform types.Platform
+		}{name, platform})
+	}
+
+	// Goroutine to collect results
+	go func() {
+		for model := range results {
+			mu.Lock()
+			models = append(models, model)
+			mu.Unlock()
+		}
+		done <- true
+	}()
+
+	// Fetch models from each platform concurrently
+	for _, p := range platformsToFetch {
+		platformName := p.name
+		platformConfig := p.platform
+
+		wg.Add(1)
+		go func(name string, config types.Platform) {
+			defer wg.Done()
+
+			// Special handling for OpenAI
+			if name == "openai" {
+				apiKey := os.Getenv("OPENAI_API_KEY")
+				if apiKey == "" {
+					return // Skip if API key is not set
+				}
+
+				client := openai.NewClient(apiKey)
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				modelList, err := client.ListModels(ctx)
+				if err != nil {
+					return // Silently ignore errors
+				}
+
+				for _, model := range modelList.Models {
+					results <- fmt.Sprintf("[openai] %s", model.ID)
+				}
+				return
+			}
+
+			// Check if API key is defined and not empty
+			apiKey := os.Getenv(platformConfig.EnvName)
+			if apiKey == "" && platformConfig.Name != "ollama" {
+				return // Skip if API key is not set
+			}
+
+			// Fetch models from this platform
+			modelList, err := m.fetchPlatformModels(platformConfig)
+			if err != nil {
+				return // Silently ignore errors
+			}
+
+			for _, model := range modelList {
+				results <- fmt.Sprintf("[%s] %s", name, model)
+			}
+		}(platformName, platformConfig)
+	}
+
+	// Close results channel when all goroutines are done
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Wait for collector to finish
+	<-done
+
+	if len(models) == 0 {
+		return nil, fmt.Errorf("no models found from any platform")
+	}
+
+	return models, nil
 }
 
 // isSlowModel checks if the model is a slow/reasoning model that requires non-streaming

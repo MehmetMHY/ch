@@ -286,6 +286,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!t [buff]`** - text editor mode
 - **`\`** - multi-line input (end lines with `\` to continue like in [Claude Code](https://github.com/anthropics/claude-code))
 - **`!m`** - switch models
+- **`!o`** - select from all models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
 - **`!x`** - record shell session
