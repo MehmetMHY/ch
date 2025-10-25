@@ -221,7 +221,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 }
 
 // FetchAllModelsAsync fetches all models from all platforms asynchronously
-// Returns a list of models formatted as "[platform] model_name"
+// Returns a list of models formatted as "platform|model_name"
 // Only fetches from platforms where API keys are defined and not empty
 func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 	var wg sync.WaitGroup
@@ -282,7 +282,8 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 				}
 
 				for _, model := range modelList.Models {
-					results <- fmt.Sprintf("[openai] %s", model.ID)
+					platformNameFormatted := strings.ReplaceAll(name, " ", "-")
+					results <- fmt.Sprintf("%s|%s", platformNameFormatted, model.ID)
 				}
 				return
 			}
@@ -300,7 +301,8 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 			}
 
 			for _, model := range modelList {
-				results <- fmt.Sprintf("[%s] %s", name, model)
+				platformNameFormatted := strings.ReplaceAll(name, " ", "-")
+				results <- fmt.Sprintf("%s|%s", platformNameFormatted, model)
 			}
 		}(platformName, platformConfig)
 	}

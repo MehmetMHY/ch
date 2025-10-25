@@ -1404,9 +1404,9 @@ func handleAllModels(chatManager *chat.Manager, platformManager *platform.Manage
 	modelMap := make(map[string]modelInfo)
 
 	for _, m := range models {
-		parts := strings.SplitN(m, "] ", 2)
+		parts := strings.SplitN(m, "|", 2)
 		if len(parts) == 2 {
-			platform := strings.TrimPrefix(parts[0], "[")
+			platform := parts[0]
 			modelName := parts[1]
 			modelMap[m] = modelInfo{platform, modelName}
 		}
