@@ -282,7 +282,7 @@ ch -w "golang features" | head -10
 # session continuation - automatically saves and restores conversations
 ch -c                              # continue last session interactively
 ch -c "follow up question"         # continue with a new query
-ch --clear                         # clear saved session
+ch --clear                         # clear all temporary files and sessions
 ```
 
 ### Interactive Commands

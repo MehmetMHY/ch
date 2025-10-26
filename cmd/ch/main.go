@@ -83,12 +83,40 @@ func main() {
 			terminal.PrintError("session save feature is disabled in config")
 			return
 		}
-		err := chatManager.DeleteLatestSessionFile()
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error deleting session: %v", err))
+
+		// Confirm before clearing (in red, default to No)
+		fmt.Printf("\033[91mdelete all temp files? (y/N)\033[0m ")
+		var response string
+		_, err := fmt.Scanln(&response)
+
+		// Convert to lowercase and check response
+		response = strings.ToLower(strings.TrimSpace(response))
+		if response != "y" && response != "yes" {
+			fmt.Println("cancelled")
 			return
 		}
-		fmt.Println("latest session cleared")
+
+		// Delete and recreate temp directory
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			terminal.PrintError("failed to get home directory")
+			return
+		}
+
+		tmpDir := filepath.Join(homeDir, ".ch", "tmp")
+		err = os.RemoveAll(tmpDir)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error clearing temporary files: %v", err))
+			return
+		}
+
+		// Recreate empty directory
+		err = os.MkdirAll(tmpDir, 0755)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error recreating temporary directory: %v", err))
+			return
+		}
+
 		return
 	}
 
