@@ -110,6 +110,7 @@ type Config struct {
 	CurrentPlatform   string              `json:"current_platform,omitempty"`
 	AllModels         string              `json:"all_models,omitempty"`
 	MuteNotifications bool                `json:"mute_notifications,omitempty"`
+	EnableSessionSave bool                `json:"enable_session_save"`
 	ShallowLoadDirs   []string            `json:"shallow_load_dirs,omitempty"`
 	IsPipedOutput     bool                `json:"-"` // Runtime detection, not from config file
 	Platforms         map[string]Platform `json:"platforms,omitempty"`
@@ -128,6 +129,16 @@ type ExportEntry struct {
 type ChatExport struct {
 	ExportedAt int64         `json:"exported_at"`
 	Entries    []ExportEntry `json:"entries"`
+}
+
+// SessionFile represents a persistent session state saved to disk
+type SessionFile struct {
+	Timestamp   int64         `json:"timestamp"`
+	Platform    string        `json:"platform"`
+	Model       string        `json:"model"`
+	BaseURL     string        `json:"base_url"`
+	Messages    []ChatMessage `json:"messages"`
+	ChatHistory []ChatHistory `json:"chat_history"`
 }
 
 // AppState holds the application's runtime state

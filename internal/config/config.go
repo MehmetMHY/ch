@@ -144,6 +144,13 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	defaultConfig.ShowSearchResults = defaultConfig.ShowSearchResults || userConfig.ShowSearchResults
 	defaultConfig.MuteNotifications = defaultConfig.MuteNotifications || userConfig.MuteNotifications
 
+	// EnableSessionSave doesn't use omitempty, so we can safely use the userConfig value
+	// This allows users to explicitly disable it by setting it to false
+	// Only override if the config file has at least one other field set (to distinguish from empty config)
+	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" {
+		defaultConfig.EnableSessionSave = userConfig.EnableSessionSave
+	}
+
 	// Merge ShallowLoadDirs if provided
 	if userConfig.ShallowLoadDirs != nil {
 		defaultConfig.ShallowLoadDirs = userConfig.ShallowLoadDirs
@@ -217,6 +224,7 @@ func DefaultConfig() *types.Config {
 		PreferredEditor:   "vim",
 		CurrentPlatform:   "openai",
 		MuteNotifications: false,
+		EnableSessionSave: true,
 		ShallowLoadDirs:   shallowDirs,
 		Platforms: map[string]types.Platform{
 			"groq": {

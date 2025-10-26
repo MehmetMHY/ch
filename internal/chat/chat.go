@@ -242,6 +242,101 @@ func (m *Manager) ExportLastResponse() (string, error) {
 	return fullPath, nil
 }
 
+// SaveSessionState saves the current session state to a file with epoch timestamp
+func (m *Manager) SaveSessionState() error {
+	tmpDir, err := m.getTempDir()
+	if err != nil {
+		return fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	// Create SessionFile with current state
+	session := types.SessionFile{
+		Timestamp:   time.Now().Unix(),
+		Platform:    m.state.Config.CurrentPlatform,
+		Model:       m.state.Config.CurrentModel,
+		BaseURL:     m.state.Config.CurrentBaseURL,
+		Messages:    m.state.Messages,
+		ChatHistory: m.state.ChatHistory,
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal session: %v", err)
+	}
+
+	// Use fixed filename (timestamp is stored in the JSON content)
+	filename := "ch_session_latest.json"
+	fullPath := filepath.Join(tmpDir, filename)
+
+	err = os.WriteFile(fullPath, jsonData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write session file: %v", err)
+	}
+
+	return nil
+}
+
+// LoadLatestSessionState loads the session state from disk
+func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
+	tmpDir, err := m.getTempDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	// Load the single session file
+	fullPath := filepath.Join(tmpDir, "ch_session_latest.json")
+
+	// Check if file exists
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("no session file found")
+	}
+
+	data, err := ioutil.ReadFile(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read session file: %v", err)
+	}
+
+	var session types.SessionFile
+	err = json.Unmarshal(data, &session)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
+	}
+
+	return &session, nil
+}
+
+// RestoreSessionState restores the application state from a SessionFile
+func (m *Manager) RestoreSessionState(session *types.SessionFile) {
+	m.state.Config.CurrentPlatform = session.Platform
+	m.state.Config.CurrentModel = session.Model
+	m.state.Config.CurrentBaseURL = session.BaseURL
+	m.state.Messages = session.Messages
+	m.state.ChatHistory = session.ChatHistory
+}
+
+// DeleteLatestSessionFile deletes the session file
+func (m *Manager) DeleteLatestSessionFile() error {
+	tmpDir, err := m.getTempDir()
+	if err != nil {
+		return fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	fullPath := filepath.Join(tmpDir, "ch_session_latest.json")
+
+	// Check if file exists
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		return fmt.Errorf("no session file to delete")
+	}
+
+	err = os.Remove(fullPath)
+	if err != nil {
+		return fmt.Errorf("failed to delete session file: %v", err)
+	}
+
+	return nil
+}
+
 // BacktrackHistory allows the user to select a previous message to revert to.
 // It returns the number of messages that were backtracked.
 func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
@@ -549,7 +644,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 			contentBuilder.WriteString("USER:\n")
 
 			// Check if this is a file loading entry and try to get the actual content
-			if strings.HasPrefix(entry.User, "Loaded: ") {
+			if strings.HasPrefix(entry.User, "loaded: ") {
 				actualContent := m.getLoadedContentForHistoryEntry(entry)
 				if actualContent != "" {
 					// Clean up excessive newlines from loaded content
@@ -4534,7 +4629,7 @@ func (m *Manager) extractLoadedFilesFromHistory() []string {
 
 		if entry.User != "" {
 			// Check for loaded content patterns
-			if strings.Contains(entry.User, "File: ") || strings.Contains(entry.User, "Loaded: ") {
+			if strings.Contains(entry.User, "File: ") || strings.Contains(entry.User, "loaded: ") {
 				lines := strings.Split(entry.User, "\n")
 				for _, line := range lines {
 					if strings.HasPrefix(line, "File: ") {
@@ -4547,8 +4642,8 @@ func (m *Manager) extractLoadedFilesFromHistory() []string {
 								seen[filePath] = true
 							}
 						}
-					} else if strings.HasPrefix(line, "Loaded: ") {
-						loadedContent := strings.TrimPrefix(line, "Loaded: ")
+					} else if strings.HasPrefix(line, "loaded: ") {
+						loadedContent := strings.TrimPrefix(line, "loaded: ")
 						// Split by comma and process each file
 						files := strings.Split(loadedContent, ", ")
 						for _, file := range files {
@@ -4594,7 +4689,7 @@ func (m *Manager) fileExistsInCurrentDir(filePath string) bool {
 }
 
 // getLoadedContentForHistoryEntry attempts to retrieve the actual loaded file content
-// for a history entry that contains "Loaded: ..." by matching it with the corresponding message
+// for a history entry that contains "loaded: ..." by matching it with the corresponding message
 func (m *Manager) getLoadedContentForHistoryEntry(historyEntry types.ChatHistory) string {
 	// Find the corresponding message in the chat messages that contains the actual content
 	// The loaded content should be in a message that was added around the same time
@@ -4612,14 +4707,14 @@ func (m *Manager) getLoadedContentForHistoryEntry(historyEntry types.ChatHistory
 	return "" // Return empty if we can't find the actual content
 }
 
-// messageContainsLoadedFiles checks if a message content contains files mentioned in a "Loaded: ..." history entry
+// messageContainsLoadedFiles checks if a message content contains files mentioned in a "loaded: ..." history entry
 func (m *Manager) messageContainsLoadedFiles(messageContent, historyEntry string) bool {
-	if !strings.HasPrefix(historyEntry, "Loaded: ") {
+	if !strings.HasPrefix(historyEntry, "loaded: ") {
 		return false
 	}
 
-	// Extract file list from "Loaded: file1, file2, ..."
-	loadedFilesList := strings.TrimPrefix(historyEntry, "Loaded: ")
+	// Extract file list from "loaded: file1, file2, ..."
+	loadedFilesList := strings.TrimPrefix(historyEntry, "loaded: ")
 	files := strings.Split(loadedFilesList, ", ")
 
 	// Check if the message content contains references to these files

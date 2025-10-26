@@ -76,6 +76,7 @@ ch "What are the key features of Go programming language?"
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
 - **Chat Backtracking**: Revert to any point in conversation history
+- **Session Continuation**: Automatically save and restore sessions to continue conversations later
 - **Code Dump**: Package entire directories for AI analysis (text and document files only)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
@@ -214,6 +215,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `search_country` - Set the country for web searches (default: "us")
 - `search_lang` - Set the language for web searches (default: "en")
 - `system_prompt` - Customize the system prompt
+- `enable_session_save` - Enable/disable automatic session saving for continuation (default: true)
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
 - Plus all other configuration options using snake_case JSON field names
 
@@ -276,6 +278,11 @@ ls -la | ch "Summarize this directory"
 ch "list 5 fruits" | grep apple
 ch "explain golang" > output.txt
 ch -w "golang features" | head -10
+
+# session continuation - automatically saves and restores conversations
+ch -c                              # continue last session interactively
+ch -c "follow up question"         # continue with a new query
+ch --clear                         # clear saved session
 ```
 
 ### Interactive Commands

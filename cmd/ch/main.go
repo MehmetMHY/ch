@@ -51,8 +51,11 @@ func main() {
 		loadFileFlag   = flag.String("l", "", "Load and display file content (supports text, PDF, DOCX, XLSX, CSV)")
 		webSearchFlag  = flag.String("w", "", "Perform a web search and print the results")
 		scrapeURLFlag  = flag.String("s", "", "Scrape a URL and print the content")
+		continueFlag   = flag.Bool("c", false, "Continue from latest session")
+		clearFlag      = flag.Bool("clear", false, "Clear latest session")
 	)
 	flag.StringVar(tokenFlag, "token", "", "Count tokens in file")
+	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
 
 	flag.Parse()
 	remainingArgs := flag.Args()
@@ -71,6 +74,21 @@ func main() {
 	// handle help flag
 	if *helpFlag {
 		terminal.ShowHelp()
+		return
+	}
+
+	// handle clear session flag
+	if *clearFlag {
+		if !state.Config.EnableSessionSave {
+			terminal.PrintError("session save feature is disabled in config")
+			return
+		}
+		err := chatManager.DeleteLatestSessionFile()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error deleting session: %v", err))
+			return
+		}
+		fmt.Println("latest session cleared")
 		return
 	}
 
@@ -212,8 +230,55 @@ func main() {
 		finalModel = *modelFlag
 	}
 
-	// Apply the final platform and model
-	if finalPlatform != state.Config.CurrentPlatform || finalModel != state.Config.CurrentModel {
+	// Handle continue flag BEFORE platform initialization
+	sessionRestored := false
+	if *continueFlag {
+		// Check if session save is enabled in config
+		if !state.Config.EnableSessionSave {
+			terminal.PrintError("session save feature is disabled in config")
+			return
+		}
+
+		session, err := chatManager.LoadLatestSessionState()
+		if err != nil {
+			// If no session found, exit with error
+			if !strings.Contains(err.Error(), "no session file found") {
+				terminal.PrintError(fmt.Sprintf("error loading session: %v", err))
+				return
+			}
+			terminal.PrintError("no previous session found to continue from")
+			return
+		} else {
+			// Restore session state successfully
+			chatManager.RestoreSessionState(session)
+			sessionRestored = true
+
+			// Override the final platform and model with session values
+			finalPlatform = session.Platform
+			finalModel = session.Model
+
+			// Print session restoration message in red
+			fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+
+			// Print the entire conversation history
+			for _, entry := range session.ChatHistory {
+				if entry.User == state.Config.SystemPrompt {
+					continue // Skip system prompt
+				}
+				// Print user message
+				if entry.User != "" {
+					fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+				}
+				// Print bot response
+				if entry.Bot != "" {
+					fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
+				}
+			}
+		}
+	}
+
+	// Apply the final platform and model (if not restored from session)
+	if !sessionRestored && (finalPlatform != state.Config.CurrentPlatform || finalModel != state.Config.CurrentModel) {
 		// If the platform was changed via flag/env, we may need to select a model for it
 		if *platformFlag != "" {
 			result, err := platformManager.SelectPlatform(finalPlatform, finalModel, terminal.FzfSelect)
@@ -301,6 +366,13 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 
 	chatManager.AddAssistantMessage(response)
 	chatManager.AddToHistory(query, response)
+
+	// Auto-save session state if enabled
+	if state.Config.EnableSessionSave {
+		if err := chatManager.SaveSessionState(); err != nil {
+			terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
+		}
+	}
 
 	// Export code blocks if -e flag was used
 	if exportCode {
@@ -441,6 +513,13 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 
 		chatManager.AddAssistantMessage(response)
 		chatManager.AddToHistory(input, response)
+
+		// Auto-save session state if enabled
+		if state.Config.EnableSessionSave {
+			if err := chatManager.SaveSessionState(); err != nil {
+				terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
+			}
+		}
 	}
 }
 
