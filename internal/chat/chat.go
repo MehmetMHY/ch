@@ -265,8 +265,14 @@ func (m *Manager) SaveSessionState() error {
 		return fmt.Errorf("failed to marshal session: %v", err)
 	}
 
-	// Use fixed filename (timestamp is stored in the JSON content)
-	filename := "ch_session_latest.json"
+	var filename string
+	if m.state.Config.SaveAllSessions {
+		// Use timestamp-based filename for saving all sessions
+		filename = fmt.Sprintf("ch_session_%d.json", session.Timestamp)
+	} else {
+		// Use fixed filename (timestamp is stored in the JSON content)
+		filename = "ch_session_latest.json"
+	}
 	fullPath := filepath.Join(tmpDir, filename)
 
 	err = os.WriteFile(fullPath, jsonData, 0644)
@@ -284,26 +290,85 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 		return nil, fmt.Errorf("failed to get temp directory: %v", err)
 	}
 
-	// Load the single session file
-	fullPath := filepath.Join(tmpDir, "ch_session_latest.json")
+	if m.state.Config.SaveAllSessions {
+		// When saving all sessions, find the most recent session file
+		files, err := os.ReadDir(tmpDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read temp directory: %v", err)
+		}
 
-	// Check if file exists
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("no session file found")
+		var latestFile string
+		var latestTime int64 = 0
+
+		// Find all session files and get the most recent one
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			filename := file.Name()
+			// Match both old format and new format
+			if strings.HasPrefix(filename, "ch_session_") && strings.HasSuffix(filename, ".json") {
+				fullPath := filepath.Join(tmpDir, filename)
+
+				// Read the file to check timestamp
+				data, err := ioutil.ReadFile(fullPath)
+				if err != nil {
+					continue
+				}
+
+				var session types.SessionFile
+				err = json.Unmarshal(data, &session)
+				if err != nil {
+					continue
+				}
+
+				// Check if this is the most recent session
+				if session.Timestamp > latestTime {
+					latestTime = session.Timestamp
+					latestFile = fullPath
+				}
+			}
+		}
+
+		if latestFile == "" {
+			return nil, fmt.Errorf("no session file found")
+		}
+
+		// Load the most recent session
+		data, err := ioutil.ReadFile(latestFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read session file: %v", err)
+		}
+
+		var session types.SessionFile
+		err = json.Unmarshal(data, &session)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
+		}
+
+		return &session, nil
+	} else {
+		// Load the single session file
+		fullPath := filepath.Join(tmpDir, "ch_session_latest.json")
+
+		// Check if file exists
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("no session file found")
+		}
+
+		data, err := ioutil.ReadFile(fullPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read session file: %v", err)
+		}
+
+		var session types.SessionFile
+		err = json.Unmarshal(data, &session)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
+		}
+
+		return &session, nil
 	}
-
-	data, err := ioutil.ReadFile(fullPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read session file: %v", err)
-	}
-
-	var session types.SessionFile
-	err = json.Unmarshal(data, &session)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
-	}
-
-	return &session, nil
 }
 
 // RestoreSessionState restores the application state from a SessionFile

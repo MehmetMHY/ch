@@ -150,6 +150,9 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" {
 		defaultConfig.EnableSessionSave = userConfig.EnableSessionSave
 	}
+	if userConfig.SaveAllSessions {
+		defaultConfig.SaveAllSessions = userConfig.SaveAllSessions
+	}
 
 	// Merge ShallowLoadDirs if provided
 	if userConfig.ShallowLoadDirs != nil {

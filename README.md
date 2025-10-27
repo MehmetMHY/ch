@@ -216,6 +216,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `search_lang` - Set the language for web searches (default: "en")
 - `system_prompt` - Customize the system prompt
 - `enable_session_save` - Enable/disable automatic session saving for continuation (default: true)
+- `save_all_sessions` - Save all sessions with timestamps instead of overwriting the latest (default: false). When enabled, each session gets a unique timestamped file; when disabled, only the latest session is kept
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
 - Plus all other configuration options using snake_case JSON field names
 

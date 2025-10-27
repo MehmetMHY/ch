@@ -111,6 +111,7 @@ type Config struct {
 	AllModels         string              `json:"all_models,omitempty"`
 	MuteNotifications bool                `json:"mute_notifications,omitempty"`
 	EnableSessionSave bool                `json:"enable_session_save"`
+	SaveAllSessions   bool                `json:"save_all_sessions,omitempty"`
 	ShallowLoadDirs   []string            `json:"shallow_load_dirs,omitempty"`
 	IsPipedOutput     bool                `json:"-"` // Runtime detection, not from config file
 	Platforms         map[string]Platform `json:"platforms,omitempty"`
