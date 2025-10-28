@@ -444,18 +444,34 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 				continue // Skip system prompt
 			}
 
-			// Create preview line
+			// Create preview lines
 			timestamp := time.Unix(entry.Time, 0).UTC().Format("2006-01-02 15:04:05 UTC")
 			userPreview := strings.ReplaceAll(entry.User, "\n", " ")
 			if len(userPreview) > 80 {
 				userPreview = userPreview[:80] + "..."
 			}
 
-			preview := fmt.Sprintf("%s %s", timestamp, userPreview)
-			entries = append(entries, SessionEntry{
-				FilePath: sessionPath,
-				Preview:  preview,
-			})
+			// Add user message entry
+			if entry.User != "" {
+				preview := fmt.Sprintf("%s user: %s", timestamp, userPreview)
+				entries = append(entries, SessionEntry{
+					FilePath: sessionPath,
+					Preview:  preview,
+				})
+			}
+
+			// Add bot response entry
+			if entry.Bot != "" {
+				botPreview := strings.ReplaceAll(entry.Bot, "\n", " ")
+				if len(botPreview) > 80 {
+					botPreview = botPreview[:80] + "..."
+				}
+				preview := fmt.Sprintf("%s bot: %s", timestamp, botPreview)
+				entries = append(entries, SessionEntry{
+					FilePath: sessionPath,
+					Preview:  preview,
+				})
+			}
 		}
 	}
 
