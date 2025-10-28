@@ -63,6 +63,7 @@ func (m *Manager) Initialize() error {
 			baseURL = platform.BaseURL.Single
 		}
 	}
+	m.config.CurrentBaseURL = baseURL
 	clientConfig.BaseURL = baseURL
 	m.client = openai.NewClientWithConfig(clientConfig)
 

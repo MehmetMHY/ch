@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -255,7 +256,6 @@ func (m *Manager) SaveSessionState() error {
 		Platform:    m.state.Config.CurrentPlatform,
 		Model:       m.state.Config.CurrentModel,
 		BaseURL:     m.state.Config.CurrentBaseURL,
-		Messages:    m.state.Messages,
 		ChatHistory: m.state.ChatHistory,
 	}
 
@@ -376,8 +376,23 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 	m.state.Config.CurrentPlatform = session.Platform
 	m.state.Config.CurrentModel = session.Model
 	m.state.Config.CurrentBaseURL = session.BaseURL
-	m.state.Messages = session.Messages
 	m.state.ChatHistory = session.ChatHistory
+
+	// Rebuild Messages from ChatHistory
+	m.state.Messages = []types.ChatMessage{
+		{Role: "system", Content: m.state.Config.SystemPrompt},
+	}
+	for i, entry := range m.state.ChatHistory {
+		if i == 0 {
+			continue // Skip system prompt entry
+		}
+		if entry.User != "" {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: entry.User})
+		}
+		if entry.Bot != "" {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
+		}
+	}
 }
 
 // DeleteLatestSessionFile deletes the session file
@@ -422,8 +437,9 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 
 	// Build list of all entries from all sessions
 	type SessionEntry struct {
-		FilePath string
-		Preview  string
+		FilePath  string
+		Preview   string
+		Timestamp int64
 	}
 	var entries []SessionEntry
 
@@ -455,8 +471,9 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 			if entry.User != "" {
 				preview := fmt.Sprintf("%s user: %s", timestamp, userPreview)
 				entries = append(entries, SessionEntry{
-					FilePath: sessionPath,
-					Preview:  preview,
+					FilePath:  sessionPath,
+					Preview:   preview,
+					Timestamp: entry.Time,
 				})
 			}
 
@@ -468,8 +485,9 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 				}
 				preview := fmt.Sprintf("%s bot: %s", timestamp, botPreview)
 				entries = append(entries, SessionEntry{
-					FilePath: sessionPath,
-					Preview:  preview,
+					FilePath:  sessionPath,
+					Preview:   preview,
+					Timestamp: entry.Time,
 				})
 			}
 		}
@@ -478,6 +496,11 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("no session entries found")
 	}
+
+	// Sort entries by timestamp (latest to oldest)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Timestamp > entries[j].Timestamp
+	})
 
 	// Build fzf input
 	var fzfInput strings.Builder
