@@ -77,6 +77,7 @@ ch "What are the key features of Go programming language?"
 - **Dynamic Switching**: Change models and platforms mid-conversation
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Session Continuation**: Automatically save and restore sessions to continue conversations later
+- **Session History Search**: Search and load any previous session from history with fuzzy or exact matching
 - **Code Dump**: Package entire directories for AI analysis (text and document files only)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
@@ -283,6 +284,8 @@ ch -w "golang features" | head -10
 # session continuation - automatically saves and restores conversations
 ch -c                              # continue last session interactively
 ch -c "follow up question"         # continue with a new query
+ch -hs                             # search and load a previous session
+ch -hs exact                       # exact match search for previous sessions
 ch --clear                         # clear all temporary files and sessions
 ```
 
@@ -300,6 +303,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!o`** - select from all models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
+- **`!hs`** - search and load previous sessions
 - **`!x`** - record shell session
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history

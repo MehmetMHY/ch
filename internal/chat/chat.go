@@ -402,6 +402,127 @@ func (m *Manager) DeleteLatestSessionFile() error {
 	return nil
 }
 
+// SearchSessions searches through all saved sessions using fzf
+func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.SessionFile, error) {
+	if !m.state.Config.SaveAllSessions {
+		return nil, fmt.Errorf("session search requires save_all_sessions to be enabled in config")
+	}
+
+	tmpDir, err := m.getTempDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	// Find all session files
+	pattern := filepath.Join(tmpDir, "ch_session_*.json")
+	matches, err := filepath.Glob(pattern)
+	if err != nil || len(matches) == 0 {
+		return nil, fmt.Errorf("no sessions found")
+	}
+
+	// Build list of all entries from all sessions
+	type SessionEntry struct {
+		FilePath string
+		Preview  string
+	}
+	var entries []SessionEntry
+
+	for _, sessionPath := range matches {
+		data, err := ioutil.ReadFile(sessionPath)
+		if err != nil {
+			continue
+		}
+
+		var session types.SessionFile
+		if err := json.Unmarshal(data, &session); err != nil {
+			continue
+		}
+
+		// Add entries from this session
+		for i, entry := range session.ChatHistory {
+			if i == 0 {
+				continue // Skip system prompt
+			}
+
+			// Create preview line
+			timestamp := time.Unix(entry.Time, 0).UTC().Format("2006-01-02 15:04:05 UTC")
+			userPreview := strings.ReplaceAll(entry.User, "\n", " ")
+			if len(userPreview) > 80 {
+				userPreview = userPreview[:80] + "..."
+			}
+
+			preview := fmt.Sprintf("%s %s", timestamp, userPreview)
+			entries = append(entries, SessionEntry{
+				FilePath: sessionPath,
+				Preview:  preview,
+			})
+		}
+	}
+
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no session entries found")
+	}
+
+	// Build fzf input
+	var fzfInput strings.Builder
+	for _, entry := range entries {
+		fzfInput.WriteString(entry.Preview + "\n")
+	}
+
+	// Prepare fzf arguments
+	fzfArgs := []string{
+		"--reverse",
+		"--height=40%",
+		"--border",
+		"--prompt=select session: ",
+	}
+
+	if exact {
+		fzfArgs = append(fzfArgs, "--exact")
+	}
+
+	// Run fzf
+	fzfCmd := exec.Command("fzf", fzfArgs...)
+	fzfCmd.Stdin = strings.NewReader(fzfInput.String())
+	fzfCmd.Stderr = os.Stderr
+
+	fzfOutput, err := fzfCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("selection cancelled")
+	}
+
+	selectedLine := strings.TrimSpace(string(fzfOutput))
+	if selectedLine == "" {
+		return nil, fmt.Errorf("no selection made")
+	}
+
+	// Find the session file for the selected entry
+	var selectedFilePath string
+	for _, entry := range entries {
+		if entry.Preview == selectedLine {
+			selectedFilePath = entry.FilePath
+			break
+		}
+	}
+
+	if selectedFilePath == "" {
+		return nil, fmt.Errorf("failed to find selected session")
+	}
+
+	// Load the selected session
+	data, err := ioutil.ReadFile(selectedFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read session file: %v", err)
+	}
+
+	var session types.SessionFile
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, fmt.Errorf("failed to parse session file: %v", err)
+	}
+
+	return &session, nil
+}
+
 // BacktrackHistory allows the user to select a previous message to revert to.
 // It returns the number of messages that were backtracked.
 func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {

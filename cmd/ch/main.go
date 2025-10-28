@@ -53,9 +53,11 @@ func main() {
 		scrapeURLFlag  = flag.String("s", "", "Scrape a URL and print the content")
 		continueFlag   = flag.Bool("c", false, "Continue from latest session")
 		clearFlag      = flag.Bool("clear", false, "Clear latest session")
+		historyFlag    = flag.Bool("hs", false, "Search and load previous sessions")
 	)
 	flag.StringVar(tokenFlag, "token", "", "Count tokens in file")
 	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
+	flag.BoolVar(historyFlag, "history-search", false, "Search and load previous sessions")
 
 	flag.Parse()
 	remainingArgs := flag.Args()
@@ -115,6 +117,54 @@ func main() {
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error recreating temporary directory: %v", err))
 			return
+		}
+
+		return
+	}
+
+	// handle history search flag
+	if *historyFlag {
+		// Check if save_all_sessions is enabled
+		if !state.Config.SaveAllSessions {
+			terminal.PrintError("history search requires save_all_sessions to be enabled in config")
+			return
+		}
+
+		// Determine if exact search based on remaining args
+		exact := len(remainingArgs) > 0 && remainingArgs[0] == "exact"
+
+		session, err := chatManager.SearchSessions(terminal, exact)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("%v", err))
+			return
+		}
+
+		// Restore the session and show it
+		chatManager.RestoreSessionState(session)
+
+		// Re-initialize platform client with restored state
+		err = platformManager.Initialize()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("failed to initialize client: %v", err))
+			return
+		}
+
+		// Print session info and conversation
+		fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+
+		// Print the entire conversation history
+		for _, entry := range session.ChatHistory {
+			if entry.User == state.Config.SystemPrompt {
+				continue // Skip system prompt
+			}
+			// Print user message
+			if entry.User != "" {
+				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+			}
+			// Print bot response
+			if entry.Bot != "" {
+				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
+			}
 		}
 
 		return
@@ -765,6 +815,49 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		} else {
 			terminal.PrintInfo(fmt.Sprintf("backtracked by %d", backtrackedCount))
 		}
+		return true
+
+	case input == "!hs" || input == "!hs exact":
+		if !config.SaveAllSessions {
+			terminal.PrintError("session search requires save_all_sessions to be enabled in config")
+			return true
+		}
+
+		exact := input == "!hs exact"
+		session, err := chatManager.SearchSessions(terminal, exact)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("%v", err))
+			return true
+		}
+
+		// Restore the session
+		chatManager.RestoreSessionState(session)
+
+		// Re-initialize platform client
+		err = platformManager.Initialize()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
+			return true
+		}
+
+		// Print session info and conversation
+		fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+
+		// Print the entire conversation history
+		for _, entry := range session.ChatHistory {
+			if entry.User == state.Config.SystemPrompt {
+				continue // Skip system prompt
+			}
+			// Print user message
+			if entry.User != "" {
+				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+			}
+			// Print bot response
+			if entry.Bot != "" {
+				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
+			}
+		}
+
 		return true
 
 	case input == config.ScrapeURL:
