@@ -190,8 +190,8 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("options:")
 	fmt.Printf("  %-18s %s\n", "-h, --help", "show help and exit")
 	fmt.Printf("  %-18s %s\n", "-c, --continue", "continue from latest session")
-	fmt.Printf("  %-18s %s\n", "--clear", "clear all temporary files and sessions")
-	fmt.Printf("  %-18s %s\n", "-hs, --history-search", "search and load previous sessions")
+	fmt.Printf("  %-18s %s\n", "--clear", "clear all tmp files")
+	fmt.Printf("  %-18s %s\n", "-hs, --history-search", "search previous sessions")
 	fmt.Printf("  %-18s %s\n", "-d [dir]", "generate codedump")
 	fmt.Printf("  %-18s %s\n", "-p [platform]", "switch platform")
 	fmt.Printf("  %-18s %s\n", "-m model", "specify model")
@@ -202,22 +202,14 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %-18s %s\n", "-e, --export", "export code blocks")
 	fmt.Println("")
 	fmt.Println("examples:")
+	fmt.Println("  ch -p \"openai\" -m \"gpt-4.1\" \"goal of life\"")
+	fmt.Println("  cat example.txt | ch \"what does this do?\"")
 	fmt.Println("  ch \"what is AI?\"")
-	fmt.Println("  ch -p groq -m llama3-8b-8192 \"explain quantum computing\"")
-	fmt.Println("  ch -o openai|gpt-4 \"what is quantum computing?\"")
-	fmt.Println("  ch -c                    # continue interactive from last session")
-	fmt.Println("  ch -c \"follow up question\"  # continue with new query")
-	fmt.Println("  ch --clear               # clear all temporary files (requires confirmation)")
-	fmt.Println("  ch -hs                   # search and load previous session")
-	fmt.Println("  ch -hs exact             # exact match search for previous sessions")
-	fmt.Println("  ch -l document.pdf")
-	fmt.Println("  ch -d /path/to/project")
-	fmt.Println("  cat main.py | ch \"what does this do?\"")
 	fmt.Println("")
 
 	// Dynamically generate platforms list
 	var platforms []string
-	platforms = append(platforms, "openai (default)")
+	platforms = append(platforms, "openai")
 	for name := range t.config.Platforms {
 		if name != "openai" {
 			platforms = append(platforms, name)
