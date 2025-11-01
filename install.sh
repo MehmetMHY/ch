@@ -244,7 +244,7 @@ build_ch() {
 
 	local os
 	os=$(detect_os)
-	local bin_path="$BIN_DIR/ch-bin"
+	local bin_path="$BIN_DIR/ch"
 
 	if [[ "$os" == "android" ]]; then
 		log "Building for Android (disabling CGO)..."
@@ -258,14 +258,7 @@ build_ch() {
 		go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
 	fi
 
-	log "Creating wrapper script..."
-	local wrapper_path="$BIN_DIR/ch"
-	cat >"$wrapper_path" <<EOF
-#!/usr/bin/env bash
-exec "\$HOME/.ch/bin/ch-bin" "\$@"
-EOF
-
-	chmod +x "$wrapper_path" || error "Failed to make wrapper script executable"
+	chmod +x "$bin_path" || error "Failed to make binary executable"
 }
 
 create_symlink() {

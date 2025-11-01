@@ -47,7 +47,7 @@ func main() {
 		modelFlag      = flag.String("m", "", "Specify model to use")
 		allModelsFlag  = flag.String("o", "", "Specify platform and model (format: platform|model)")
 		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
-		tokenFlag      = flag.String("t", "", "Count tokens in file")
+		tokenFlag      = flag.String("t", "", "Estimate token count in file")
 		loadFileFlag   = flag.String("l", "", "Load and display file content (supports text, PDF, DOCX, XLSX, CSV)")
 		webSearchFlag  = flag.String("w", "", "Perform a web search and print the results")
 		scrapeURLFlag  = flag.String("s", "", "Scrape a URL and print the content")
@@ -55,7 +55,7 @@ func main() {
 		clearFlag      = flag.Bool("clear", false, "Clear latest session")
 		historyFlag    = flag.Bool("hs", false, "Search and load previous sessions")
 	)
-	flag.StringVar(tokenFlag, "token", "", "Count tokens in file")
+	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file")
 	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
 	flag.BoolVar(historyFlag, "history-search", false, "Search and load previous sessions")
 

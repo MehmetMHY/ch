@@ -209,8 +209,8 @@ convert_images() {
 
 				local temp_png="$temp_dir/${width}x${height}.png"
 
-				# resize logo to exact size (! forces exact dimensions without maintaining aspect ratio)
-				if convert "$logo_file" -resize "${width}x${height}!" "$temp_png"; then
+				# resize logo while maintaining aspect ratio, then pad with transparency to exact size
+				if convert "$logo_file" -resize "${width}x${height}" -background transparent -gravity center -extent "${width}x${height}" "$temp_png"; then
 					echo "    Created ${width}x${height} version"
 				else
 					echo "    Failed to create ${width}x${height} version"
