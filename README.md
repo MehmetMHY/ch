@@ -503,6 +503,8 @@ make dev
 
 ## Uninstall
 
+**Warning**: The uninstall script will immediately delete `~/.ch/` without confirmation. Make sure you've backed up any important files from this directory before running.
+
 Ch can be uninstalled using the install script's uninstall option (see [Installation](#installation) section) or manually:
 
 ```bash
