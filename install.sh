@@ -20,8 +20,7 @@ warning() {
 }
 
 uninstall_ch() {
-	log "Ch Uninstaller"
-	echo
+	echo -e "\033[91mRemoving Ch installation...\033[0m"
 
 	local os
 	os=$(detect_os)
@@ -30,21 +29,10 @@ uninstall_ch() {
 		error "Ch is not installed at $CH_HOME"
 	fi
 
-	echo -e "\033[93mRemoving the following:\033[0m"
-	echo -e "  - Ch installation directory: $CH_HOME"
-
-	if [[ "$os" == "android" ]]; then
-		echo -e "  - Symlink: $PREFIX/bin/ch"
-	else
-		echo -e "  - Symlink: /usr/local/bin/ch (if exists)"
-	fi
-
-	log "Removing Ch installation..."
-
 	if [[ "$os" == "android" ]]; then
 		if [[ -L "$PREFIX/bin/ch" ]]; then
 			rm -f "$PREFIX/bin/ch"
-			log "Removed symlink: $PREFIX/bin/ch"
+			echo -e "\033[91mRemoved symlink: $PREFIX/bin/ch\033[0m"
 		fi
 	else
 		if [[ -L "/usr/local/bin/ch" ]]; then
@@ -57,16 +45,38 @@ uninstall_ch() {
 					warning "Could not remove /usr/local/bin/ch (no sudo access)"
 				fi
 			fi
-			log "Removed symlink: /usr/local/bin/ch"
+			echo -e "\033[91mRemoved symlink: /usr/local/bin/ch\033[0m"
 		fi
 	fi
 
 	rm -rf "$CH_HOME"
-	log "Removed installation directory: $CH_HOME"
-
-	echo
-	echo -e "\033[92m✓ Ch has been successfully uninstalled\033[0m"
+	echo -e "\033[91mRemoved installation directory: $CH_HOME\033[0m"
+	echo -e "\033[96mCh has been successfully uninstalled\033[0m"
 	exit 0
+}
+
+safe_uninstall_ch() {
+	log "Ch Safe Uninstaller"
+	echo -e "\033[93mThis will remove the following:\033[0m"
+	echo -e "\033[93m- Config, history, & sessions: $CH_HOME\033[0m"
+	local os
+	os=$(detect_os)
+	if [[ "$os" == "android" ]]; then
+		echo -e "\033[93m- Symlink: $PREFIX/bin/ch\033[0m"
+	else
+		echo -e "\033[93m- Symlink: /usr/local/bin/ch (if exists)\033[0m"
+	fi
+	if [[ ! -d "$CH_HOME" ]]; then
+		error "Ch is not installed at $CH_HOME"
+	fi
+	local response
+	response=$(safe_input "$(echo -e '\033[92mAre you sure you want to uninstall Ch? \033[91m(y/N) \033[0m')") || response=""
+	# Convert to lowercase
+	response=$(echo "$response" | tr '[:upper:]' '[:lower:]')
+	if [[ "$response" != "y" ]] && [[ "$response" != "yes" ]]; then
+		exit 0
+	fi
+	uninstall_ch
 }
 
 check_go() {
@@ -615,11 +625,12 @@ show_help() {
 	echo "Ch setup script for installation, building, and maintenance"
 	echo ""
 	echo "Options:"
-	echo "  -u, --uninstall     Uninstall Ch from the system"
-	echo "  -b, --build         Build Ch locally (requires local repository)"
-	echo "  -r, --refresh-deps  Refresh Go dependencies before building (local only)"
-	echo "  -v, --version       Update version in Makefile (local only)"
-	echo "  -h, --help          Show this help message"
+	echo "  -s, --safe-uninstall     Uninstall Ch with confirmation prompt"
+	echo "  -u, --uninstall          Uninstall Ch from the system"
+	echo "  -b, --build              Build Ch locally (requires local repository)"
+	echo "  -r, --refresh-deps       Refresh Go dependencies before building (local only)"
+	echo "  -v, --version            Update version in Makefile (local only)"
+	echo "  -h, --help               Show this help message"
 	echo ""
 	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
 	echo ""
@@ -640,6 +651,9 @@ main() {
 		case "$1" in
 		-u | --uninstall)
 			uninstall_ch
+			;;
+		-s | --safe-uninstall)
+			safe_uninstall_ch
 			;;
 		-b | --build)
 			if [[ "$is_remote_install" == true ]]; then

@@ -105,10 +105,10 @@ cd ch
 **Uninstall:**
 
 ```bash
-# run installer with the uninstall flag
-curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash -s -- --uninstall
+# safe uninstall with confirmation prompt (recommended)
+./install.sh --safe-uninstall
 
-# or if you have the installer script locally
+# or uninstall without confirmation
 ./install.sh --uninstall
 ```
 
@@ -503,9 +503,17 @@ make dev
 
 ## Uninstall
 
-**Warning**: The uninstall script will immediately delete `~/.ch/` without confirmation. Make sure you've backed up any important files from this directory before running.
+Use `--safe-uninstall` for a confirmation prompt before deletion (recommended). The `--uninstall` flag deletes immediately without confirmation.
 
-Ch can be uninstalled using the install script's uninstall option (see [Installation](#installation) section) or manually:
+```bash
+# safe uninstall with confirmation prompt (recommended)
+./install.sh --safe-uninstall
+
+# or uninstall without confirmation
+./install.sh --uninstall
+```
+
+Manual uninstall:
 
 ```bash
 # manual uninstall for Unix-based systems
