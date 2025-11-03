@@ -327,6 +327,12 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 // isSlowModel checks if the model is a slow/reasoning model that requires non-streaming
 // NOTE: This is hard-coded for what is considered a slow model
 func (m *Manager) isSlowModel(modelName string) bool {
+	// Check if model contains "gpt-*-search" pattern anywhere (not slow)
+	matched, _ := regexp.MatchString(`gpt-.+-search`, modelName)
+	if matched {
+		return false
+	}
+
 	// Special handling for gpt-5 models: only consider them slow if they don't end with nano or mini
 	if strings.HasPrefix(modelName, "gpt-5") {
 		if strings.HasSuffix(modelName, "nano") || strings.HasSuffix(modelName, "mini") {
