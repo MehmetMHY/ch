@@ -221,7 +221,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
 - Plus all other configuration options using snake_case JSON field names
 
-For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). But note that config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
+For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). But note that the config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
 
 ### Local & Open-Source Setup
 

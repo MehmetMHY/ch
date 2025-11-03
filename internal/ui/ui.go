@@ -369,7 +369,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - clear chat history", t.config.ClearHistory),
 		fmt.Sprintf("%s - backtrack messages", t.config.Backtrack),
 		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
-		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
+		fmt.Sprintf("%s - multiline input mode", t.config.MultiLine),
 		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - select from all models", t.config.AllModels),
 		fmt.Sprintf("%s - switch platforms", t.config.PlatformSwitch),
