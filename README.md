@@ -284,8 +284,8 @@ ch -w "golang features" | head -10
 # session continuation - automatically saves and restores conversations
 ch -c                              # continue last session interactively
 ch -c "follow up question"         # continue with a new query
-ch -hs                             # search and load a previous session
-ch -hs exact                       # exact match search for previous sessions
+ch -a                              # fuzzy search and load a previous session
+ch -a exact                        # exact match search for previous sessions
 ch --clear                         # clear all temporary files and sessions
 ```
 
@@ -303,7 +303,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!o`** - select from all models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
-- **`!hs`** - search and load previous sessions
+- **`!a [exact]`** - search and load sessions
 - **`!x`** - record shell session
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history

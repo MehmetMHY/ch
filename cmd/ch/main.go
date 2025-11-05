@@ -53,11 +53,11 @@ func main() {
 		scrapeURLFlag  = flag.String("s", "", "Scrape a URL and print the content")
 		continueFlag   = flag.Bool("c", false, "Continue from latest session")
 		clearFlag      = flag.Bool("clear", false, "Clear latest session")
-		historyFlag    = flag.Bool("hs", false, "Search and load previous sessions")
+		historyFlag    = flag.Bool("a", false, "Search and load previous sessions")
 	)
 	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file")
 	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
-	flag.BoolVar(historyFlag, "history-search", false, "Search and load previous sessions")
+	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
 
 	flag.Parse()
 	remainingArgs := flag.Args()
@@ -817,13 +817,13 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		return true
 
-	case input == "!hs" || input == "!hs exact":
+	case input == "!a" || input == "!a exact":
 		if !config.SaveAllSessions {
 			terminal.PrintError("session search requires save_all_sessions to be enabled in config")
 			return true
 		}
 
-		exact := input == "!hs exact"
+		exact := input == "!a exact"
 		session, err := chatManager.SearchSessions(terminal, exact)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))

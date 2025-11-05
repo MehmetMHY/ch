@@ -184,13 +184,13 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("ch - lightweight CLI for AI models")
 	fmt.Println("")
 	fmt.Println("usage:")
-	fmt.Printf("  ch [-h] [-c] [--clear] [-hs] [-d [dir]] [-p [platform]] [-m model] [-o platform|model] [-l file/url] [-w query] [-s url] [-e] [query]\n")
+	fmt.Printf("  ch [-h] [-c] [--clear] [-a] [-d [dir]] [-p [platform]] [-m model] [-o platform|model] [-l file/url] [-w query] [-s url] [-e] [query]\n")
 	fmt.Println("")
 	fmt.Println("options:")
 	fmt.Printf("  %-18s %s\n", "-h, --help", "show help and exit")
 	fmt.Printf("  %-18s %s\n", "-c, --continue", "continue from latest session")
 	fmt.Printf("  %-18s %s\n", "--clear", "clear all tmp files")
-	fmt.Printf("  %-18s %s\n", "-hs, --history-search", "search previous sessions")
+	fmt.Printf("  %-18s %s\n", "-a, --history", "search sessions")
 	fmt.Printf("  %-18s %s\n", "-d [dir]", "generate codedump")
 	fmt.Printf("  %-18s %s\n", "-p [platform]", "switch platform")
 	fmt.Printf("  %-18s %s\n", "-m model", "specify model")
@@ -377,7 +377,7 @@ func (t *Terminal) getInteractiveHelpOptions() []string {
 		fmt.Sprintf("%s - record shell session", t.config.ShellRecord),
 		fmt.Sprintf("%s [url] - scrape URL(s)", t.config.ScrapeURL),
 		fmt.Sprintf("%s [query] - web search", t.config.WebSearch),
-		"!hs - search previous sessions",
+		"!a [exact] - search sessions",
 		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
 		fmt.Sprintf("%s - export chat(s) to a file", t.config.ExportChat),
 		fmt.Sprintf("%s - add to clipboard", t.config.CopyToClipboard),
@@ -398,7 +398,7 @@ func (t *Terminal) PrintTitle() {
 	fmt.Printf("\033[93m%s - backtrack\033[0m\n", t.config.Backtrack)
 	fmt.Printf("\033[93m%s - help page\033[0m\n", t.config.HelpKey)
 	fmt.Printf("\033[93m%s - load files/dirs\033[0m\n", t.config.LoadFiles)
-	fmt.Printf("\033[93m!hs - search previous sessions\033[0m\n")
+	fmt.Printf("\033[93m!a [exact] - search sessions\033[0m\n")
 	fmt.Printf("\033[93m%s - generate codedump\033[0m\n", t.config.CodeDump)
 	fmt.Printf("\033[93m%s - export chat\033[0m\n", t.config.ExportChat)
 	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
