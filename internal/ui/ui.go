@@ -359,52 +359,46 @@ func (t *Terminal) processHelpSelection(selected string, options []string) strin
 	return ""
 }
 
-// getInteractiveHelpOptions returns a slice of strings containing the help information.
-func (t *Terminal) getInteractiveHelpOptions() []string {
-	options := []string{
-		">all - show all help options",
-		">state - show current state",
+// getCommandList returns the list of help commands
+func (t *Terminal) getCommandList() []string {
+	return []string{
 		fmt.Sprintf("%s - exit interface", t.config.ExitKey),
 		fmt.Sprintf("%s - help page", t.config.HelpKey),
 		fmt.Sprintf("%s - clear chat history", t.config.ClearHistory),
 		fmt.Sprintf("%s - backtrack messages", t.config.Backtrack),
-		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
-		fmt.Sprintf("%s - multiline input mode", t.config.MultiLine),
-		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - select from all models", t.config.AllModels),
+		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - switch platforms", t.config.PlatformSwitch),
-		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
 		fmt.Sprintf("%s - record shell session", t.config.ShellRecord),
-		fmt.Sprintf("%s [url] - scrape URL(s)", t.config.ScrapeURL),
-		fmt.Sprintf("%s [query] - web search", t.config.WebSearch),
-		"!a [exact] - search sessions",
 		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
 		fmt.Sprintf("%s - export chat(s) to a file", t.config.ExportChat),
 		fmt.Sprintf("%s - add to clipboard", t.config.CopyToClipboard),
+		fmt.Sprintf("%s - multiline input mode", t.config.MultiLine),
+		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
+		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
+		fmt.Sprintf("%s [url] - scrape URL(s)", t.config.ScrapeURL),
+		fmt.Sprintf("%s [query] - web search", t.config.WebSearch),
+		fmt.Sprintf("%s [exact] - search sessions", t.config.AnswerSearch),
 		"ctrl+c - clear prompt input",
 		"ctrl+d - exit completely",
 	}
+}
 
+// getInteractiveHelpOptions returns a slice of strings containing the help information for fzf selection.
+func (t *Terminal) getInteractiveHelpOptions() []string {
+	options := []string{
+		">all - show all help options",
+		">state - show current state",
+	}
+	options = append(options, t.getCommandList()...)
 	return options
 }
 
 // PrintTitle displays the current session information
 func (t *Terminal) PrintTitle() {
-	fmt.Printf("\033[93m%s - exit interface\033[0m\n", t.config.ExitKey)
-	fmt.Printf("\033[93m%s - switch models\033[0m\n", t.config.ModelSwitch)
-	fmt.Printf("\033[93m%s - switch platforms\033[0m\n", t.config.PlatformSwitch)
-	fmt.Printf("\033[93m%s [buff] - text editor input\033[0m\n", t.config.EditorInput)
-	fmt.Printf("\033[93m%s - clear history\033[0m\n", t.config.ClearHistory)
-	fmt.Printf("\033[93m%s - backtrack\033[0m\n", t.config.Backtrack)
-	fmt.Printf("\033[93m%s - help page\033[0m\n", t.config.HelpKey)
-	fmt.Printf("\033[93m%s - load files/dirs\033[0m\n", t.config.LoadFiles)
-	fmt.Printf("\033[93m!a [exact] - search sessions\033[0m\n")
-	fmt.Printf("\033[93m%s - generate codedump\033[0m\n", t.config.CodeDump)
-	fmt.Printf("\033[93m%s - export chat\033[0m\n", t.config.ExportChat)
-	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
-	fmt.Printf("\033[93m%s - multi-line input\033[0m\n", t.config.MultiLine)
-	fmt.Printf("\033[93mctrl+c - clear prompt input\033[0m\n")
-	fmt.Printf("\033[93mctrl+d - exit interface completely\033[0m\n")
+	for _, cmd := range t.getCommandList() {
+		fmt.Printf("\033[93m%s\033[0m\n", cmd)
+	}
 }
 
 // ShowLoadingAnimation displays a loading animation
