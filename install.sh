@@ -252,23 +252,51 @@ build_ch() {
 	log "Building Ch..."
 	go mod download || error "Failed to download Go modules"
 
-	local os
-	os=$(detect_os)
 	local bin_path="$BIN_DIR/ch"
-
-	if [[ "$os" == "android" ]]; then
-		log "Building for Android (disabling CGO)..."
-		CGO_ENABLED=0 go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
-	elif [[ "$os" == "macos" ]] && [[ "$(uname -m)" == "arm64" ]]; then
-		log "Building for macOS on Apple Silicon with Homebrew flags..."
-		local brew_prefix
-		brew_prefix=$(brew --prefix)
-		CGO_CPPFLAGS="-I${brew_prefix}/include" CGO_LDFLAGS="-L${brew_prefix}/lib" go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
-	else
-		go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
-	fi
+	execute_build "direct" "$bin_path"
 
 	chmod +x "$bin_path" || error "Failed to make binary executable"
+}
+
+# Helper function to execute build command with OS-specific settings
+# Takes two arguments:
+#   1. build_method: either "direct" (for go build) or "make" (for make build)
+#   2. output_path: path for output binary (only used with direct method)
+execute_build() {
+	local build_method="$1"
+	local output_path="$2"
+
+	local os
+	os=$(detect_os)
+
+	if [[ "$os" == "android" ]]; then
+		if [[ "$build_method" == "direct" ]]; then
+			log "Building for Android (disabling CGO)..."
+			CGO_ENABLED=0 go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+		else
+			log "Building for Android (disabling CGO)..."
+			CGO_ENABLED=0 make build || error "Build failed"
+		fi
+	elif [[ "$os" == "macos" ]] && [[ "$(uname -m)" == "arm64" ]]; then
+		local brew_prefix
+		brew_prefix=$(brew --prefix)
+		if [[ "$build_method" == "direct" ]]; then
+			log "Building for macOS on Apple Silicon with Homebrew flags..."
+			CGO_CPPFLAGS="-I${brew_prefix}/include" CGO_LDFLAGS="-L${brew_prefix}/lib" go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+		else
+			log "Building for macOS on Apple Silicon with Homebrew flags..."
+			export CGO_CPPFLAGS="-I${brew_prefix}/include"
+			export CGO_LDFLAGS="-L${brew_prefix}/lib"
+			make build || error "Build failed"
+		fi
+	else
+		if [[ "$build_method" == "direct" ]]; then
+			go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+		else
+			log "Building project..."
+			make build || error "Build failed"
+		fi
+	fi
 }
 
 create_symlink() {
@@ -409,23 +437,7 @@ build_only() {
 	log "Downloading dependencies..."
 	go mod download || error "Failed to download Go modules"
 
-	local os
-	os=$(detect_os)
-
-	if [[ "$os" == "android" ]]; then
-		log "Building for Android (disabling CGO)..."
-		CGO_ENABLED=0 make build || error "Build failed"
-	elif [[ "$os" == "macos" ]] && [[ "$(uname -m)" == "arm64" ]]; then
-		log "Building for macOS on Apple Silicon with Homebrew flags..."
-		local brew_prefix
-		brew_prefix=$(brew --prefix)
-		export CGO_CPPFLAGS="-I${brew_prefix}/include"
-		export CGO_LDFLAGS="-L${brew_prefix}/lib"
-		make build || error "Build failed"
-	else
-		log "Building project..."
-		make build || error "Build failed"
-	fi
+	execute_build "make" ""
 
 	echo
 	echo -e "\033[92m✓ Build complete!\033[0m"

@@ -97,14 +97,14 @@ func main() {
 			return
 		}
 
-		// Delete and recreate temp directory
-		homeDir, err := os.UserHomeDir()
+		// Get temp directory using centralized utility
+		tmpDir, err := config.GetTempDir()
 		if err != nil {
-			terminal.PrintError("failed to get home directory")
+			terminal.PrintError(fmt.Sprintf("failed to get temp directory: %v", err))
 			return
 		}
 
-		tmpDir := filepath.Join(homeDir, ".ch", "tmp")
+		// Delete and recreate temp directory
 		err = os.RemoveAll(tmpDir)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error clearing temporary files: %v", err))
@@ -1565,37 +1565,6 @@ func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.M
 		}
 	}
 
-	return nil
-}
-
-// handleLoadFile loads and displays file content or scrapes URL
-// If prompt is provided, sends content + prompt to AI
-// If no prompt, just displays the content
-func handleLoadFile(filePath string, terminal *ui.Terminal) error {
-	// Check if it's a URL
-	if terminal.IsURL(filePath) {
-		// Use the same loading logic as !l command for URLs
-		content, err := terminal.LoadFileContent([]string{filePath})
-		if err != nil {
-			return fmt.Errorf("failed to scrape URL: %w", err)
-		}
-		fmt.Print(content)
-		return nil
-	}
-
-	// Check if file exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("file does not exist: %s", filePath)
-	}
-
-	// Use the same loading logic as !l command
-	content, err := terminal.LoadFileContent([]string{filePath})
-	if err != nil {
-		return fmt.Errorf("failed to load file: %w", err)
-	}
-
-	// Print the content directly to stdout
-	fmt.Print(content)
 	return nil
 }
 
