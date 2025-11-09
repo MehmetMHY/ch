@@ -369,7 +369,7 @@ func main() {
 
 		// If no prompt, just display results
 		if prompt == "" {
-			fmt.Println(combinedResults)
+			fmt.Print(combinedResults)
 			return
 		}
 

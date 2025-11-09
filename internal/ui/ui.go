@@ -1752,9 +1752,6 @@ func (t *Terminal) formatBraveSearchResults(results []BraveWebResult, query stri
 					result.WriteString(fmt.Sprintf("\033[92m%s\033[0m\n", searchResult.Description))
 				}
 			}
-			if i < len(results)-1 {
-				result.WriteString("\n")
-			}
 		}
 	}
 
