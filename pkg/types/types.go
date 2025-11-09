@@ -88,7 +88,6 @@ type Config struct {
 	HelpKey           string              `json:"help_key,omitempty"`
 	ExportChat        string              `json:"export_chat,omitempty"`
 	Backtrack         string              `json:"backtrack,omitempty"`
-	SaveHistory       string              `json:"save_history,omitempty"`
 	WebSearch         string              `json:"web_search,omitempty"`
 	ShowSearchResults bool                `json:"show_search_results,omitempty"`
 	NumSearchResults  int                 `json:"num_search_results,omitempty"`
@@ -97,14 +96,11 @@ type Config struct {
 	ScrapeURL         string              `json:"scrape_url,omitempty"`
 	CopyToClipboard   string              `json:"copy_to_clipboard,omitempty"`
 	LoadFiles         string              `json:"load_files,omitempty"`
-	LoadFilesAdv      string              `json:"load_files_adv,omitempty"`
 	AnswerSearch      string              `json:"answer_search,omitempty"`
 	PlatformSwitch    string              `json:"platform_switch,omitempty"`
 	CodeDump          string              `json:"code_dump,omitempty"`
 	ShellRecord       string              `json:"shell_record,omitempty"`
 	ShellOption       string              `json:"shell_option,omitempty"`
-	LoadHistory       string              `json:"load_history,omitempty"`
-	EditorAlias       string              `json:"editor_alias,omitempty"`
 	MultiLine         string              `json:"multi_line,omitempty"`
 	PreferredEditor   string              `json:"preferred_editor,omitempty"`
 	CurrentPlatform   string              `json:"current_platform,omitempty"`

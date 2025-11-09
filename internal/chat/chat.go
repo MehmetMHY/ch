@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -4497,7 +4496,7 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 	}
 
 	// Generate base hash once
-	baseHash := m.generateHashFromContent(content, 5)
+	baseHash := GenerateHashFromContent(content, 5)
 
 	// Generate options for each extension
 	for _, ext := range extensions {
@@ -4523,7 +4522,7 @@ func (m *Manager) generateUniqueFilename(currentDir, baseHash, ext, content stri
 	if m.hasFilesWithPattern(currentDir, pattern) {
 		// Try different substrings of content-based hash
 		for offset := 1; offset <= 10; offset++ {
-			newHash := m.generateHashFromContentWithOffset(content, 5, offset)
+			newHash := GenerateHashFromContentWithOffset(content, 5, offset)
 			filename = fmt.Sprintf("ch_%s%s", newHash, ext)
 			fullPath = filepath.Join(currentDir, filename)
 
@@ -4559,43 +4558,6 @@ func (m *Manager) hasFilesWithPattern(currentDir, pattern string) bool {
 		}
 	}
 	return false
-}
-
-// generateHashFromContent creates a random hash using characters from the content
-func (m *Manager) generateHashFromContent(content string, length int) string {
-	return m.generateHashFromContentWithOffset(content, length, 0)
-}
-
-// generateHashFromContentWithOffset creates a hash with an offset for collision avoidance
-func (m *Manager) generateHashFromContentWithOffset(content string, length, offset int) string {
-	// Extract alphanumeric characters from content
-	var charset []rune
-	for _, char := range content {
-		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') {
-			charset = append(charset, char)
-		}
-	}
-
-	// Fallback to default charset if content has no alphanumeric characters
-	if len(charset) == 0 {
-		charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-	}
-
-	// Use content + offset as seed for more variation
-	seed := int64(len(content) + offset)
-	for i, char := range content {
-		if i < 100 { // Only use first 100 chars to avoid overflow
-			seed += int64(char) * int64(i+offset+1)
-		}
-	}
-	rand.Seed(seed)
-
-	// Generate hash
-	hash := make([]rune, length)
-	for i := range hash {
-		hash[i] = charset[rand.Intn(len(charset))]
-	}
-	return string(hash)
 }
 
 // getAllFilesInCurrentDir returns all files in the current directory and subdirectories

@@ -78,9 +78,6 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.Backtrack != "" {
 		defaultConfig.Backtrack = userConfig.Backtrack
 	}
-	if userConfig.SaveHistory != "" {
-		defaultConfig.SaveHistory = userConfig.SaveHistory
-	}
 	if userConfig.WebSearch != "" {
 		defaultConfig.WebSearch = userConfig.WebSearch
 	}
@@ -102,9 +99,6 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.LoadFiles != "" {
 		defaultConfig.LoadFiles = userConfig.LoadFiles
 	}
-	if userConfig.LoadFilesAdv != "" {
-		defaultConfig.LoadFilesAdv = userConfig.LoadFilesAdv
-	}
 	if userConfig.AnswerSearch != "" {
 		defaultConfig.AnswerSearch = userConfig.AnswerSearch
 	}
@@ -122,12 +116,6 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	}
 	if userConfig.ShellOption != "" {
 		defaultConfig.ShellOption = userConfig.ShellOption
-	}
-	if userConfig.LoadHistory != "" {
-		defaultConfig.LoadHistory = userConfig.LoadHistory
-	}
-	if userConfig.EditorAlias != "" {
-		defaultConfig.EditorAlias = userConfig.EditorAlias
 	}
 	if userConfig.MultiLine != "" {
 		defaultConfig.MultiLine = userConfig.MultiLine
@@ -205,7 +193,6 @@ func DefaultConfig() *types.Config {
 		HelpKey:           "!h",
 		ExportChat:        "!e",
 		Backtrack:         "!b",
-		SaveHistory:       "!z",
 		WebSearch:         "!w",
 		ShowSearchResults: false,
 		NumSearchResults:  5,
@@ -214,15 +201,12 @@ func DefaultConfig() *types.Config {
 		ScrapeURL:         "!s",
 		CopyToClipboard:   "!y",
 		LoadFiles:         "!l",
-		LoadFilesAdv:      "!f",
 		AnswerSearch:      "!a",
 		PlatformSwitch:    "!p",
 		AllModels:         "!o",
 		CodeDump:          "!d",
 		ShellRecord:       "!x",
 		ShellOption:       "!x",
-		LoadHistory:       "!r",
-		EditorAlias:       "!v",
 		MultiLine:         "\\",
 		PreferredEditor:   "vim",
 		CurrentPlatform:   "openai",

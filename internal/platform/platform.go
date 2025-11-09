@@ -80,7 +80,7 @@ func (m *Manager) SendChatRequest(messages []types.ChatMessage, model string, st
 		})
 	}
 
-	if m.isReasoningModel(model) {
+	if m.IsReasoningModel(model) {
 		return m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
 	}
 
@@ -363,13 +363,9 @@ func (m *Manager) isSlowModel(modelName string) bool {
 	return false
 }
 
-func (m *Manager) isReasoningModel(modelName string) bool {
-	return m.isSlowModel(modelName)
-}
-
 // IsReasoningModel checks if the model is a reasoning model (like o1, o2, etc.)
 func (m *Manager) IsReasoningModel(modelName string) bool {
-	return m.isReasoningModel(modelName)
+	return m.isSlowModel(modelName)
 }
 
 func (m *Manager) sendNonStreamingRequest(openaiMessages []openai.ChatCompletionMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
