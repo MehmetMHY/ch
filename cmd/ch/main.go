@@ -1615,7 +1615,7 @@ func handleWebSearch(query string, chatManager *chat.Manager, terminal *ui.Termi
 // generateUniqueCodeDumpFilename generates a unique filename for code dump with collision detection
 func generateUniqueCodeDumpFilename(currentDir, content string) string {
 	baseHash := chat.GenerateHashFromContent(content, 8)
-	filename := fmt.Sprintf("code_dump_%s.txt", baseHash)
+	filename := fmt.Sprintf("ch_cd%s.txt", baseHash)
 	fullPath := filepath.Join(currentDir, filename)
 
 	// Check if file exists, if not return it
@@ -1626,7 +1626,7 @@ func generateUniqueCodeDumpFilename(currentDir, content string) string {
 	// If file exists, try with different offsets
 	for offset := 1; offset <= 10; offset++ {
 		newHash := chat.GenerateHashFromContentWithOffset(content, 8, offset)
-		filename = fmt.Sprintf("code_dump_%s.txt", newHash)
+		filename = fmt.Sprintf("ch_cd%s.txt", newHash)
 		fullPath = filepath.Join(currentDir, filename)
 
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
@@ -1636,7 +1636,7 @@ func generateUniqueCodeDumpFilename(currentDir, content string) string {
 
 	// If still colliding, add a numeric suffix
 	for counter := 1; counter <= 999; counter++ {
-		filename = fmt.Sprintf("code_dump_%s_%03d.txt", baseHash, counter)
+		filename = fmt.Sprintf("ch_cd%s_%03d.txt", baseHash, counter)
 		fullPath = filepath.Join(currentDir, filename)
 
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
@@ -1645,7 +1645,7 @@ func generateUniqueCodeDumpFilename(currentDir, content string) string {
 	}
 
 	// Fallback to original UUID if everything fails
-	return fmt.Sprintf("code_dump_%s.txt", uuid.New().String())
+	return fmt.Sprintf("ch_cd%s.txt", uuid.New().String())
 }
 
 // handleAllModels handles the !o command for selecting from all available models
