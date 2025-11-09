@@ -169,28 +169,6 @@ func main() {
 		return
 	}
 
-	// handle web search flag
-	if *webSearchFlag != "" {
-		results, err := terminal.WebSearch(*webSearchFlag)
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error during web search: %v", err))
-			return
-		}
-		fmt.Println(results)
-		return
-	}
-
-	// handle scrape URL flag
-	if *scrapeURLFlag != "" {
-		content, err := terminal.ScrapeURLs([]string{*scrapeURLFlag})
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error scraping URL: %v", err))
-			return
-		}
-		fmt.Println(strings.TrimSpace(content))
-		return
-	}
-
 	// handle codedump flag
 	if flag.Lookup("d").Value.String() != flag.Lookup("d").DefValue {
 		targetDir := *codedumpFlag
@@ -237,15 +215,6 @@ func main() {
 		err := handleExportCodeBlocks(chatManager, terminal)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error exporting code blocks: %v", err))
-		}
-		return
-	}
-
-	// handle load file flag
-	if *loadFileFlag != "" {
-		err := handleLoadFile(*loadFileFlag, terminal)
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error loading file: %v", err))
 		}
 		return
 	}
@@ -377,6 +346,119 @@ func main() {
 	err := platformManager.Initialize()
 	if err != nil {
 		terminal.PrintError(fmt.Sprintf("failed to initialize client: %v", err))
+		return
+	}
+
+	// handle web search flag
+	if *webSearchFlag != "" {
+		queries := splitByDelimiters(*webSearchFlag)
+		prompt := strings.Join(flag.Args(), " ")
+
+		// Combine results from multiple queries
+		var allResults []string
+		for _, query := range queries {
+			results, err := terminal.WebSearch(query)
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error during web search for '%s': %v", query, err))
+				continue
+			}
+			allResults = append(allResults, results)
+		}
+
+		combinedResults := strings.Join(allResults, "\n\n---\n\n")
+
+		// If no prompt, just display results
+		if prompt == "" {
+			fmt.Println(combinedResults)
+			return
+		}
+
+		// If prompt provided, send to AI with context
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedResults, prompt)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error: %v", err))
+		}
+		return
+	}
+
+	// handle scrape URL flag
+	if *scrapeURLFlag != "" {
+		urls := splitByDelimiters(*scrapeURLFlag)
+		prompt := strings.Join(flag.Args(), " ")
+
+		// Combine content from multiple URLs
+		var allContent []string
+		for _, url := range urls {
+			content, err := terminal.ScrapeURLs([]string{url})
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error scraping URL '%s': %v", url, err))
+				continue
+			}
+			allContent = append(allContent, content)
+		}
+
+		combinedContent := strings.Join(allContent, "\n\n---\n\n")
+
+		// If no prompt, just display content
+		if prompt == "" {
+			fmt.Println(strings.TrimSpace(combinedContent))
+			return
+		}
+
+		// If prompt provided, send to AI with context
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error: %v", err))
+		}
+		return
+	}
+
+	// handle load file flag
+	if *loadFileFlag != "" {
+		files := splitByDelimiters(*loadFileFlag)
+		prompt := strings.Join(flag.Args(), " ")
+
+		// Load content from all specified files
+		var allContent []string
+		for _, file := range files {
+			// Check if it's a URL
+			if terminal.IsURL(file) {
+				content, err := terminal.LoadFileContent([]string{file})
+				if err != nil {
+					terminal.PrintError(fmt.Sprintf("error loading URL '%s': %v", file, err))
+					continue
+				}
+				allContent = append(allContent, content)
+			} else {
+				// Check if file exists
+				if _, err := os.Stat(file); os.IsNotExist(err) {
+					terminal.PrintError(fmt.Sprintf("file does not exist: %s", file))
+					continue
+				}
+
+				// Load file content
+				content, err := terminal.LoadFileContent([]string{file})
+				if err != nil {
+					terminal.PrintError(fmt.Sprintf("error loading file '%s': %v", file, err))
+					continue
+				}
+				allContent = append(allContent, content)
+			}
+		}
+
+		combinedContent := strings.Join(allContent, "\n\n---\n\n")
+
+		// If no prompt, just display content
+		if prompt == "" {
+			fmt.Println(strings.TrimSpace(combinedContent))
+			return
+		}
+
+		// If prompt provided, send to AI with context
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error: %v", err))
+		}
 		return
 	}
 
@@ -1413,7 +1495,82 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 	return nil
 }
 
+// splitByDelimiters splits a string by both commas and pipes, trimming whitespace
+func splitByDelimiters(input string) []string {
+	// First split by comma
+	parts := strings.Split(input, ",")
+	var result []string
+
+	for _, part := range parts {
+		// Then split each part by pipe
+		subParts := strings.Split(part, "|")
+		for _, subPart := range subParts {
+			trimmed := strings.TrimSpace(subPart)
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+	}
+
+	return result
+}
+
+// handleFlagWithPrompt sends context and prompt to AI, then displays response
+// context: the loaded/scraped/searched content
+// prompt: the user's query/instruction
+func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, context string, prompt string) error {
+	// Combine context and prompt for the message
+	combinedMessage := context + "\n\n" + prompt
+
+	chatManager.AddUserMessage(combinedMessage)
+
+	// Start loading animation for non-streaming models
+	var loadingDone chan bool
+	if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
+		loadingDone = make(chan bool)
+		go terminal.ShowLoadingAnimation("thinking", loadingDone)
+	}
+
+	response, err := platformManager.SendChatRequest(chatManager.GetMessages(), chatManager.GetCurrentModel(), &state.StreamingCancel, &state.IsStreaming)
+
+	// Stop loading animation if it was started
+	if loadingDone != nil {
+		loadingDone <- true
+	}
+
+	if err != nil {
+		if err.Error() == "request was interrupted" {
+			chatManager.RemoveLastUserMessage()
+			return nil
+		}
+		return err
+	}
+
+	// Print response for non-streaming models
+	if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
+		if state.Config.IsPipedOutput {
+			fmt.Printf("%s\n", response)
+		} else {
+			fmt.Printf("\033[92m%s\033[0m\n", response)
+		}
+	}
+
+	chatManager.AddAssistantMessage(response)
+	chatManager.AddToHistory(prompt, response)
+
+	// Auto-save session state if enabled
+	if state.Config.EnableSessionSave {
+		if err := chatManager.SaveSessionState(); err != nil {
+			terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
+		}
+	}
+
+	return nil
+}
+
 // handleLoadFile loads and displays file content or scrapes URL
+// If prompt is provided, sends content + prompt to AI
+// If no prompt, just displays the content
 func handleLoadFile(filePath string, terminal *ui.Terminal) error {
 	// Check if it's a URL
 	if terminal.IsURL(filePath) {
