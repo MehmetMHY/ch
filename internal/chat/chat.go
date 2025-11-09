@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MehmetMHY/ch/internal/config"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/google/uuid"
@@ -28,99 +29,6 @@ func NewManager(state *types.AppState) *Manager {
 	return &Manager{
 		state: state,
 	}
-}
-
-// getTempDir returns the application's temporary directory, creating it if it doesn't exist
-func (m *Manager) getTempDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	tempDir := filepath.Join(homeDir, ".ch", "tmp")
-
-	// Create the directory if it doesn't exist
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create temp directory: %w", err)
-	}
-
-	return tempDir, nil
-}
-
-// getWorkingEditor tries the preferred editor, falls back to vim, then nano
-func (m *Manager) getWorkingEditor(testFile string) string {
-	editors := []string{m.state.Config.PreferredEditor, "vim", "nano"}
-
-	for _, editor := range editors {
-		// Check if the editor binary exists
-		if _, err := exec.LookPath(editor); err != nil {
-			continue
-		}
-
-		// Special handling for helix - try it but with a quick fallback if it fails
-		if editor == "hx" {
-			// Test if helix can actually run by trying it with a very brief command
-			// If this fails, we'll fall back to vim immediately
-			testCmd := exec.Command(editor, "--help")
-			if err := testCmd.Run(); err != nil {
-				continue // Skip helix and try vim
-			}
-			// If help works, let's try the real thing but be ready to catch panics
-		}
-
-		return editor
-	}
-
-	// Final fallback
-	return "nano"
-}
-
-// runEditorWithFallback tries to run the user's preferred editor, then falls back to common editors.
-func (m *Manager) runEditorWithFallback(filePath string) error {
-	var editors []string
-	if envEditor := os.Getenv("EDITOR"); envEditor != "" {
-		editors = append(editors, envEditor)
-	}
-	editors = append(editors, m.state.Config.PreferredEditor, "vim", "nano")
-
-	// Remove duplicates
-	seen := make(map[string]bool)
-	uniqueEditors := []string{}
-	for _, editor := range editors {
-		if editor != "" && !seen[editor] {
-			uniqueEditors = append(uniqueEditors, editor)
-			seen[editor] = true
-		}
-	}
-
-	for i, editor := range uniqueEditors {
-		// Check if the editor exists
-		if _, err := exec.LookPath(editor); err != nil {
-			continue
-		}
-
-		cmd := exec.Command(editor, filePath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-
-		// For the first attempts, suppress stderr to avoid showing error messages
-		// Only show stderr for the final attempt
-		if i < len(uniqueEditors)-1 {
-			cmd.Stderr = nil // Suppress error messages for fallback attempts
-		} else {
-			cmd.Stderr = os.Stderr // Show errors for final attempt
-		}
-
-		if err := cmd.Run(); err != nil {
-			// If this editor failed, try the next one
-			continue
-		}
-
-		// Success!
-		return nil
-	}
-
-	return fmt.Errorf("no working editor found")
 }
 
 // AddUserMessage adds a user message to the chat
@@ -245,7 +153,7 @@ func (m *Manager) ExportLastResponse() (string, error) {
 
 // SaveSessionState saves the current session state to a file with epoch timestamp
 func (m *Manager) SaveSessionState() error {
-	tmpDir, err := m.getTempDir()
+	tmpDir, err := config.GetTempDir()
 	if err != nil {
 		return fmt.Errorf("failed to get temp directory: %v", err)
 	}
@@ -285,7 +193,7 @@ func (m *Manager) SaveSessionState() error {
 
 // LoadLatestSessionState loads the session state from disk
 func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
-	tmpDir, err := m.getTempDir()
+	tmpDir, err := config.GetTempDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get temp directory: %v", err)
 	}
@@ -395,35 +303,13 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 	}
 }
 
-// DeleteLatestSessionFile deletes the session file
-func (m *Manager) DeleteLatestSessionFile() error {
-	tmpDir, err := m.getTempDir()
-	if err != nil {
-		return fmt.Errorf("failed to get temp directory: %v", err)
-	}
-
-	fullPath := filepath.Join(tmpDir, "ch_session_latest.json")
-
-	// Check if file exists
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		return fmt.Errorf("no session file to delete")
-	}
-
-	err = os.Remove(fullPath)
-	if err != nil {
-		return fmt.Errorf("failed to delete session file: %v", err)
-	}
-
-	return nil
-}
-
 // SearchSessions searches through all saved sessions using fzf
 func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.SessionFile, error) {
 	if !m.state.Config.SaveAllSessions {
 		return nil, fmt.Errorf("session search requires save_all_sessions to be enabled in config")
 	}
 
-	tmpDir, err := m.getTempDir()
+	tmpDir, err := config.GetTempDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get temp directory: %v", err)
 	}
@@ -631,7 +517,7 @@ func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 
 // HandleTerminalInput handles terminal input mode
 func (m *Manager) HandleTerminalInput() (string, error) {
-	tmpDir, err := m.getTempDir()
+	tmpDir, err := config.GetTempDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %v", err)
 	}
@@ -646,7 +532,7 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 	defer os.Remove(tmpFilePath)
 
 	// Try to run the editor with automatic fallback
-	err = m.runEditorWithFallback(tmpFilePath)
+	err = ui.RunEditorWithFallback(m.state.Config, tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
@@ -1200,7 +1086,7 @@ func (m *Manager) generatePrioritizedFilenameOptions(content, priorityExt string
 
 // openInEditor opens content in the user's preferred text editor and returns the edited content
 func (m *Manager) openInEditor(content string) (string, error) {
-	tmpDir, err := m.getTempDir()
+	tmpDir, err := config.GetTempDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %v", err)
 	}
@@ -1223,7 +1109,7 @@ func (m *Manager) openInEditor(content string) (string, error) {
 	defer os.Remove(tmpFilePath)
 
 	// Open in editor with automatic fallback
-	err = m.runEditorWithFallback(tmpFilePath)
+	err = ui.RunEditorWithFallback(m.state.Config, tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
@@ -4726,7 +4612,7 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	}
 
 	// Check if this directory should be loaded shallowly
-	isShallow := m.isShallowLoadDir(absCurrentDir)
+	isShallow := config.IsShallowLoadDir(m.state.Config, absCurrentDir)
 
 	var files []string
 
@@ -4777,46 +4663,6 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	}
 
 	return files, nil
-}
-
-// isShallowLoadDir checks if a directory should be loaded shallowly (only 1 level deep)
-func (m *Manager) isShallowLoadDir(dirPath string) bool {
-	// Normalize the directory path
-	absPath, err := filepath.Abs(dirPath)
-	if err != nil {
-		return false
-	}
-	absPath = filepath.Clean(absPath)
-
-	// Check against each shallow load directory
-	for _, shallowDir := range m.state.Config.ShallowLoadDirs {
-		if shallowDir == "" {
-			continue
-		}
-
-		// Expand ~ to home directory
-		if strings.HasPrefix(shallowDir, "~") {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				continue
-			}
-			shallowDir = filepath.Join(homeDir, shallowDir[1:])
-		}
-
-		// Normalize shallow directory path
-		absShallowDir, err := filepath.Abs(shallowDir)
-		if err != nil {
-			continue
-		}
-		absShallowDir = filepath.Clean(absShallowDir)
-
-		// Check for exact match
-		if absPath == absShallowDir {
-			return true
-		}
-	}
-
-	return false
 }
 
 // AddRecentlyCreatedFile adds a file to the recently created files list

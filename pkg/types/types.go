@@ -152,10 +152,3 @@ type AppState struct {
 	IsExecutingCommand   bool
 	CommandCancel        func()
 }
-
-// ClientInitializer interface for creating AI clients
-type ClientInitializer interface {
-	Initialize(config *Config) error
-	SendChatRequest(messages []ChatMessage, model string) (string, error)
-	ListModels() ([]string, error)
-}

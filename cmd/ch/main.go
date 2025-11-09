@@ -1059,7 +1059,7 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 	}
 
 	// Check if this is a shallow load directory and inform the user
-	if isShallowLoadDir(targetPath, state.Config) {
+	if config.IsShallowLoadDir(state.Config, targetPath) {
 		terminal.PrintInfo("shallow loading")
 	}
 
@@ -1659,44 +1659,4 @@ func handleAllModels(chatManager *chat.Manager, platformManager *platform.Manage
 	}
 
 	return true
-}
-
-// isShallowLoadDir checks if a directory is in the shallow load list
-func isShallowLoadDir(dirPath string, cfg *types.Config) bool {
-	// Normalize the directory path
-	absPath, err := filepath.Abs(dirPath)
-	if err != nil {
-		return false
-	}
-	absPath = filepath.Clean(absPath)
-
-	// Check against each shallow load directory
-	for _, shallowDir := range cfg.ShallowLoadDirs {
-		if shallowDir == "" {
-			continue
-		}
-
-		// Expand ~ to home directory
-		if strings.HasPrefix(shallowDir, "~") {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				continue
-			}
-			shallowDir = filepath.Join(homeDir, shallowDir[1:])
-		}
-
-		// Normalize shallow directory path
-		absShallowDir, err := filepath.Abs(shallowDir)
-		if err != nil {
-			continue
-		}
-		absShallowDir = filepath.Clean(absShallowDir)
-
-		// Check for exact match
-		if absPath == absShallowDir {
-			return true
-		}
-	}
-
-	return false
 }
