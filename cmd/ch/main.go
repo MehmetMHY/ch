@@ -1029,7 +1029,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	case input == config.MultiLine:
 		var lines []string
-		terminal.PrintInfo("multi-line mode (end with '\\' on a new line)")
+		terminal.PrintInfo("multi-line mode (exit with '\\')")
 
 		// Create a new readline instance for multi-line input
 		multiLineRl, err := readline.NewEx(&readline.Config{

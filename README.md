@@ -298,7 +298,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!c`** - clear chat history
 - **`!b`** - backtrack messages
 - **`!t [buff]`** - text editor mode
-- **`\`** - multi-line input (end lines with `\` to continue like in [Claude Code](https://github.com/anthropics/claude-code))
+- **`\`** - multi-line mode (exit with `\`)
 - **`!m`** - switch models
 - **`!o`** - select from all models
 - **`!p`** - switch platforms

@@ -357,7 +357,7 @@ func (t *Terminal) getCommandList() []string {
 		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
 		fmt.Sprintf("%s - export chat(s)", t.config.ExportChat),
 		fmt.Sprintf("%s - add to clipboard", t.config.CopyToClipboard),
-		fmt.Sprintf("%s - multiline input mode", t.config.MultiLine),
+		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
 		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
 		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
 		fmt.Sprintf("%s [url] - scrape URL(s)", t.config.ScrapeURL),
