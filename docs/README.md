@@ -37,7 +37,7 @@ This opens the website locally in your browser.
 
 This converts and updates all image files using [ImageMagick](https://imagemagick.org/) based on the `logo.png` image.
 
-**Requirements**
+#### Requirements
 
 For this feature to work, install [ImageMagick](https://imagemagick.org/):
 

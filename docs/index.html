@@ -914,7 +914,7 @@
       }
 
       let docsLoaded = false;
-      let docsVisible = true;
+      let docsVisible = false;
       let docsRetryCount = 0;
       const DOCS_TIMEOUT_MS = 10000; // 10 seconds
       const DOCS_MAX_RETRIES = 1;
@@ -1039,7 +1039,7 @@
 
       function initializeDocsVisibility() {
         const savedState = localStorage.getItem("docsVisible");
-        const visible = savedState !== "false";
+        const visible = savedState === "true";
         applyDocsVisibility(visible);
       }
 
