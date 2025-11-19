@@ -308,7 +308,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump
-- **`!e`** - export chat(s) to a file
+- **`!e`** - export chat(s)
 - **`!y`** - add to clipboard
 - **`ctrl+c`** - clear prompt input
 - **`ctrl+d`** - exit completely
