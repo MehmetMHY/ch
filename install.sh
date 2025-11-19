@@ -66,16 +66,18 @@ safe_uninstall_ch() {
 	else
 		echo -e "\033[93m- Symlink: /usr/local/bin/ch (if exists)\033[0m"
 	fi
+
 	if [[ ! -d "$CH_HOME" ]]; then
 		error "Ch is not installed at $CH_HOME"
 	fi
+
 	local response
 	response=$(safe_input "$(echo -e '\033[92mAre you sure you want to uninstall Ch? \033[91m(y/N) \033[0m')") || response=""
-	# Convert to lowercase
 	response=$(echo "$response" | tr '[:upper:]' '[:lower:]')
 	if [[ "$response" != "y" ]] && [[ "$response" != "yes" ]]; then
 		exit 0
 	fi
+
 	uninstall_ch
 }
 
@@ -137,6 +139,7 @@ install_dependencies() {
 	if [[ ${#missing_required[@]} -gt 0 ]]; then
 		log "The following required system dependencies are missing: ${missing_required[*]}"
 	fi
+
 	if [[ ${#missing_optional[@]} -gt 0 ]]; then
 		log "The following optional system dependencies are missing: ${missing_optional[*]}"
 	fi
@@ -332,6 +335,7 @@ create_symlink() {
 		SYMLINK_SKIPPED=true
 	fi
 }
+
 check_api_keys() {
 	log "Checking API Key status..."
 
@@ -362,6 +366,7 @@ check_api_keys() {
 			echo -e "\033[93m- $key is not set (Optional)\033[0m"
 		fi
 	done
+
 	log "Done checking API key status"
 }
 
