@@ -73,7 +73,11 @@ func (m *Manager) Initialize() error {
 // SendChatRequest sends a chat request to the current platform
 func (m *Manager) SendChatRequest(messages []types.ChatMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
 	var openaiMessages []openai.ChatCompletionMessage
-	for _, msg := range messages {
+
+	// Merge consecutive user messages to handle cases like file loading + follow-up question
+	mergedMessages := m.mergeConsecutiveUserMessages(messages)
+
+	for _, msg := range mergedMessages {
 		openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
 			Role:    msg.Role,
 			Content: msg.Content,
@@ -85,6 +89,43 @@ func (m *Manager) SendChatRequest(messages []types.ChatMessage, model string, st
 	}
 
 	return m.sendStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+}
+
+// mergeConsecutiveUserMessages combines consecutive user messages into one
+// This handles cases where file content is loaded as one message, then a question is asked
+func (m *Manager) mergeConsecutiveUserMessages(messages []types.ChatMessage) []types.ChatMessage {
+	if len(messages) <= 1 {
+		return messages
+	}
+
+	var result []types.ChatMessage
+	var lastUserContent []string
+
+	for _, msg := range messages {
+		if msg.Role == "user" {
+			lastUserContent = append(lastUserContent, msg.Content)
+		} else {
+			// Non-user message: flush any accumulated user messages
+			if len(lastUserContent) > 0 {
+				result = append(result, types.ChatMessage{
+					Role:    "user",
+					Content: strings.Join(lastUserContent, "\n\n"),
+				})
+				lastUserContent = nil
+			}
+			result = append(result, msg)
+		}
+	}
+
+	// Flush any remaining user messages
+	if len(lastUserContent) > 0 {
+		result = append(result, types.ChatMessage{
+			Role:    "user",
+			Content: strings.Join(lastUserContent, "\n\n"),
+		})
+	}
+
+	return result
 }
 
 // ListModels returns available models for the current platform
