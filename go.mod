@@ -29,7 +29,7 @@ require (
 	github.com/peterbourgon/diskv/v3 v3.0.1 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/shabbyrobe/xmlwriter v0.0.0-20230525083848-85336ec334fa // indirect
+	github.com/shabbyrobe/xmlwriter v0.0.0-20251128030032-2fcb52763289 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 )

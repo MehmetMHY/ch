@@ -50,8 +50,8 @@ github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd h1:CmH9+J6ZSsIjUK
 github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd/go.mod h1:hPqNNc0+uJM6H+SuU8sEs5K5IQeKccPqeSjfgcKGgPk=
 github.com/sashabaranov/go-openai v1.41.2 h1:vfPRBZNMpnqu8ELsclWcAvF19lDNgh1t6TVfFFOPiSM=
 github.com/sashabaranov/go-openai v1.41.2/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
-github.com/shabbyrobe/xmlwriter v0.0.0-20230525083848-85336ec334fa h1:qSlczoKLzv10e3zbEqwwDvjhai++MGDuns4ZoOKaE+U=
-github.com/shabbyrobe/xmlwriter v0.0.0-20230525083848-85336ec334fa/go.mod h1:tKYSeHyJGYz7eoZMlzrRDQSfdYPYt0UduMr8b97Mmaw=
+github.com/shabbyrobe/xmlwriter v0.0.0-20251128030032-2fcb52763289 h1:ZvRi1p3w5LSIDnZnvUHralUABvAjqSHdnhLfwrljjZA=
+github.com/shabbyrobe/xmlwriter v0.0.0-20251128030032-2fcb52763289/go.mod h1:tKYSeHyJGYz7eoZMlzrRDQSfdYPYt0UduMr8b97Mmaw=
 github.com/tealeg/xlsx/v3 v3.3.13 h1:Zk1Stj11MGRnOYI1st6av/Z2lIXp/jFZomrSWSeJLmY=
 github.com/tealeg/xlsx/v3 v3.3.13/go.mod h1:KV4FTFtvGy0TBlOivJLZu/YNZk6e0Qtk7eOSglWksuA=
 github.com/tiktoken-go/tokenizer v0.7.0 h1:VMu6MPT0bXFDHr7UPh9uii7CNItVt3X9K90omxL54vw=
