@@ -88,7 +88,6 @@ type Config struct {
 	HelpKey           string              `json:"help_key,omitempty"`
 	ExportChat        string              `json:"export_chat,omitempty"`
 	Backtrack         string              `json:"backtrack,omitempty"`
-	SaveHistory       string              `json:"save_history,omitempty"`
 	WebSearch         string              `json:"web_search,omitempty"`
 	ShowSearchResults bool                `json:"show_search_results,omitempty"`
 	NumSearchResults  int                 `json:"num_search_results,omitempty"`
@@ -97,19 +96,18 @@ type Config struct {
 	ScrapeURL         string              `json:"scrape_url,omitempty"`
 	CopyToClipboard   string              `json:"copy_to_clipboard,omitempty"`
 	LoadFiles         string              `json:"load_files,omitempty"`
-	LoadFilesAdv      string              `json:"load_files_adv,omitempty"`
 	AnswerSearch      string              `json:"answer_search,omitempty"`
 	PlatformSwitch    string              `json:"platform_switch,omitempty"`
 	CodeDump          string              `json:"code_dump,omitempty"`
 	ShellRecord       string              `json:"shell_record,omitempty"`
 	ShellOption       string              `json:"shell_option,omitempty"`
-	LoadHistory       string              `json:"load_history,omitempty"`
-	EditorAlias       string              `json:"editor_alias,omitempty"`
 	MultiLine         string              `json:"multi_line,omitempty"`
 	PreferredEditor   string              `json:"preferred_editor,omitempty"`
 	CurrentPlatform   string              `json:"current_platform,omitempty"`
 	AllModels         string              `json:"all_models,omitempty"`
 	MuteNotifications bool                `json:"mute_notifications,omitempty"`
+	EnableSessionSave bool                `json:"enable_session_save"`
+	SaveAllSessions   bool                `json:"save_all_sessions,omitempty"`
 	ShallowLoadDirs   []string            `json:"shallow_load_dirs,omitempty"`
 	IsPipedOutput     bool                `json:"-"` // Runtime detection, not from config file
 	Platforms         map[string]Platform `json:"platforms,omitempty"`
@@ -130,6 +128,15 @@ type ChatExport struct {
 	Entries    []ExportEntry `json:"entries"`
 }
 
+// SessionFile represents a persistent session state saved to disk
+type SessionFile struct {
+	Timestamp   int64         `json:"timestamp"`
+	Platform    string        `json:"platform"`
+	Model       string        `json:"model"`
+	BaseURL     string        `json:"base_url"`
+	ChatHistory []ChatHistory `json:"messages"`
+}
+
 // AppState holds the application's runtime state
 type AppState struct {
 	Config               *Config
@@ -140,11 +147,4 @@ type AppState struct {
 	StreamingCancel      func()
 	IsExecutingCommand   bool
 	CommandCancel        func()
-}
-
-// ClientInitializer interface for creating AI clients
-type ClientInitializer interface {
-	Initialize(config *Config) error
-	SendChatRequest(messages []ChatMessage, model string) (string, error)
-	ListModels() ([]string, error)
 }

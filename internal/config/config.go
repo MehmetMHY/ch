@@ -78,9 +78,6 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.Backtrack != "" {
 		defaultConfig.Backtrack = userConfig.Backtrack
 	}
-	if userConfig.SaveHistory != "" {
-		defaultConfig.SaveHistory = userConfig.SaveHistory
-	}
 	if userConfig.WebSearch != "" {
 		defaultConfig.WebSearch = userConfig.WebSearch
 	}
@@ -102,9 +99,6 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.LoadFiles != "" {
 		defaultConfig.LoadFiles = userConfig.LoadFiles
 	}
-	if userConfig.LoadFilesAdv != "" {
-		defaultConfig.LoadFilesAdv = userConfig.LoadFilesAdv
-	}
 	if userConfig.AnswerSearch != "" {
 		defaultConfig.AnswerSearch = userConfig.AnswerSearch
 	}
@@ -123,12 +117,6 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.ShellOption != "" {
 		defaultConfig.ShellOption = userConfig.ShellOption
 	}
-	if userConfig.LoadHistory != "" {
-		defaultConfig.LoadHistory = userConfig.LoadHistory
-	}
-	if userConfig.EditorAlias != "" {
-		defaultConfig.EditorAlias = userConfig.EditorAlias
-	}
 	if userConfig.MultiLine != "" {
 		defaultConfig.MultiLine = userConfig.MultiLine
 	}
@@ -143,6 +131,16 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	// unset and explicitly false. For now, we'll always use the default unless true is set.
 	defaultConfig.ShowSearchResults = defaultConfig.ShowSearchResults || userConfig.ShowSearchResults
 	defaultConfig.MuteNotifications = defaultConfig.MuteNotifications || userConfig.MuteNotifications
+
+	// EnableSessionSave doesn't use omitempty, so we can safely use the userConfig value
+	// This allows users to explicitly disable it by setting it to false
+	// Only override if the config file has at least one other field set (to distinguish from empty config)
+	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" {
+		defaultConfig.EnableSessionSave = userConfig.EnableSessionSave
+	}
+	if userConfig.SaveAllSessions {
+		defaultConfig.SaveAllSessions = userConfig.SaveAllSessions
+	}
 
 	// Merge ShallowLoadDirs if provided
 	if userConfig.ShallowLoadDirs != nil {
@@ -195,7 +193,6 @@ func DefaultConfig() *types.Config {
 		HelpKey:           "!h",
 		ExportChat:        "!e",
 		Backtrack:         "!b",
-		SaveHistory:       "!z",
 		WebSearch:         "!w",
 		ShowSearchResults: false,
 		NumSearchResults:  5,
@@ -204,19 +201,17 @@ func DefaultConfig() *types.Config {
 		ScrapeURL:         "!s",
 		CopyToClipboard:   "!y",
 		LoadFiles:         "!l",
-		LoadFilesAdv:      "!f",
 		AnswerSearch:      "!a",
 		PlatformSwitch:    "!p",
 		AllModels:         "!o",
 		CodeDump:          "!d",
 		ShellRecord:       "!x",
 		ShellOption:       "!x",
-		LoadHistory:       "!r",
-		EditorAlias:       "!v",
 		MultiLine:         "\\",
 		PreferredEditor:   "vim",
 		CurrentPlatform:   "openai",
 		MuteNotifications: false,
+		EnableSessionSave: true,
 		ShallowLoadDirs:   shallowDirs,
 		Platforms: map[string]types.Platform{
 			"groq": {

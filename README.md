@@ -76,6 +76,8 @@ ch "What are the key features of Go programming language?"
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
 - **Chat Backtracking**: Revert to any point in conversation history
+- **Session Continuation**: Automatically save and restore sessions to continue conversations later
+- **Session History Search**: Search and load any previous session from history with fuzzy or exact matching
 - **Code Dump**: Package entire directories for AI analysis (text and document files only)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
@@ -103,10 +105,10 @@ cd ch
 **Uninstall:**
 
 ```bash
-# run installer with the uninstall flag
-curl -fsSL https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh | bash -s -- --uninstall
+# safe uninstall with confirmation prompt (recommended)
+./install.sh --safe-uninstall
 
-# or if you have the installer script locally
+# or uninstall without confirmation
 ./install.sh --uninstall
 ```
 
@@ -214,10 +216,12 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `search_country` - Set the country for web searches (default: "us")
 - `search_lang` - Set the language for web searches (default: "en")
 - `system_prompt` - Customize the system prompt
+- `enable_session_save` - Enable/disable automatic session saving for continuation (default: true)
+- `save_all_sessions` - Save all sessions with timestamps instead of overwriting the latest (default: false). When enabled, each session gets a unique timestamped file; when disabled, only the latest session is kept
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
 - Plus all other configuration options using snake_case JSON field names
 
-For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). But note that config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
+For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). But note that the config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
 
 ### Local & Open-Source Setup
 
@@ -276,6 +280,13 @@ ls -la | ch "Summarize this directory"
 ch "list 5 fruits" | grep apple
 ch "explain golang" > output.txt
 ch -w "golang features" | head -10
+
+# session continuation - automatically saves and restores conversations
+ch -c                              # continue last session interactively
+ch -c "follow up question"         # continue with a new query
+ch -a                              # fuzzy search and load a previous session
+ch -a exact                        # exact match search for previous sessions
+ch --clear                         # clear all temporary files and sessions
 ```
 
 ### Interactive Commands
@@ -287,16 +298,17 @@ When in interactive mode (`ch`), use these commands:
 - **`!c`** - clear chat history
 - **`!b`** - backtrack messages
 - **`!t [buff]`** - text editor mode
-- **`\`** - multi-line input (end lines with `\` to continue like in [Claude Code](https://github.com/anthropics/claude-code))
+- **`\`** - multi-line mode (exit with `\`)
 - **`!m`** - switch models
 - **`!o`** - select from all models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
+- **`!a [exact]`** - search and load sessions
 - **`!x`** - record shell session
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump
-- **`!e`** - export chat(s) to a file
+- **`!e`** - export chat(s)
 - **`!y`** - add to clipboard
 - **`ctrl+c`** - clear prompt input
 - **`ctrl+d`** - exit completely
@@ -491,7 +503,17 @@ make dev
 
 ## Uninstall
 
-Ch can be uninstalled using the install script's uninstall option (see [Installation](#installation) section) or manually:
+Use `--safe-uninstall` for a confirmation prompt before deletion (recommended). The `--uninstall` flag deletes immediately without confirmation.
+
+```bash
+# safe uninstall with confirmation prompt (recommended)
+./install.sh --safe-uninstall
+
+# or uninstall without confirmation
+./install.sh --uninstall
+```
+
+Manual uninstall:
 
 ```bash
 # manual uninstall for Unix-based systems

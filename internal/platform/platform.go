@@ -63,6 +63,7 @@ func (m *Manager) Initialize() error {
 			baseURL = platform.BaseURL.Single
 		}
 	}
+	m.config.CurrentBaseURL = baseURL
 	clientConfig.BaseURL = baseURL
 	m.client = openai.NewClientWithConfig(clientConfig)
 
@@ -72,18 +73,59 @@ func (m *Manager) Initialize() error {
 // SendChatRequest sends a chat request to the current platform
 func (m *Manager) SendChatRequest(messages []types.ChatMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
 	var openaiMessages []openai.ChatCompletionMessage
-	for _, msg := range messages {
+
+	// Merge consecutive user messages to handle cases like file loading + follow-up question
+	mergedMessages := m.mergeConsecutiveUserMessages(messages)
+
+	for _, msg := range mergedMessages {
 		openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
 			Role:    msg.Role,
 			Content: msg.Content,
 		})
 	}
 
-	if m.isReasoningModel(model) {
+	if m.IsReasoningModel(model) {
 		return m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
 	}
 
 	return m.sendStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+}
+
+// mergeConsecutiveUserMessages combines consecutive user messages into one
+// This handles cases where file content is loaded as one message, then a question is asked
+func (m *Manager) mergeConsecutiveUserMessages(messages []types.ChatMessage) []types.ChatMessage {
+	if len(messages) <= 1 {
+		return messages
+	}
+
+	var result []types.ChatMessage
+	var lastUserContent []string
+
+	for _, msg := range messages {
+		if msg.Role == "user" {
+			lastUserContent = append(lastUserContent, msg.Content)
+		} else {
+			// Non-user message: flush any accumulated user messages
+			if len(lastUserContent) > 0 {
+				result = append(result, types.ChatMessage{
+					Role:    "user",
+					Content: strings.Join(lastUserContent, "\n\n"),
+				})
+				lastUserContent = nil
+			}
+			result = append(result, msg)
+		}
+	}
+
+	// Flush any remaining user messages
+	if len(lastUserContent) > 0 {
+		result = append(result, types.ChatMessage{
+			Role:    "user",
+			Content: strings.Join(lastUserContent, "\n\n"),
+		})
+	}
+
+	return result
 }
 
 // ListModels returns available models for the current platform
@@ -221,7 +263,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 }
 
 // FetchAllModelsAsync fetches all models from all platforms asynchronously
-// Returns a list of models formatted as "[platform] model_name"
+// Returns a list of models formatted as "platform|model_name"
 // Only fetches from platforms where API keys are defined and not empty
 func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 	var wg sync.WaitGroup
@@ -282,7 +324,8 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 				}
 
 				for _, model := range modelList.Models {
-					results <- fmt.Sprintf("[openai] %s", model.ID)
+					platformNameFormatted := strings.ReplaceAll(name, " ", "-")
+					results <- fmt.Sprintf("%s|%s", platformNameFormatted, model.ID)
 				}
 				return
 			}
@@ -300,7 +343,8 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 			}
 
 			for _, model := range modelList {
-				results <- fmt.Sprintf("[%s] %s", name, model)
+				platformNameFormatted := strings.ReplaceAll(name, " ", "-")
+				results <- fmt.Sprintf("%s|%s", platformNameFormatted, model)
 			}
 		}(platformName, platformConfig)
 	}
@@ -324,6 +368,12 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 // isSlowModel checks if the model is a slow/reasoning model that requires non-streaming
 // NOTE: This is hard-coded for what is considered a slow model
 func (m *Manager) isSlowModel(modelName string) bool {
+	// Check if model contains "gpt-*-search" pattern anywhere (not slow)
+	matched, _ := regexp.MatchString(`gpt-.+-search`, modelName)
+	if matched {
+		return false
+	}
+
 	// Special handling for gpt-5 models: only consider them slow if they don't end with nano or mini
 	if strings.HasPrefix(modelName, "gpt-5") {
 		if strings.HasSuffix(modelName, "nano") || strings.HasSuffix(modelName, "mini") {
@@ -354,13 +404,9 @@ func (m *Manager) isSlowModel(modelName string) bool {
 	return false
 }
 
-func (m *Manager) isReasoningModel(modelName string) bool {
-	return m.isSlowModel(modelName)
-}
-
 // IsReasoningModel checks if the model is a reasoning model (like o1, o2, etc.)
 func (m *Manager) IsReasoningModel(modelName string) bool {
-	return m.isReasoningModel(modelName)
+	return m.isSlowModel(modelName)
 }
 
 func (m *Manager) sendNonStreamingRequest(openaiMessages []openai.ChatCompletionMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {

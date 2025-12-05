@@ -52,7 +52,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-    <title>Ch: Lightweight AI CLI Tool | Direct Terminal Access to AI</title>
+    <title>Ch: Lightweight AI CLI Tool</title>
     <style>
       body {
         font-family: "Droid Sans", sans-serif;
@@ -336,6 +336,8 @@
         color: #666;
         text-decoration: underline;
         transition: opacity 0.3s ease;
+        display: block;
+        margin-bottom: 10px;
       }
       .back-to-top-link:hover {
         opacity: 0.7;
@@ -645,7 +647,15 @@
         src="https://www.youtube.com/embed/AH0xG1iStf4"
         title="Ch Demo Video"
         frameborder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allow="
+          accelerometer;
+          autoplay;
+          clipboard-write;
+          encrypted-media;
+          gyroscope;
+          picture-in-picture;
+          web-share;
+        "
         referrerpolicy="strict-origin-when-cross-origin"
         allowfullscreen
       ></iframe>
@@ -683,7 +693,7 @@
       <div class="feature">
         <div class="feature-title">Interactive & Direct</div>
         <div class="feature-desc">
-          Chat interactively or run single queries. Your choice.
+          Chat interactively or run single queries. Your choice
         </div>
       </div>
       <div class="feature">
@@ -740,12 +750,7 @@
       <div class="feature">
         <div class="feature-title">Universal Model Selection</div>
         <div class="feature-desc">
-          Select from all available models across all supported platforms
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Dynamic Switching</div>
-        <div class="feature-desc">
+          Select from all available models across all supported platforms.
           Change models and platforms mid-conversation without losing context
         </div>
       </div>
@@ -786,7 +791,7 @@
     </div>
 
     <p
-      style="text-align: center; color: #666; margin: 120px 0 40px 0"
+      style="text-align: center; color: #666; margin: 120px 0 20px 0"
       class="footer-text"
     >
       <a
@@ -795,13 +800,12 @@
         class="back-to-top-link"
         >back to top</a
       >
-      <br /><br />
-      Ch is open source and licensed under the
+      <strong>Ch</strong> is open source and licensed under the
       <a
         href="https://opensource.org/license/mit"
         target="_blank"
         class="license-link"
-        >MIT License</a
+        ><strong>MIT License</strong></a
       >
     </p>
 
@@ -918,7 +922,7 @@
       }
 
       let docsLoaded = false;
-      let docsVisible = true;
+      let docsVisible = false;
       let docsRetryCount = 0;
       const DOCS_TIMEOUT_MS = 10000; // 10 seconds
       const DOCS_MAX_RETRIES = 1;
@@ -1043,7 +1047,7 @@
 
       function initializeDocsVisibility() {
         const savedState = localStorage.getItem("docsVisible");
-        const visible = savedState !== "false";
+        const visible = savedState === "true";
         applyDocsVisibility(visible);
       }
 

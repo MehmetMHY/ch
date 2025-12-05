@@ -20,8 +20,7 @@ warning() {
 }
 
 uninstall_ch() {
-	log "Ch Uninstaller"
-	echo
+	echo -e "\033[91mRemoving Ch installation...\033[0m"
 
 	local os
 	os=$(detect_os)
@@ -30,21 +29,10 @@ uninstall_ch() {
 		error "Ch is not installed at $CH_HOME"
 	fi
 
-	echo -e "\033[93mRemoving the following:\033[0m"
-	echo -e "  - Ch installation directory: $CH_HOME"
-
-	if [[ "$os" == "android" ]]; then
-		echo -e "  - Symlink: $PREFIX/bin/ch"
-	else
-		echo -e "  - Symlink: /usr/local/bin/ch (if exists)"
-	fi
-
-	log "Removing Ch installation..."
-
 	if [[ "$os" == "android" ]]; then
 		if [[ -L "$PREFIX/bin/ch" ]]; then
 			rm -f "$PREFIX/bin/ch"
-			log "Removed symlink: $PREFIX/bin/ch"
+			echo -e "\033[91mRemoved symlink: $PREFIX/bin/ch\033[0m"
 		fi
 	else
 		if [[ -L "/usr/local/bin/ch" ]]; then
@@ -57,16 +45,40 @@ uninstall_ch() {
 					warning "Could not remove /usr/local/bin/ch (no sudo access)"
 				fi
 			fi
-			log "Removed symlink: /usr/local/bin/ch"
+			echo -e "\033[91mRemoved symlink: /usr/local/bin/ch\033[0m"
 		fi
 	fi
 
 	rm -rf "$CH_HOME"
-	log "Removed installation directory: $CH_HOME"
-
-	echo
-	echo -e "\033[92m✓ Ch has been successfully uninstalled\033[0m"
+	echo -e "\033[91mRemoved installation directory: $CH_HOME\033[0m"
+	echo -e "\033[96mCh has been successfully uninstalled\033[0m"
 	exit 0
+}
+
+safe_uninstall_ch() {
+	log "Ch Safe Uninstaller"
+	echo -e "\033[93mThis will remove the following:\033[0m"
+	echo -e "\033[93m- Config, history, & sessions: $CH_HOME\033[0m"
+	local os
+	os=$(detect_os)
+	if [[ "$os" == "android" ]]; then
+		echo -e "\033[93m- Symlink: $PREFIX/bin/ch\033[0m"
+	else
+		echo -e "\033[93m- Symlink: /usr/local/bin/ch (if exists)\033[0m"
+	fi
+
+	if [[ ! -d "$CH_HOME" ]]; then
+		error "Ch is not installed at $CH_HOME"
+	fi
+
+	local response
+	response=$(safe_input "$(echo -e '\033[92mAre you sure you want to uninstall Ch? \033[91m(y/N) \033[0m')") || response=""
+	response=$(echo "$response" | tr '[:upper:]' '[:lower:]')
+	if [[ "$response" != "y" ]] && [[ "$response" != "yes" ]]; then
+		exit 0
+	fi
+
+	uninstall_ch
 }
 
 check_go() {
@@ -127,6 +139,7 @@ install_dependencies() {
 	if [[ ${#missing_required[@]} -gt 0 ]]; then
 		log "The following required system dependencies are missing: ${missing_required[*]}"
 	fi
+
 	if [[ ${#missing_optional[@]} -gt 0 ]]; then
 		log "The following optional system dependencies are missing: ${missing_optional[*]}"
 	fi
@@ -242,30 +255,51 @@ build_ch() {
 	log "Building Ch..."
 	go mod download || error "Failed to download Go modules"
 
+	local bin_path="$BIN_DIR/ch"
+	execute_build "direct" "$bin_path"
+
+	chmod +x "$bin_path" || error "Failed to make binary executable"
+}
+
+# Helper function to execute build command with OS-specific settings
+# Takes two arguments:
+#   1. build_method: either "direct" (for go build) or "make" (for make build)
+#   2. output_path: path for output binary (only used with direct method)
+execute_build() {
+	local build_method="$1"
+	local output_path="$2"
+
 	local os
 	os=$(detect_os)
-	local bin_path="$BIN_DIR/ch-bin"
 
 	if [[ "$os" == "android" ]]; then
-		log "Building for Android (disabling CGO)..."
-		CGO_ENABLED=0 go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
+		if [[ "$build_method" == "direct" ]]; then
+			log "Building for Android (disabling CGO)..."
+			CGO_ENABLED=0 go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+		else
+			log "Building for Android (disabling CGO)..."
+			CGO_ENABLED=0 make build || error "Build failed"
+		fi
 	elif [[ "$os" == "macos" ]] && [[ "$(uname -m)" == "arm64" ]]; then
-		log "Building for macOS on Apple Silicon with Homebrew flags..."
 		local brew_prefix
 		brew_prefix=$(brew --prefix)
-		CGO_CPPFLAGS="-I${brew_prefix}/include" CGO_LDFLAGS="-L${brew_prefix}/lib" go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
+		if [[ "$build_method" == "direct" ]]; then
+			log "Building for macOS on Apple Silicon with Homebrew flags..."
+			CGO_CPPFLAGS="-I${brew_prefix}/include" CGO_LDFLAGS="-L${brew_prefix}/lib" go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+		else
+			log "Building for macOS on Apple Silicon with Homebrew flags..."
+			export CGO_CPPFLAGS="-I${brew_prefix}/include"
+			export CGO_LDFLAGS="-L${brew_prefix}/lib"
+			make build || error "Build failed"
+		fi
 	else
-		go build -o "$bin_path" cmd/ch/main.go || error "Failed to build Ch"
+		if [[ "$build_method" == "direct" ]]; then
+			go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+		else
+			log "Building project..."
+			make build || error "Build failed"
+		fi
 	fi
-
-	log "Creating wrapper script..."
-	local wrapper_path="$BIN_DIR/ch"
-	cat >"$wrapper_path" <<EOF
-#!/usr/bin/env bash
-exec "\$HOME/.ch/bin/ch-bin" "\$@"
-EOF
-
-	chmod +x "$wrapper_path" || error "Failed to make wrapper script executable"
 }
 
 create_symlink() {
@@ -301,6 +335,7 @@ create_symlink() {
 		SYMLINK_SKIPPED=true
 	fi
 }
+
 check_api_keys() {
 	log "Checking API Key status..."
 
@@ -331,6 +366,7 @@ check_api_keys() {
 			echo -e "\033[93m- $key is not set (Optional)\033[0m"
 		fi
 	done
+
 	log "Done checking API key status"
 }
 
@@ -406,23 +442,7 @@ build_only() {
 	log "Downloading dependencies..."
 	go mod download || error "Failed to download Go modules"
 
-	local os
-	os=$(detect_os)
-
-	if [[ "$os" == "android" ]]; then
-		log "Building for Android (disabling CGO)..."
-		CGO_ENABLED=0 make build || error "Build failed"
-	elif [[ "$os" == "macos" ]] && [[ "$(uname -m)" == "arm64" ]]; then
-		log "Building for macOS on Apple Silicon with Homebrew flags..."
-		local brew_prefix
-		brew_prefix=$(brew --prefix)
-		export CGO_CPPFLAGS="-I${brew_prefix}/include"
-		export CGO_LDFLAGS="-L${brew_prefix}/lib"
-		make build || error "Build failed"
-	else
-		log "Building project..."
-		make build || error "Build failed"
-	fi
+	execute_build "make" ""
 
 	echo
 	echo -e "\033[92m✓ Build complete!\033[0m"
@@ -622,11 +642,12 @@ show_help() {
 	echo "Ch setup script for installation, building, and maintenance"
 	echo ""
 	echo "Options:"
-	echo "  -u, --uninstall     Uninstall Ch from the system"
-	echo "  -b, --build         Build Ch locally (requires local repository)"
-	echo "  -r, --refresh-deps  Refresh Go dependencies before building (local only)"
-	echo "  -v, --version       Update version in Makefile (local only)"
-	echo "  -h, --help          Show this help message"
+	echo "  -s, --safe-uninstall     Uninstall Ch with confirmation prompt"
+	echo "  -u, --uninstall          Uninstall Ch from the system"
+	echo "  -b, --build              Build Ch locally (requires local repository)"
+	echo "  -r, --refresh-deps       Refresh Go dependencies before building (local only)"
+	echo "  -v, --version            Update version in Makefile (local only)"
+	echo "  -h, --help               Show this help message"
 	echo ""
 	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
 	echo ""
@@ -647,6 +668,9 @@ main() {
 		case "$1" in
 		-u | --uninstall)
 			uninstall_ch
+			;;
+		-s | --safe-uninstall)
+			safe_uninstall_ch
 			;;
 		-b | --build)
 			if [[ "$is_remote_install" == true ]]; then

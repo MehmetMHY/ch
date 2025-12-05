@@ -16,18 +16,39 @@ You can install ImageMagick from here: https://imagemagick.org/
 EOF
 }
 
-# run the documentation (open index.html)
+# run the documentation (start http server)
 run_docs() {
+	# check if python is available
+	if ! command -v python3 &>/dev/null && ! command -v python &>/dev/null; then
+		echo "Error: Python is required but not installed."
+		exit 1
+	fi
+
+	# determine which python command to use
+	local python_cmd
+	if command -v python3 &>/dev/null; then
+		python_cmd="python3"
+	else
+		python_cmd="python"
+	fi
+
+	echo "Starting HTTP server on http://localhost:8000"
+	echo "Press Ctrl+C to stop the server"
+
+	# open the browser
 	if [[ "$OSTYPE" == "darwin"* ]]; then
-		open ./index.html
+		open "http://localhost:8000" &
 	elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-		xdg-open ./index.html
+		xdg-open "http://localhost:8000" &
 	elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
-		start ./index.html
+		start "http://localhost:8000" &
 	else
 		echo "unsupported os"
 		exit 1
 	fi
+
+	# start the http server
+	$python_cmd -m http.server 8000
 }
 
 # convert images with imagemagick
@@ -188,8 +209,8 @@ convert_images() {
 
 				local temp_png="$temp_dir/${width}x${height}.png"
 
-				# resize logo to exact size (! forces exact dimensions without maintaining aspect ratio)
-				if convert "$logo_file" -resize "${width}x${height}!" "$temp_png"; then
+				# resize logo while maintaining aspect ratio, then pad with transparency to exact size
+				if convert "$logo_file" -resize "${width}x${height}" -background transparent -gravity center -extent "${width}x${height}" "$temp_png"; then
 					echo "    Created ${width}x${height} version"
 				else
 					echo "    Failed to create ${width}x${height} version"

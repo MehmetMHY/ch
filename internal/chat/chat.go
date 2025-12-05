@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/MehmetMHY/ch/internal/config"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/google/uuid"
@@ -27,99 +28,6 @@ func NewManager(state *types.AppState) *Manager {
 	return &Manager{
 		state: state,
 	}
-}
-
-// getTempDir returns the application's temporary directory, creating it if it doesn't exist
-func (m *Manager) getTempDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	tempDir := filepath.Join(homeDir, ".ch", "tmp")
-
-	// Create the directory if it doesn't exist
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create temp directory: %w", err)
-	}
-
-	return tempDir, nil
-}
-
-// getWorkingEditor tries the preferred editor, falls back to vim, then nano
-func (m *Manager) getWorkingEditor(testFile string) string {
-	editors := []string{m.state.Config.PreferredEditor, "vim", "nano"}
-
-	for _, editor := range editors {
-		// Check if the editor binary exists
-		if _, err := exec.LookPath(editor); err != nil {
-			continue
-		}
-
-		// Special handling for helix - try it but with a quick fallback if it fails
-		if editor == "hx" {
-			// Test if helix can actually run by trying it with a very brief command
-			// If this fails, we'll fall back to vim immediately
-			testCmd := exec.Command(editor, "--help")
-			if err := testCmd.Run(); err != nil {
-				continue // Skip helix and try vim
-			}
-			// If help works, let's try the real thing but be ready to catch panics
-		}
-
-		return editor
-	}
-
-	// Final fallback
-	return "nano"
-}
-
-// runEditorWithFallback tries to run the user's preferred editor, then falls back to common editors.
-func (m *Manager) runEditorWithFallback(filePath string) error {
-	var editors []string
-	if envEditor := os.Getenv("EDITOR"); envEditor != "" {
-		editors = append(editors, envEditor)
-	}
-	editors = append(editors, m.state.Config.PreferredEditor, "vim", "nano")
-
-	// Remove duplicates
-	seen := make(map[string]bool)
-	uniqueEditors := []string{}
-	for _, editor := range editors {
-		if editor != "" && !seen[editor] {
-			uniqueEditors = append(uniqueEditors, editor)
-			seen[editor] = true
-		}
-	}
-
-	for i, editor := range uniqueEditors {
-		// Check if the editor exists
-		if _, err := exec.LookPath(editor); err != nil {
-			continue
-		}
-
-		cmd := exec.Command(editor, filePath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-
-		// For the first attempts, suppress stderr to avoid showing error messages
-		// Only show stderr for the final attempt
-		if i < len(uniqueEditors)-1 {
-			cmd.Stderr = nil // Suppress error messages for fallback attempts
-		} else {
-			cmd.Stderr = os.Stderr // Show errors for final attempt
-		}
-
-		if err := cmd.Run(); err != nil {
-			// If this editor failed, try the next one
-			continue
-		}
-
-		// Success!
-		return nil
-	}
-
-	return fmt.Errorf("no working editor found")
 }
 
 // AddUserMessage adds a user message to the chat
@@ -242,6 +150,303 @@ func (m *Manager) ExportLastResponse() (string, error) {
 	return fullPath, nil
 }
 
+// SaveSessionState saves the current session state to a file with epoch timestamp
+func (m *Manager) SaveSessionState() error {
+	tmpDir, err := config.GetTempDir()
+	if err != nil {
+		return fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	// Create SessionFile with current state
+	session := types.SessionFile{
+		Timestamp:   time.Now().Unix(),
+		Platform:    m.state.Config.CurrentPlatform,
+		Model:       m.state.Config.CurrentModel,
+		BaseURL:     m.state.Config.CurrentBaseURL,
+		ChatHistory: m.state.ChatHistory,
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal session: %v", err)
+	}
+
+	var filename string
+	if m.state.Config.SaveAllSessions {
+		// Use timestamp-based filename for saving all sessions
+		filename = fmt.Sprintf("ch_session_%d.json", session.Timestamp)
+	} else {
+		// Use fixed filename (timestamp is stored in the JSON content)
+		filename = "ch_session_latest.json"
+	}
+	fullPath := filepath.Join(tmpDir, filename)
+
+	err = os.WriteFile(fullPath, jsonData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write session file: %v", err)
+	}
+
+	return nil
+}
+
+// LoadLatestSessionState loads the session state from disk
+func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
+	tmpDir, err := config.GetTempDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	if m.state.Config.SaveAllSessions {
+		// When saving all sessions, find the most recent session file
+		files, err := os.ReadDir(tmpDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read temp directory: %v", err)
+		}
+
+		var latestFile string
+		var latestTime int64 = 0
+
+		// Find all session files and get the most recent one
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			filename := file.Name()
+			// Match both old format and new format
+			if strings.HasPrefix(filename, "ch_session_") && strings.HasSuffix(filename, ".json") {
+				fullPath := filepath.Join(tmpDir, filename)
+
+				// Read the file to check timestamp
+				data, err := ioutil.ReadFile(fullPath)
+				if err != nil {
+					continue
+				}
+
+				var session types.SessionFile
+				err = json.Unmarshal(data, &session)
+				if err != nil {
+					continue
+				}
+
+				// Check if this is the most recent session
+				if session.Timestamp > latestTime {
+					latestTime = session.Timestamp
+					latestFile = fullPath
+				}
+			}
+		}
+
+		if latestFile == "" {
+			return nil, fmt.Errorf("no session file found")
+		}
+
+		// Load the most recent session
+		data, err := ioutil.ReadFile(latestFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read session file: %v", err)
+		}
+
+		var session types.SessionFile
+		err = json.Unmarshal(data, &session)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
+		}
+
+		return &session, nil
+	} else {
+		// Load the single session file
+		fullPath := filepath.Join(tmpDir, "ch_session_latest.json")
+
+		// Check if file exists
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("no session file found")
+		}
+
+		data, err := ioutil.ReadFile(fullPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read session file: %v", err)
+		}
+
+		var session types.SessionFile
+		err = json.Unmarshal(data, &session)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
+		}
+
+		return &session, nil
+	}
+}
+
+// RestoreSessionState restores the application state from a SessionFile
+func (m *Manager) RestoreSessionState(session *types.SessionFile) {
+	m.state.Config.CurrentPlatform = session.Platform
+	m.state.Config.CurrentModel = session.Model
+	m.state.Config.CurrentBaseURL = session.BaseURL
+	m.state.ChatHistory = session.ChatHistory
+
+	// Rebuild Messages from ChatHistory
+	m.state.Messages = []types.ChatMessage{
+		{Role: "system", Content: m.state.Config.SystemPrompt},
+	}
+	for i, entry := range m.state.ChatHistory {
+		if i == 0 {
+			continue // Skip system prompt entry
+		}
+		if entry.User != "" {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: entry.User})
+		}
+		if entry.Bot != "" {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
+		}
+	}
+}
+
+// SearchSessions searches through all saved sessions using fzf
+func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.SessionFile, error) {
+	if !m.state.Config.SaveAllSessions {
+		return nil, fmt.Errorf("session search requires save_all_sessions to be enabled in config")
+	}
+
+	tmpDir, err := config.GetTempDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	// Find all session files
+	pattern := filepath.Join(tmpDir, "ch_session_*.json")
+	matches, err := filepath.Glob(pattern)
+	if err != nil || len(matches) == 0 {
+		return nil, fmt.Errorf("no sessions found")
+	}
+
+	// Build list of all entries from all sessions
+	type SessionEntry struct {
+		FilePath  string
+		Preview   string
+		Timestamp int64
+	}
+	var entries []SessionEntry
+
+	for _, sessionPath := range matches {
+		data, err := ioutil.ReadFile(sessionPath)
+		if err != nil {
+			continue
+		}
+
+		var session types.SessionFile
+		if err := json.Unmarshal(data, &session); err != nil {
+			continue
+		}
+
+		// Add entries from this session
+		for i, entry := range session.ChatHistory {
+			if i == 0 {
+				continue // Skip system prompt
+			}
+
+			// Create preview lines
+			timestamp := time.Unix(entry.Time, 0).UTC().Format("2006-01-02 15:04:05 UTC")
+			userPreview := strings.ReplaceAll(entry.User, "\n", " ")
+			if len(userPreview) > 80 {
+				userPreview = userPreview[:80] + "..."
+			}
+
+			// Add user message entry
+			if entry.User != "" {
+				preview := fmt.Sprintf("%s user: %s", timestamp, userPreview)
+				entries = append(entries, SessionEntry{
+					FilePath:  sessionPath,
+					Preview:   preview,
+					Timestamp: entry.Time,
+				})
+			}
+
+			// Add bot response entry
+			if entry.Bot != "" {
+				botPreview := strings.ReplaceAll(entry.Bot, "\n", " ")
+				if len(botPreview) > 80 {
+					botPreview = botPreview[:80] + "..."
+				}
+				preview := fmt.Sprintf("%s bot: %s", timestamp, botPreview)
+				entries = append(entries, SessionEntry{
+					FilePath:  sessionPath,
+					Preview:   preview,
+					Timestamp: entry.Time,
+				})
+			}
+		}
+	}
+
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no session entries found")
+	}
+
+	// Sort entries by timestamp (latest to oldest)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Timestamp > entries[j].Timestamp
+	})
+
+	// Build fzf input
+	var fzfInput strings.Builder
+	for _, entry := range entries {
+		fzfInput.WriteString(entry.Preview + "\n")
+	}
+
+	// Prepare fzf arguments
+	fzfArgs := []string{
+		"--reverse",
+		"--height=40%",
+		"--border",
+		"--prompt=select session: ",
+	}
+
+	if exact {
+		fzfArgs = append(fzfArgs, "--exact")
+	}
+
+	// Run fzf
+	fzfCmd := exec.Command("fzf", fzfArgs...)
+	fzfCmd.Stdin = strings.NewReader(fzfInput.String())
+	fzfCmd.Stderr = os.Stderr
+
+	fzfOutput, err := fzfCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("selection cancelled")
+	}
+
+	selectedLine := strings.TrimSpace(string(fzfOutput))
+	if selectedLine == "" {
+		return nil, fmt.Errorf("no selection made")
+	}
+
+	// Find the session file for the selected entry
+	var selectedFilePath string
+	for _, entry := range entries {
+		if entry.Preview == selectedLine {
+			selectedFilePath = entry.FilePath
+			break
+		}
+	}
+
+	if selectedFilePath == "" {
+		return nil, fmt.Errorf("failed to find selected session")
+	}
+
+	// Load the selected session
+	data, err := ioutil.ReadFile(selectedFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read session file: %v", err)
+	}
+
+	var session types.SessionFile
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, fmt.Errorf("failed to parse session file: %v", err)
+	}
+
+	return &session, nil
+}
+
 // BacktrackHistory allows the user to select a previous message to revert to.
 // It returns the number of messages that were backtracked.
 func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
@@ -311,7 +516,7 @@ func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 
 // HandleTerminalInput handles terminal input mode
 func (m *Manager) HandleTerminalInput() (string, error) {
-	tmpDir, err := m.getTempDir()
+	tmpDir, err := config.GetTempDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %v", err)
 	}
@@ -326,7 +531,7 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 	defer os.Remove(tmpFilePath)
 
 	// Try to run the editor with automatic fallback
-	err = m.runEditorWithFallback(tmpFilePath)
+	err = ui.RunEditorWithFallback(m.state.Config, tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
@@ -549,7 +754,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 			contentBuilder.WriteString("USER:\n")
 
 			// Check if this is a file loading entry and try to get the actual content
-			if strings.HasPrefix(entry.User, "Loaded: ") {
+			if strings.HasPrefix(entry.User, "loaded: ") {
 				actualContent := m.getLoadedContentForHistoryEntry(entry)
 				if actualContent != "" {
 					// Clean up excessive newlines from loaded content
@@ -880,7 +1085,7 @@ func (m *Manager) generatePrioritizedFilenameOptions(content, priorityExt string
 
 // openInEditor opens content in the user's preferred text editor and returns the edited content
 func (m *Manager) openInEditor(content string) (string, error) {
-	tmpDir, err := m.getTempDir()
+	tmpDir, err := config.GetTempDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %v", err)
 	}
@@ -903,7 +1108,7 @@ func (m *Manager) openInEditor(content string) (string, error) {
 	defer os.Remove(tmpFilePath)
 
 	// Open in editor with automatic fallback
-	err = m.runEditorWithFallback(tmpFilePath)
+	err = ui.RunEditorWithFallback(m.state.Config, tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
@@ -4291,7 +4496,7 @@ func (m *Manager) generateFilenameOptions(content string) []string {
 	}
 
 	// Generate base hash once
-	baseHash := m.generateHashFromContent(content, 5)
+	baseHash := GenerateHashFromContent(content, 5)
 
 	// Generate options for each extension
 	for _, ext := range extensions {
@@ -4317,7 +4522,7 @@ func (m *Manager) generateUniqueFilename(currentDir, baseHash, ext, content stri
 	if m.hasFilesWithPattern(currentDir, pattern) {
 		// Try different substrings of content-based hash
 		for offset := 1; offset <= 10; offset++ {
-			newHash := m.generateHashFromContentWithOffset(content, 5, offset)
+			newHash := GenerateHashFromContentWithOffset(content, 5, offset)
 			filename = fmt.Sprintf("ch_%s%s", newHash, ext)
 			fullPath = filepath.Join(currentDir, filename)
 
@@ -4355,43 +4560,6 @@ func (m *Manager) hasFilesWithPattern(currentDir, pattern string) bool {
 	return false
 }
 
-// generateHashFromContent creates a random hash using characters from the content
-func (m *Manager) generateHashFromContent(content string, length int) string {
-	return m.generateHashFromContentWithOffset(content, length, 0)
-}
-
-// generateHashFromContentWithOffset creates a hash with an offset for collision avoidance
-func (m *Manager) generateHashFromContentWithOffset(content string, length, offset int) string {
-	// Extract alphanumeric characters from content
-	var charset []rune
-	for _, char := range content {
-		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') {
-			charset = append(charset, char)
-		}
-	}
-
-	// Fallback to default charset if content has no alphanumeric characters
-	if len(charset) == 0 {
-		charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-	}
-
-	// Use content + offset as seed for more variation
-	seed := int64(len(content) + offset)
-	for i, char := range content {
-		if i < 100 { // Only use first 100 chars to avoid overflow
-			seed += int64(char) * int64(i+offset+1)
-		}
-	}
-	rand.Seed(seed)
-
-	// Generate hash
-	hash := make([]rune, length)
-	for i := range hash {
-		hash[i] = charset[rand.Intn(len(charset))]
-	}
-	return string(hash)
-}
-
 // getAllFilesInCurrentDir returns all files in the current directory and subdirectories
 func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	currentDir, err := os.Getwd()
@@ -4406,7 +4574,7 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	}
 
 	// Check if this directory should be loaded shallowly
-	isShallow := m.isShallowLoadDir(absCurrentDir)
+	isShallow := config.IsShallowLoadDir(m.state.Config, absCurrentDir)
 
 	var files []string
 
@@ -4459,46 +4627,6 @@ func (m *Manager) getAllFilesInCurrentDir() ([]string, error) {
 	return files, nil
 }
 
-// isShallowLoadDir checks if a directory should be loaded shallowly (only 1 level deep)
-func (m *Manager) isShallowLoadDir(dirPath string) bool {
-	// Normalize the directory path
-	absPath, err := filepath.Abs(dirPath)
-	if err != nil {
-		return false
-	}
-	absPath = filepath.Clean(absPath)
-
-	// Check against each shallow load directory
-	for _, shallowDir := range m.state.Config.ShallowLoadDirs {
-		if shallowDir == "" {
-			continue
-		}
-
-		// Expand ~ to home directory
-		if strings.HasPrefix(shallowDir, "~") {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				continue
-			}
-			shallowDir = filepath.Join(homeDir, shallowDir[1:])
-		}
-
-		// Normalize shallow directory path
-		absShallowDir, err := filepath.Abs(shallowDir)
-		if err != nil {
-			continue
-		}
-		absShallowDir = filepath.Clean(absShallowDir)
-
-		// Check for exact match
-		if absPath == absShallowDir {
-			return true
-		}
-	}
-
-	return false
-}
-
 // AddRecentlyCreatedFile adds a file to the recently created files list
 // Keeps the list limited to the last 10 files for performance
 func (m *Manager) AddRecentlyCreatedFile(filePath string) {
@@ -4534,7 +4662,7 @@ func (m *Manager) extractLoadedFilesFromHistory() []string {
 
 		if entry.User != "" {
 			// Check for loaded content patterns
-			if strings.Contains(entry.User, "File: ") || strings.Contains(entry.User, "Loaded: ") {
+			if strings.Contains(entry.User, "File: ") || strings.Contains(entry.User, "loaded: ") {
 				lines := strings.Split(entry.User, "\n")
 				for _, line := range lines {
 					if strings.HasPrefix(line, "File: ") {
@@ -4547,8 +4675,8 @@ func (m *Manager) extractLoadedFilesFromHistory() []string {
 								seen[filePath] = true
 							}
 						}
-					} else if strings.HasPrefix(line, "Loaded: ") {
-						loadedContent := strings.TrimPrefix(line, "Loaded: ")
+					} else if strings.HasPrefix(line, "loaded: ") {
+						loadedContent := strings.TrimPrefix(line, "loaded: ")
 						// Split by comma and process each file
 						files := strings.Split(loadedContent, ", ")
 						for _, file := range files {
@@ -4594,7 +4722,7 @@ func (m *Manager) fileExistsInCurrentDir(filePath string) bool {
 }
 
 // getLoadedContentForHistoryEntry attempts to retrieve the actual loaded file content
-// for a history entry that contains "Loaded: ..." by matching it with the corresponding message
+// for a history entry that contains "loaded: ..." by matching it with the corresponding message
 func (m *Manager) getLoadedContentForHistoryEntry(historyEntry types.ChatHistory) string {
 	// Find the corresponding message in the chat messages that contains the actual content
 	// The loaded content should be in a message that was added around the same time
@@ -4612,14 +4740,14 @@ func (m *Manager) getLoadedContentForHistoryEntry(historyEntry types.ChatHistory
 	return "" // Return empty if we can't find the actual content
 }
 
-// messageContainsLoadedFiles checks if a message content contains files mentioned in a "Loaded: ..." history entry
+// messageContainsLoadedFiles checks if a message content contains files mentioned in a "loaded: ..." history entry
 func (m *Manager) messageContainsLoadedFiles(messageContent, historyEntry string) bool {
-	if !strings.HasPrefix(historyEntry, "Loaded: ") {
+	if !strings.HasPrefix(historyEntry, "loaded: ") {
 		return false
 	}
 
-	// Extract file list from "Loaded: file1, file2, ..."
-	loadedFilesList := strings.TrimPrefix(historyEntry, "Loaded: ")
+	// Extract file list from "loaded: file1, file2, ..."
+	loadedFilesList := strings.TrimPrefix(historyEntry, "loaded: ")
 	files := strings.Split(loadedFilesList, ", ")
 
 	// Check if the message content contains references to these files

@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -47,12 +46,17 @@ func main() {
 		modelFlag      = flag.String("m", "", "Specify model to use")
 		allModelsFlag  = flag.String("o", "", "Specify platform and model (format: platform|model)")
 		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
-		tokenFlag      = flag.String("t", "", "Count tokens in file")
+		tokenFlag      = flag.String("t", "", "Estimate token count in file")
 		loadFileFlag   = flag.String("l", "", "Load and display file content (supports text, PDF, DOCX, XLSX, CSV)")
 		webSearchFlag  = flag.String("w", "", "Perform a web search and print the results")
 		scrapeURLFlag  = flag.String("s", "", "Scrape a URL and print the content")
+		continueFlag   = flag.Bool("c", false, "Continue from latest session")
+		clearFlag      = flag.Bool("clear", false, "Clear latest session")
+		historyFlag    = flag.Bool("a", false, "Search and load previous sessions")
 	)
-	flag.StringVar(tokenFlag, "token", "", "Count tokens in file")
+	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file")
+	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
+	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
 
 	flag.Parse()
 	remainingArgs := flag.Args()
@@ -74,25 +78,94 @@ func main() {
 		return
 	}
 
-	// handle web search flag
-	if *webSearchFlag != "" {
-		results, err := terminal.WebSearch(*webSearchFlag)
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error during web search: %v", err))
+	// handle clear session flag
+	if *clearFlag {
+		if !state.Config.EnableSessionSave {
+			terminal.PrintError("session save feature is disabled in config")
 			return
 		}
-		fmt.Println(results)
+
+		// Confirm before clearing (in red, default to No)
+		fmt.Printf("\033[91mdelete all temp files? (y/N)\033[0m ")
+		var response string
+		_, err := fmt.Scanln(&response)
+
+		// Convert to lowercase and check response
+		response = strings.ToLower(strings.TrimSpace(response))
+		if response != "y" && response != "yes" {
+			fmt.Println("cancelled")
+			return
+		}
+
+		// Get temp directory using centralized utility
+		tmpDir, err := config.GetTempDir()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("failed to get temp directory: %v", err))
+			return
+		}
+
+		// Delete and recreate temp directory
+		err = os.RemoveAll(tmpDir)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error clearing temporary files: %v", err))
+			return
+		}
+
+		// Recreate empty directory
+		err = os.MkdirAll(tmpDir, 0755)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error recreating temporary directory: %v", err))
+			return
+		}
+
 		return
 	}
 
-	// handle scrape URL flag
-	if *scrapeURLFlag != "" {
-		content, err := terminal.ScrapeURLs([]string{*scrapeURLFlag})
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error scraping URL: %v", err))
+	// handle history search flag
+	if *historyFlag {
+		// Check if save_all_sessions is enabled
+		if !state.Config.SaveAllSessions {
+			terminal.PrintError("history search requires save_all_sessions to be enabled in config")
 			return
 		}
-		fmt.Println(strings.TrimSpace(content))
+
+		// Determine if exact search based on remaining args
+		exact := len(remainingArgs) > 0 && remainingArgs[0] == "exact"
+
+		session, err := chatManager.SearchSessions(terminal, exact)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("%v", err))
+			return
+		}
+
+		// Restore the session and show it
+		chatManager.RestoreSessionState(session)
+
+		// Re-initialize platform client with restored state
+		err = platformManager.Initialize()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("failed to initialize client: %v", err))
+			return
+		}
+
+		// Print session info and conversation
+		fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+
+		// Print the entire conversation history
+		for _, entry := range session.ChatHistory {
+			if entry.User == state.Config.SystemPrompt {
+				continue // Skip system prompt
+			}
+			// Print user message
+			if entry.User != "" {
+				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+			}
+			// Print bot response
+			if entry.Bot != "" {
+				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
+			}
+		}
+
 		return
 	}
 
@@ -142,15 +215,6 @@ func main() {
 		err := handleExportCodeBlocks(chatManager, terminal)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error exporting code blocks: %v", err))
-		}
-		return
-	}
-
-	// handle load file flag
-	if *loadFileFlag != "" {
-		err := handleLoadFile(*loadFileFlag, terminal)
-		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error loading file: %v", err))
 		}
 		return
 	}
@@ -212,8 +276,55 @@ func main() {
 		finalModel = *modelFlag
 	}
 
-	// Apply the final platform and model
-	if finalPlatform != state.Config.CurrentPlatform || finalModel != state.Config.CurrentModel {
+	// Handle continue flag BEFORE platform initialization
+	sessionRestored := false
+	if *continueFlag {
+		// Check if session save is enabled in config
+		if !state.Config.EnableSessionSave {
+			terminal.PrintError("session save feature is disabled in config")
+			return
+		}
+
+		session, err := chatManager.LoadLatestSessionState()
+		if err != nil {
+			// If no session found, exit with error
+			if !strings.Contains(err.Error(), "no session file found") {
+				terminal.PrintError(fmt.Sprintf("error loading session: %v", err))
+				return
+			}
+			terminal.PrintError("no previous session found to continue from")
+			return
+		} else {
+			// Restore session state successfully
+			chatManager.RestoreSessionState(session)
+			sessionRestored = true
+
+			// Override the final platform and model with session values
+			finalPlatform = session.Platform
+			finalModel = session.Model
+
+			// Print session restoration message in red
+			fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+
+			// Print the entire conversation history
+			for _, entry := range session.ChatHistory {
+				if entry.User == state.Config.SystemPrompt {
+					continue // Skip system prompt
+				}
+				// Print user message
+				if entry.User != "" {
+					fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+				}
+				// Print bot response
+				if entry.Bot != "" {
+					fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
+				}
+			}
+		}
+	}
+
+	// Apply the final platform and model (if not restored from session)
+	if !sessionRestored && (finalPlatform != state.Config.CurrentPlatform || finalModel != state.Config.CurrentModel) {
 		// If the platform was changed via flag/env, we may need to select a model for it
 		if *platformFlag != "" {
 			result, err := platformManager.SelectPlatform(finalPlatform, finalModel, terminal.FzfSelect)
@@ -235,6 +346,119 @@ func main() {
 	err := platformManager.Initialize()
 	if err != nil {
 		terminal.PrintError(fmt.Sprintf("failed to initialize client: %v", err))
+		return
+	}
+
+	// handle web search flag
+	if *webSearchFlag != "" {
+		queries := splitByDelimiters(*webSearchFlag)
+		prompt := strings.Join(flag.Args(), " ")
+
+		// Combine results from multiple queries
+		var allResults []string
+		for _, query := range queries {
+			results, err := terminal.WebSearch(query)
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error during web search for '%s': %v", query, err))
+				continue
+			}
+			allResults = append(allResults, results)
+		}
+
+		combinedResults := strings.Join(allResults, "\n\n---\n\n")
+
+		// If no prompt, just display results
+		if prompt == "" {
+			fmt.Print(combinedResults)
+			return
+		}
+
+		// If prompt provided, send to AI with context
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedResults, prompt)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error: %v", err))
+		}
+		return
+	}
+
+	// handle scrape URL flag
+	if *scrapeURLFlag != "" {
+		urls := splitByDelimiters(*scrapeURLFlag)
+		prompt := strings.Join(flag.Args(), " ")
+
+		// Combine content from multiple URLs
+		var allContent []string
+		for _, url := range urls {
+			content, err := terminal.ScrapeURLs([]string{url})
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error scraping URL '%s': %v", url, err))
+				continue
+			}
+			allContent = append(allContent, content)
+		}
+
+		combinedContent := strings.Join(allContent, "\n\n---\n\n")
+
+		// If no prompt, just display content
+		if prompt == "" {
+			fmt.Println(strings.TrimSpace(combinedContent))
+			return
+		}
+
+		// If prompt provided, send to AI with context
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error: %v", err))
+		}
+		return
+	}
+
+	// handle load file flag
+	if *loadFileFlag != "" {
+		files := splitByDelimiters(*loadFileFlag)
+		prompt := strings.Join(flag.Args(), " ")
+
+		// Load content from all specified files
+		var allContent []string
+		for _, file := range files {
+			// Check if it's a URL
+			if terminal.IsURL(file) {
+				content, err := terminal.LoadFileContent([]string{file})
+				if err != nil {
+					terminal.PrintError(fmt.Sprintf("error loading URL '%s': %v", file, err))
+					continue
+				}
+				allContent = append(allContent, content)
+			} else {
+				// Check if file exists
+				if _, err := os.Stat(file); os.IsNotExist(err) {
+					terminal.PrintError(fmt.Sprintf("file does not exist: %s", file))
+					continue
+				}
+
+				// Load file content
+				content, err := terminal.LoadFileContent([]string{file})
+				if err != nil {
+					terminal.PrintError(fmt.Sprintf("error loading file '%s': %v", file, err))
+					continue
+				}
+				allContent = append(allContent, content)
+			}
+		}
+
+		combinedContent := strings.Join(allContent, "\n\n---\n\n")
+
+		// If no prompt, just display content
+		if prompt == "" {
+			fmt.Println(strings.TrimSpace(combinedContent))
+			return
+		}
+
+		// If prompt provided, send to AI with context
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error: %v", err))
+		}
 		return
 	}
 
@@ -301,6 +525,13 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 
 	chatManager.AddAssistantMessage(response)
 	chatManager.AddToHistory(query, response)
+
+	// Auto-save session state if enabled
+	if state.Config.EnableSessionSave {
+		if err := chatManager.SaveSessionState(); err != nil {
+			terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
+		}
+	}
 
 	// Export code blocks if -e flag was used
 	if exportCode {
@@ -441,6 +672,13 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 
 		chatManager.AddAssistantMessage(response)
 		chatManager.AddToHistory(input, response)
+
+		// Auto-save session state if enabled
+		if state.Config.EnableSessionSave {
+			if err := chatManager.SaveSessionState(); err != nil {
+				terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
+			}
+		}
 	}
 }
 
@@ -660,6 +898,49 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		return true
 
+	case input == "!a" || input == "!a exact":
+		if !config.SaveAllSessions {
+			terminal.PrintError("session search requires save_all_sessions to be enabled in config")
+			return true
+		}
+
+		exact := input == "!a exact"
+		session, err := chatManager.SearchSessions(terminal, exact)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("%v", err))
+			return true
+		}
+
+		// Restore the session
+		chatManager.RestoreSessionState(session)
+
+		// Re-initialize platform client
+		err = platformManager.Initialize()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
+			return true
+		}
+
+		// Print session info and conversation
+		fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+
+		// Print the entire conversation history
+		for _, entry := range session.ChatHistory {
+			if entry.User == state.Config.SystemPrompt {
+				continue // Skip system prompt
+			}
+			// Print user message
+			if entry.User != "" {
+				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+			}
+			// Print bot response
+			if entry.Bot != "" {
+				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
+			}
+		}
+
+		return true
+
 	case input == config.ScrapeURL:
 		if fromHelp {
 			fmt.Printf("\033[93m%s [url] - scrape URL(s)\033[0m\n", config.ScrapeURL)
@@ -748,7 +1029,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	case input == config.MultiLine:
 		var lines []string
-		terminal.PrintInfo("multi-line mode (end with '\\' on a new line)")
+		terminal.PrintInfo("multi-line mode (exit with '\\')")
 
 		// Create a new readline instance for multi-line input
 		multiLineRl, err := readline.NewEx(&readline.Config{
@@ -859,7 +1140,7 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 	}
 
 	// Check if this is a shallow load directory and inform the user
-	if isShallowLoadDir(targetPath, state.Config) {
+	if config.IsShallowLoadDir(state.Config, targetPath) {
 		terminal.PrintInfo("shallow loading")
 	}
 
@@ -1214,32 +1495,76 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 	return nil
 }
 
-// handleLoadFile loads and displays file content or scrapes URL
-func handleLoadFile(filePath string, terminal *ui.Terminal) error {
-	// Check if it's a URL
-	if terminal.IsURL(filePath) {
-		// Use the same loading logic as !l command for URLs
-		content, err := terminal.LoadFileContent([]string{filePath})
-		if err != nil {
-			return fmt.Errorf("failed to scrape URL: %w", err)
+// splitByDelimiters splits a string by both commas and pipes, trimming whitespace
+func splitByDelimiters(input string) []string {
+	// First split by comma
+	parts := strings.Split(input, ",")
+	var result []string
+
+	for _, part := range parts {
+		// Then split each part by pipe
+		subParts := strings.Split(part, "|")
+		for _, subPart := range subParts {
+			trimmed := strings.TrimSpace(subPart)
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
 		}
-		fmt.Print(content)
-		return nil
 	}
 
-	// Check if file exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("file does not exist: %s", filePath)
+	return result
+}
+
+// handleFlagWithPrompt sends context and prompt to AI, then displays response
+// context: the loaded/scraped/searched content
+// prompt: the user's query/instruction
+func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, context string, prompt string) error {
+	// Combine context and prompt for the message
+	combinedMessage := context + "\n\n" + prompt
+
+	chatManager.AddUserMessage(combinedMessage)
+
+	// Start loading animation for non-streaming models
+	var loadingDone chan bool
+	if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
+		loadingDone = make(chan bool)
+		go terminal.ShowLoadingAnimation("thinking", loadingDone)
 	}
 
-	// Use the same loading logic as !l command
-	content, err := terminal.LoadFileContent([]string{filePath})
+	response, err := platformManager.SendChatRequest(chatManager.GetMessages(), chatManager.GetCurrentModel(), &state.StreamingCancel, &state.IsStreaming)
+
+	// Stop loading animation if it was started
+	if loadingDone != nil {
+		loadingDone <- true
+	}
+
 	if err != nil {
-		return fmt.Errorf("failed to load file: %w", err)
+		if err.Error() == "request was interrupted" {
+			chatManager.RemoveLastUserMessage()
+			return nil
+		}
+		return err
 	}
 
-	// Print the content directly to stdout
-	fmt.Print(content)
+	// Print response for non-streaming models
+	if platformManager.IsReasoningModel(chatManager.GetCurrentModel()) {
+		if state.Config.IsPipedOutput {
+			fmt.Printf("%s\n", response)
+		} else {
+			fmt.Printf("\033[92m%s\033[0m\n", response)
+		}
+	}
+
+	chatManager.AddAssistantMessage(response)
+	chatManager.AddToHistory(prompt, response)
+
+	// Auto-save session state if enabled
+	if state.Config.EnableSessionSave {
+		if err := chatManager.SaveSessionState(); err != nil {
+			terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
+		}
+	}
+
 	return nil
 }
 
@@ -1287,48 +1612,10 @@ func handleWebSearch(query string, chatManager *chat.Manager, terminal *ui.Termi
 	return true
 }
 
-// generateHashFromContent creates a short hash using characters from the content
-func generateHashFromContent(content string, length int) string {
-	return generateHashFromContentWithOffset(content, length, 0)
-}
-
-// generateHashFromContentWithOffset creates a hash with an offset for collision avoidance
-func generateHashFromContentWithOffset(content string, length, offset int) string {
-	// Extract alphanumeric characters from content
-	var charset []rune
-	for _, char := range content {
-		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') {
-			charset = append(charset, char)
-		}
-	}
-
-	// Fallback to default charset if content has no alphanumeric characters
-	if len(charset) == 0 {
-		charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-	}
-
-	// Use content + offset as seed for more variation
-	seed := int64(len(content) + offset)
-	for i, char := range content {
-		if i < 100 { // Only use first 100 chars to avoid overflow
-			seed += int64(char) * int64(i+offset+1)
-		}
-	}
-	rand.Seed(seed)
-
-	// Generate hash
-	hash := make([]rune, length)
-	for i := range hash {
-		hash[i] = charset[rand.Intn(len(charset))]
-	}
-
-	return string(hash)
-}
-
 // generateUniqueCodeDumpFilename generates a unique filename for code dump with collision detection
 func generateUniqueCodeDumpFilename(currentDir, content string) string {
-	baseHash := generateHashFromContent(content, 8)
-	filename := fmt.Sprintf("code_dump_%s.txt", baseHash)
+	baseHash := chat.GenerateHashFromContent(content, 8)
+	filename := fmt.Sprintf("ch_cd%s.txt", baseHash)
 	fullPath := filepath.Join(currentDir, filename)
 
 	// Check if file exists, if not return it
@@ -1338,8 +1625,8 @@ func generateUniqueCodeDumpFilename(currentDir, content string) string {
 
 	// If file exists, try with different offsets
 	for offset := 1; offset <= 10; offset++ {
-		newHash := generateHashFromContentWithOffset(content, 8, offset)
-		filename = fmt.Sprintf("code_dump_%s.txt", newHash)
+		newHash := chat.GenerateHashFromContentWithOffset(content, 8, offset)
+		filename = fmt.Sprintf("ch_cd%s.txt", newHash)
 		fullPath = filepath.Join(currentDir, filename)
 
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
@@ -1349,7 +1636,7 @@ func generateUniqueCodeDumpFilename(currentDir, content string) string {
 
 	// If still colliding, add a numeric suffix
 	for counter := 1; counter <= 999; counter++ {
-		filename = fmt.Sprintf("code_dump_%s_%03d.txt", baseHash, counter)
+		filename = fmt.Sprintf("ch_cd%s_%03d.txt", baseHash, counter)
 		fullPath = filepath.Join(currentDir, filename)
 
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
@@ -1358,7 +1645,7 @@ func generateUniqueCodeDumpFilename(currentDir, content string) string {
 	}
 
 	// Fallback to original UUID if everything fails
-	return fmt.Sprintf("code_dump_%s.txt", uuid.New().String())
+	return fmt.Sprintf("ch_cd%s.txt", uuid.New().String())
 }
 
 // handleAllModels handles the !o command for selecting from all available models
@@ -1404,9 +1691,9 @@ func handleAllModels(chatManager *chat.Manager, platformManager *platform.Manage
 	modelMap := make(map[string]modelInfo)
 
 	for _, m := range models {
-		parts := strings.SplitN(m, "] ", 2)
+		parts := strings.SplitN(m, "|", 2)
 		if len(parts) == 2 {
-			platform := strings.TrimPrefix(parts[0], "[")
+			platform := parts[0]
 			modelName := parts[1]
 			modelMap[m] = modelInfo{platform, modelName}
 		}
@@ -1459,44 +1746,4 @@ func handleAllModels(chatManager *chat.Manager, platformManager *platform.Manage
 	}
 
 	return true
-}
-
-// isShallowLoadDir checks if a directory is in the shallow load list
-func isShallowLoadDir(dirPath string, cfg *types.Config) bool {
-	// Normalize the directory path
-	absPath, err := filepath.Abs(dirPath)
-	if err != nil {
-		return false
-	}
-	absPath = filepath.Clean(absPath)
-
-	// Check against each shallow load directory
-	for _, shallowDir := range cfg.ShallowLoadDirs {
-		if shallowDir == "" {
-			continue
-		}
-
-		// Expand ~ to home directory
-		if strings.HasPrefix(shallowDir, "~") {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				continue
-			}
-			shallowDir = filepath.Join(homeDir, shallowDir[1:])
-		}
-
-		// Normalize shallow directory path
-		absShallowDir, err := filepath.Abs(shallowDir)
-		if err != nil {
-			continue
-		}
-		absShallowDir = filepath.Clean(absShallowDir)
-
-		// Check for exact match
-		if absPath == absShallowDir {
-			return true
-		}
-	}
-
-	return false
 }

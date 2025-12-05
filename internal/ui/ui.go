@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MehmetMHY/ch/internal/config"
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/ledongthuc/pdf"
 	"github.com/lu4p/cat"
-	"github.com/otiai10/gosseract/v2"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/tealeg/xlsx/v3"
 	"golang.org/x/net/html"
@@ -43,27 +43,10 @@ func NewTerminal(config *types.Config) *Terminal {
 	}
 }
 
-// getTempDir returns the application's temporary directory, creating it if it doesn't exist
-func (t *Terminal) getTempDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	tempDir := filepath.Join(homeDir, ".ch", "tmp")
-
-	// Create the directory if it doesn't exist
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create temp directory: %w", err)
-	}
-
-	return tempDir, nil
-}
-
 // runFzfSSHSafe executes fzf in a way that works correctly over SSH connections
 // by keeping stderr attached to TTY for UI display and redirecting stdout to temp file
 func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, error) {
-	tempDir, err := t.getTempDir()
+	tempDir, err := config.GetTempDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %w", err)
 	}
@@ -118,7 +101,7 @@ func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, er
 
 // runFzfSSHSafeWithQuery executes fzf with --print-query in a SSH-safe way
 func (t *Terminal) runFzfSSHSafeWithQuery(fzfArgs []string, inputText string) ([]string, error) {
-	tempDir, err := t.getTempDir()
+	tempDir, err := config.GetTempDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get temp directory: %w", err)
 	}
@@ -185,10 +168,13 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("ch - lightweight CLI for AI models")
 	fmt.Println("")
 	fmt.Println("usage:")
-	fmt.Printf("  ch [-h] [-d [dir]] [-p [platform]] [-m model] [-o platform|model] [-l file/url] [-w query] [-s url] [-e] [query]\n")
+	fmt.Printf("  ch [-h] [-c] [--clear] [-a] [-d [dir]] [-p [platform]] [-m model] [-o platform|model] [-l file/url] [-w query] [-s url] [-e] [query]\n")
 	fmt.Println("")
 	fmt.Println("options:")
 	fmt.Printf("  %-18s %s\n", "-h, --help", "show help and exit")
+	fmt.Printf("  %-18s %s\n", "-c, --continue", "continue from latest session")
+	fmt.Printf("  %-18s %s\n", "--clear", "clear all tmp files")
+	fmt.Printf("  %-18s %s\n", "-a, --history", "search sessions")
 	fmt.Printf("  %-18s %s\n", "-d [dir]", "generate codedump")
 	fmt.Printf("  %-18s %s\n", "-p [platform]", "switch platform")
 	fmt.Printf("  %-18s %s\n", "-m model", "specify model")
@@ -199,17 +185,14 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %-18s %s\n", "-e, --export", "export code blocks")
 	fmt.Println("")
 	fmt.Println("examples:")
+	fmt.Println("  ch -p \"openai\" -m \"gpt-4.1\" \"goal of life\"")
+	fmt.Println("  cat example.txt | ch \"what does this do?\"")
 	fmt.Println("  ch \"what is AI?\"")
-	fmt.Println("  ch -p groq -m llama3-8b-8192 \"explain quantum computing\"")
-	fmt.Println("  ch -o openai|gpt-4 \"what is quantum computing?\"")
-	fmt.Println("  ch -l document.pdf")
-	fmt.Println("  ch -d /path/to/project")
-	fmt.Println("  cat main.py | ch \"what does this do?\"")
 	fmt.Println("")
 
 	// Dynamically generate platforms list
 	var platforms []string
-	platforms = append(platforms, "openai (default)")
+	platforms = append(platforms, "openai")
 	for name := range t.config.Platforms {
 		if name != "openai" {
 			platforms = append(platforms, name)
@@ -230,7 +213,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	}
 
 	// Get the application's temporary directory
-	tempDir, err := t.getTempDir()
+	tempDir, err := config.GetTempDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %w", err)
 	}
@@ -360,50 +343,39 @@ func (t *Terminal) processHelpSelection(selected string, options []string) strin
 	return ""
 }
 
-// getInteractiveHelpOptions returns a slice of strings containing the help information.
-func (t *Terminal) getInteractiveHelpOptions() []string {
-	options := []string{
-		">all - show all help options",
-		">state - show current state",
+// getCommandList returns the list of help commands
+func (t *Terminal) getCommandList() []string {
+	return []string{
 		fmt.Sprintf("%s - exit interface", t.config.ExitKey),
 		fmt.Sprintf("%s - help page", t.config.HelpKey),
 		fmt.Sprintf("%s - clear chat history", t.config.ClearHistory),
 		fmt.Sprintf("%s - backtrack messages", t.config.Backtrack),
-		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
-		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
-		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - select from all models", t.config.AllModels),
+		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - switch platforms", t.config.PlatformSwitch),
-		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
 		fmt.Sprintf("%s - record shell session", t.config.ShellRecord),
+		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
+		fmt.Sprintf("%s - export chat(s)", t.config.ExportChat),
+		fmt.Sprintf("%s - add to clipboard", t.config.CopyToClipboard),
+		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
+		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
+		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
 		fmt.Sprintf("%s [url] - scrape URL(s)", t.config.ScrapeURL),
 		fmt.Sprintf("%s [query] - web search", t.config.WebSearch),
-		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
-		fmt.Sprintf("%s - export chat(s) to a file", t.config.ExportChat),
-		fmt.Sprintf("%s - add to clipboard", t.config.CopyToClipboard),
+		fmt.Sprintf("%s [exact] - search sessions", t.config.AnswerSearch),
 		"ctrl+c - clear prompt input",
 		"ctrl+d - exit completely",
 	}
-
-	return options
 }
 
-// PrintTitle displays the current session information
-func (t *Terminal) PrintTitle() {
-	fmt.Printf("\033[93m%s - exit interface\033[0m\n", t.config.ExitKey)
-	fmt.Printf("\033[93m%s - switch models\033[0m\n", t.config.ModelSwitch)
-	fmt.Printf("\033[93m%s - switch platforms\033[0m\n", t.config.PlatformSwitch)
-	fmt.Printf("\033[93m%s [buff] - text editor input\033[0m\n", t.config.EditorInput)
-	fmt.Printf("\033[93m%s - clear history\033[0m\n", t.config.ClearHistory)
-	fmt.Printf("\033[93m%s - backtrack\033[0m\n", t.config.Backtrack)
-	fmt.Printf("\033[93m%s - help page\033[0m\n", t.config.HelpKey)
-	fmt.Printf("\033[93m%s - load files/dirs\033[0m\n", t.config.LoadFiles)
-	fmt.Printf("\033[93m%s - generate codedump\033[0m\n", t.config.CodeDump)
-	fmt.Printf("\033[93m%s - export chat\033[0m\n", t.config.ExportChat)
-	fmt.Printf("\033[93m%s - record shell session\033[0m\n", t.config.ShellRecord)
-	fmt.Printf("\033[93m%s - multi-line input\033[0m\n", t.config.MultiLine)
-	fmt.Printf("\033[93mctrl+c - clear prompt input\033[0m\n")
-	fmt.Printf("\033[93mctrl+d - exit interface completely\033[0m\n")
+// getInteractiveHelpOptions returns a slice of strings containing the help information for fzf selection.
+func (t *Terminal) getInteractiveHelpOptions() []string {
+	options := []string{
+		">all - show all help options",
+		">state - show current state",
+	}
+	options = append(options, t.getCommandList()...)
+	return options
 }
 
 // ShowLoadingAnimation displays a loading animation
@@ -959,55 +931,6 @@ func parseFraction(fraction string) float64 {
 	return numerator / denominator
 }
 
-// extractTextFromImage uses Tesseract OCR to extract text from an image
-func (t *Terminal) extractTextFromImage(filePath string) (string, error) {
-	// Check if tesseract is installed
-	if _, err := exec.LookPath("tesseract"); err != nil {
-		return "", fmt.Errorf("tesseract OCR is not installed. Please install it to enable image-to-text extraction")
-	}
-
-	client := gosseract.NewClient()
-	defer client.Close()
-
-	// Set language (default to English, but could be made configurable)
-	err := client.SetLanguage("eng")
-	if err != nil {
-		// If English fails, try without setting language
-		client = gosseract.NewClient()
-		defer client.Close()
-	}
-
-	// Set image source
-	err = client.SetImage(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to set image source: %w", err)
-	}
-
-	// Configure OCR settings for better accuracy
-	client.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?@#$%^&*()_+-={}[]|\\:;\"'<>/~` ")
-
-	// Extract text
-	text, err := client.Text()
-	if err != nil {
-		return "", fmt.Errorf("OCR extraction failed: %w", err)
-	}
-
-	// Clean up the extracted text
-	cleanedText := strings.TrimSpace(text)
-
-	// Remove excessive whitespace and normalize line breaks
-	lines := strings.Split(cleanedText, "\n")
-	var cleanedLines []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			cleanedLines = append(cleanedLines, line)
-		}
-	}
-
-	return strings.Join(cleanedLines, "\n"), nil
-}
-
 // isTextFile checks if content is likely from a text file
 func (t *Terminal) isTextFile(content []byte) bool {
 	if len(content) == 0 {
@@ -1033,30 +956,6 @@ func (t *Terminal) isTextFile(content []byte) bool {
 	return float64(printableCount)/float64(len(content)) > 0.95
 }
 
-// GetCurrentDirFiles returns files and directories in the current directory
-func (t *Terminal) GetCurrentDirFiles() ([]string, error) {
-	pwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	entries, err := ioutil.ReadDir(pwd)
-	if err != nil {
-		return nil, err
-	}
-
-	var items []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			items = append(items, entry.Name()+"/")
-		} else {
-			items = append(items, entry.Name())
-		}
-	}
-
-	return items, nil
-}
-
 // GetCurrentDirFilesRecursive returns all files and directories in the current directory and subdirectories
 func (t *Terminal) GetCurrentDirFilesRecursive() ([]string, error) {
 	currentDir, err := os.Getwd()
@@ -1077,7 +976,7 @@ func (t *Terminal) GetDirFilesRecursive(targetDir string) ([]string, error) {
 	}
 
 	// Check if this directory should be loaded shallowly
-	isShallow := t.isShallowLoadDir(absTargetDir)
+	isShallow := config.IsShallowLoadDir(t.config, absTargetDir)
 
 	err = filepath.WalkDir(targetDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -1125,68 +1024,6 @@ func (t *Terminal) GetDirFilesRecursive(targetDir string) ([]string, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk directory: %v", err)
-	}
-
-	return items, nil
-}
-
-// isShallowLoadDir checks if a directory should be loaded shallowly (only 1 level deep)
-func (t *Terminal) isShallowLoadDir(dirPath string) bool {
-	// Normalize the directory path
-	absPath, err := filepath.Abs(dirPath)
-	if err != nil {
-		return false
-	}
-	absPath = filepath.Clean(absPath)
-
-	// Check against each shallow load directory
-	for _, shallowDir := range t.config.ShallowLoadDirs {
-		if shallowDir == "" {
-			continue
-		}
-
-		// Expand ~ to home directory
-		if strings.HasPrefix(shallowDir, "~") {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				continue
-			}
-			shallowDir = filepath.Join(homeDir, shallowDir[1:])
-		}
-
-		// Normalize shallow directory path
-		absShallowDir, err := filepath.Abs(shallowDir)
-		if err != nil {
-			continue
-		}
-		absShallowDir = filepath.Clean(absShallowDir)
-
-		// Check for exact match
-		if absPath == absShallowDir {
-			return true
-		}
-	}
-
-	return false
-}
-
-// GetCurrentDirFilesOnly returns non-directory files in the current directory
-func (t *Terminal) GetCurrentDirFilesOnly() ([]string, error) {
-	pwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	entries, err := ioutil.ReadDir(pwd)
-	if err != nil {
-		return nil, err
-	}
-
-	var items []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			items = append(items, entry.Name())
-		}
 	}
 
 	return items, nil
@@ -1501,12 +1338,6 @@ func (t *Terminal) filterExcludedFiles(allFiles, excludedItems []string) []strin
 	return includedFiles
 }
 
-// generateCodeDump creates the final codedump string
-func (t *Terminal) generateCodeDump(files []string) (string, error) {
-	pwd, _ := os.Getwd()
-	return t.generateCodeDumpFromDir(files, pwd)
-}
-
 // generateCodeDumpFromDir creates the final codedump string from a specific directory
 func (t *Terminal) generateCodeDumpFromDir(files []string, sourceDir string) (string, error) {
 	var result strings.Builder
@@ -1721,7 +1552,7 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	// Get subtitles
 	result.WriteString("\n--- Subtitles ---\n")
 
-	tempDir, err := t.getTempDir()
+	tempDir, err := config.GetTempDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %w", err)
 	}
@@ -2161,7 +1992,7 @@ func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
 // openEditorWithContent opens the preferred editor with given content and returns the edited result
 func (t *Terminal) openEditorWithContent(content string) (string, error) {
 	// Create temporary file
-	tempDir, err := t.getTempDir()
+	tempDir, err := config.GetTempDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp directory: %w", err)
 	}
@@ -2195,50 +2026,7 @@ func (t *Terminal) openEditorWithContent(content string) (string, error) {
 
 // runEditorWithFallback tries to run the user's preferred editor, then falls back to common editors.
 func (t *Terminal) runEditorWithFallback(filePath string) error {
-	var editors []string
-	if envEditor := os.Getenv("EDITOR"); envEditor != "" {
-		editors = append(editors, envEditor)
-	}
-	editors = append(editors, t.config.PreferredEditor, "vim", "nano")
-
-	// Remove duplicates
-	seen := make(map[string]bool)
-	uniqueEditors := []string{}
-	for _, editor := range editors {
-		if editor != "" && !seen[editor] {
-			uniqueEditors = append(uniqueEditors, editor)
-			seen[editor] = true
-		}
-	}
-
-	for i, editor := range uniqueEditors {
-		// Check if the editor exists
-		if _, err := exec.LookPath(editor); err != nil {
-			continue
-		}
-
-		cmd := exec.Command(editor, filePath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-
-		// For the first attempts, suppress stderr to avoid showing error messages
-		// Only show stderr for the final attempt
-		if i < len(uniqueEditors)-1 {
-			cmd.Stderr = nil // Suppress error messages for fallback attempts
-		} else {
-			cmd.Stderr = os.Stderr // Show errors for final attempt
-		}
-
-		if err := cmd.Run(); err != nil {
-			// If this editor failed, try the next one
-			continue
-		}
-
-		// Success!
-		return nil
-	}
-
-	return fmt.Errorf("no working editor found")
+	return RunEditorWithFallback(t.config, filePath)
 }
 
 // ExtractURLsFromText extracts all URLs from a given text using regex
