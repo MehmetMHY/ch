@@ -1430,28 +1430,49 @@ func (t *Terminal) cleanURL(urlStr string) string {
 	return cleaned
 }
 
-// scrapeURL scrapes content from a single URL
+// scrapeURL scrapes content from a single URL (with loading animation)
 func (t *Terminal) scrapeURL(urlStr string) (string, error) {
+	// Show loading animation
+	done := make(chan bool)
+	go t.ShowLoadingAnimation("Scraping...", done)
+
+	content, err := t.scrapeURLInternal(urlStr)
+
+	// Stop loading animation
+	done <- true
+
+	return content, err
+}
+
+// scrapeURLInternal scrapes content from a single URL without animation
+func (t *Terminal) scrapeURLInternal(urlStr string) (string, error) {
 	// Clean any shell escapes from the URL
 	cleanedURL := t.cleanURL(urlStr)
 
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("=== %s ===\n\n", cleanedURL))
 
+	var scrapeErr error
 	if t.isYouTubeURL(cleanedURL) {
 		// YouTube scraping with yt-dlp
 		content, err := t.scrapeYouTube(cleanedURL)
 		if err != nil {
-			return "", fmt.Errorf("failed to scrape YouTube URL: %w", err)
+			scrapeErr = fmt.Errorf("failed to scrape YouTube URL: %w", err)
+		} else {
+			result.WriteString(content)
 		}
-		result.WriteString(content)
 	} else {
 		// Regular web scraping with curl + lynx
 		content, err := t.scrapeWeb(cleanedURL)
 		if err != nil {
-			return "", fmt.Errorf("failed to scrape URL: %w", err)
+			scrapeErr = fmt.Errorf("failed to scrape URL: %w", err)
+		} else {
+			result.WriteString(content)
 		}
-		result.WriteString(content)
+	}
+
+	if scrapeErr != nil {
+		return "", scrapeErr
 	}
 
 	result.WriteString("\n")
@@ -1643,7 +1664,15 @@ func (t *Terminal) ScrapeURLs(urls []string) (string, error) {
 			continue
 		}
 
-		content, err := t.scrapeURL(urlStr)
+		// Show loading animation for each URL
+		done := make(chan bool)
+		go t.ShowLoadingAnimation("Scraping...", done)
+
+		content, err := t.scrapeURLInternal(urlStr)
+
+		// Stop loading animation
+		done <- true
+
 		if err != nil {
 			result.WriteString(fmt.Sprintf("Error scraping %s: %v\n", urlStr, err))
 			continue
@@ -1662,8 +1691,13 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 		return "", fmt.Errorf("the BRAVE_API_KEY environment variable is not set")
 	}
 
+	// Show loading animation
+	done := make(chan bool)
+	go t.ShowLoadingAnimation("Searching...", done)
+
 	req, err := http.NewRequest("GET", "https://api.search.brave.com/res/v1/web/search", nil)
 	if err != nil {
+		done <- true
 		return "", fmt.Errorf("failed to create search request: %w", err)
 	}
 
@@ -1679,23 +1713,29 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		done <- true
 		return "", fmt.Errorf("failed to perform search: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		done <- true
 		return "", fmt.Errorf("search request failed with status: %s", resp.Status)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		done <- true
 		return "", fmt.Errorf("failed to read search response: %w", err)
 	}
 
 	var braveResult BraveSearchResult
 	if err := json.Unmarshal(body, &braveResult); err != nil {
+		done <- true
 		return "", fmt.Errorf("failed to parse search results: %w", err)
 	}
+
+	done <- true
 
 	if len(braveResult.Web.Results) == 0 {
 		noResultsMsg := fmt.Sprintf("No search results found for: %s\n", query)
