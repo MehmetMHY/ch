@@ -126,11 +126,15 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.CurrentPlatform != "" {
 		defaultConfig.CurrentPlatform = userConfig.CurrentPlatform
 	}
-	// Note: ShowSearchResults is a bool, so we need to check if it was explicitly set
-	// In JSON, omitempty will skip false values, but we can't distinguish between
-	// unset and explicitly false. For now, we'll always use the default unless true is set.
-	defaultConfig.ShowSearchResults = defaultConfig.ShowSearchResults || userConfig.ShowSearchResults
-	defaultConfig.MuteNotifications = defaultConfig.MuteNotifications || userConfig.MuteNotifications
+	// Handle ShowSearchResults - only override if user config has it explicitly set
+	// We check if other config fields are set to know if this is an actual config file vs empty
+	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" || userConfig.ShowSearchResults {
+		defaultConfig.ShowSearchResults = userConfig.ShowSearchResults
+	}
+	// Handle MuteNotifications similarly
+	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" || userConfig.MuteNotifications {
+		defaultConfig.MuteNotifications = userConfig.MuteNotifications
+	}
 
 	// EnableSessionSave doesn't use omitempty, so we can safely use the userConfig value
 	// This allows users to explicitly disable it by setting it to false
@@ -194,7 +198,7 @@ func DefaultConfig() *types.Config {
 		ExportChat:        "!e",
 		Backtrack:         "!b",
 		WebSearch:         "!w",
-		ShowSearchResults: false,
+		ShowSearchResults: true,
 		NumSearchResults:  5,
 		SearchCountry:     "us",
 		SearchLang:        "en",
