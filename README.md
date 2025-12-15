@@ -4,7 +4,7 @@
 
 ![Demo GIF](./docs/demo.gif)
 
-_check out the [full demo on youtube](https://www.youtube.com/watch?v=AH0xG1iStf4)_
+<p style="margin-top: -20px;"><i>check out the <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">full demo on youtube</a></i></p>
 
 ## Table of Contents
 
