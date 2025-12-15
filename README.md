@@ -2,9 +2,12 @@
 
 <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a> <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.21+-blue.svg" alt="Go 1.21+"></a> <a href="https://github.com/MehmetMHY/ch/graphs/contributors"><img src="https://img.shields.io/github/contributors/MehmetMHY/ch" alt="Contributors"></a>
 
-![Demo GIF](https://github.com/user-attachments/assets/4a0df463-089c-4b91-956d-3ab992874307)
-
-_Check out the [full demo on YouTube](https://www.youtube.com/watch?v=AH0xG1iStf4)_
+<p align="left">
+  <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">
+    <img src="https://github.com/user-attachments/assets/4a0df463-089c-4b91-956d-3ab992874307" alt="Demo GIF">
+  </a><br>
+  <em>Check out the <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">full demo on YouTube</a></em>
+</p>
 
 ## Table of Contents
 
