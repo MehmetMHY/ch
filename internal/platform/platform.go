@@ -384,8 +384,9 @@ func (m *Manager) isSlowModel(modelName string) bool {
 		return true
 	}
 
-	// NOTE: (9-22-2025) Special handling for grok-4-fast-non-reasoning model
-	if strings.HasPrefix(modelName, "grok-4-fast") && strings.Contains(modelName, "non-reasoning") {
+	// NOTE: (12-16-2025) Special handling for grok-4-fast-non-reasoning model (including versioned variants like grok-4-1-fast-non-reasoning)
+	matched, _ = regexp.MatchString(`grok-4(-\d+)?-fast.*non-reasoning`, modelName)
+	if matched {
 		return false
 	}
 

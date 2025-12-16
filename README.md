@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/logo.png" width="200">
+  <img src="./docs/logo.png" width="150">
 </div>
 
 # Ch
@@ -17,6 +17,7 @@
 
 - [Overview](#overview)
 - [Vision](#vision)
+- [Demo](#demo)
 - [Quick Start](#quick-start)
 - [Features](#features)
 - [Installation](#installation)
@@ -50,6 +51,10 @@
 ## Vision
 
 Ch provides direct terminal access to powerful AI models with minimal overhead, transparent operations, and explicit user control. It integrates seamlessly into developer environments, minimizing context switching and empowering users to leverage AI's full potential through explicit control and flexible, user-driven interactions without automated decisions or hidden costs.
+
+## Demo
+
+Watch the [full demo on YouTube](https://www.youtube.com/watch?v=AH0xG1iStf4) (published October 20, 2025) to see Ch in action with interactive chat, multi-platform switching, shell session recording, code export, and more. It demonstrates how Ch keeps a lightweight focused core while remaining powerful through integration with other CLI tools.
 
 ## Quick Start
 
