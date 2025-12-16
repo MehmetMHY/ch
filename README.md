@@ -9,8 +9,7 @@
 <p align="left">
   <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">
     <img src="https://github.com/user-attachments/assets/4a0df463-089c-4b91-956d-3ab992874307" alt="Demo GIF">
-  </a><br>
-  <em>Check out the <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">full demo on YouTube</a></em>
+  </a>
 </p>
 
 ## Table of Contents
@@ -54,7 +53,7 @@ Ch provides direct terminal access to powerful AI models with minimal overhead, 
 
 ## Demo
 
-Watch the [full demo on YouTube](https://www.youtube.com/watch?v=AH0xG1iStf4) (published October 20, 2025) to see Ch in action with interactive chat, multi-platform switching, shell session recording, code export, and more. It demonstrates how Ch keeps a lightweight focused core while remaining powerful through integration with other CLI tools.
+Watch the [full demo on YouTube (published on October 20, 2025)](https://www.youtube.com/watch?v=AH0xG1iStf4) to see Ch in action with interactive chat, multi-platform switching, shell session recording, code export, and more. It demonstrates how Ch keeps a lightweight focused core while remaining powerful through integration with other CLI tools.
 
 ## Quick Start
 
