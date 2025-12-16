@@ -37,6 +37,7 @@ func (m *Manager) Initialize() error {
 			return fmt.Errorf("OPENAI_API_KEY environment variable is required for OpenAI platform")
 		}
 		m.client = openai.NewClient(apiKey)
+		m.config.CurrentBaseURL = ""
 		return nil
 	}
 
@@ -375,8 +376,9 @@ func (m *Manager) isSlowModel(modelName string) bool {
 	}
 
 	// Special handling for gpt-5 models: only consider them slow if they don't end with nano or mini
+	// Also treat gpt-5.2 as fast
 	if strings.HasPrefix(modelName, "gpt-5") {
-		if strings.HasSuffix(modelName, "nano") || strings.HasSuffix(modelName, "mini") {
+		if strings.HasPrefix(modelName, "gpt-5.2") || strings.HasSuffix(modelName, "nano") || strings.HasSuffix(modelName, "mini") {
 			return false
 		}
 		return true
@@ -390,6 +392,7 @@ func (m *Manager) isSlowModel(modelName string) bool {
 	patterns := []string{
 		`^o\d+`,
 		`^(models/)?gemini-\d+\.\d+-pro.*`,
+		`gemini-3-pro-preview$`,
 		`^deepseek-reasoner$`,
 		`^grok-4.*`,
 		`^claude-opus-4.*`,

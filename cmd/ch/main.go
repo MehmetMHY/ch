@@ -1732,6 +1732,8 @@ func handleAllModels(chatManager *chat.Manager, platformManager *platform.Manage
 
 	// If platform changed, reinitialize the client
 	if platformName != currentPlatform {
+		// Clear CurrentBaseURL to ensure the new platform uses its correct base URL
+		state.Config.CurrentBaseURL = ""
 		err := platformManager.Initialize()
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error initializing client: %v", err))
