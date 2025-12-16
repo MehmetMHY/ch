@@ -352,7 +352,7 @@ check_api_keys() {
 	)
 
 	for key in "${required_keys[@]}"; do
-		if [[ -v $key ]]; then
+		if [[ -n "${!key-}" ]]; then
 			echo -e "\033[92m✓ $key is set\033[0m"
 		else
 			echo -e "\033[91m✗ $key is not set (Required)\033[0m"
@@ -360,7 +360,7 @@ check_api_keys() {
 	done
 
 	for key in "${optional_keys[@]}"; do
-		if [[ -v $key ]]; then
+		if [[ -n "${!key-}" ]]; then
 			echo -e "\033[92m✓ $key is set\033[0m"
 		else
 			echo -e "\033[93m- $key is not set (Optional)\033[0m"
