@@ -951,18 +951,20 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		historyURLs := terminal.ExtractURLsFromChatHistory(chatManager.GetChatHistory())
 		messageURLs := terminal.ExtractURLsFromMessages(chatManager.GetMessages())
 
-		// Combine and deduplicate URLs
-		urlMap := make(map[string]bool)
+		// Combine and deduplicate URLs while preserving order
+		seen := make(map[string]bool)
+		var allURLs []string
 		for _, url := range historyURLs {
-			urlMap[url] = true
+			if !seen[url] {
+				allURLs = append(allURLs, url)
+				seen[url] = true
+			}
 		}
 		for _, url := range messageURLs {
-			urlMap[url] = true
-		}
-
-		var allURLs []string
-		for url := range urlMap {
-			allURLs = append(allURLs, url)
+			if !seen[url] {
+				allURLs = append(allURLs, url)
+				seen[url] = true
+			}
 		}
 
 		if len(allURLs) == 0 {
@@ -1021,9 +1023,9 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		return handleWebSearch(query, chatManager, terminal, state)
 
 	case input == config.CopyToClipboard:
-		err := terminal.CopyResponsesInteractive(chatManager.GetChatHistory())
+		err := terminal.CopyResponsesInteractive(chatManager.GetChatHistory(), chatManager.GetMessages())
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("error copying to clipboard: %v", err))
+			terminal.PrintError(fmt.Sprintf("%v", err))
 		}
 		return true
 
@@ -1396,10 +1398,14 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 	chatHistory := chatManager.GetChatHistory()
 	chatCount := len(chatHistory) - 1 // Subtract system prompt
 
-	// Calculate total token count
+	// Calculate total token count (including both history and messages for accuracy)
 	var totalContent string
 	for _, entry := range chatHistory {
 		totalContent += entry.User + " " + entry.Bot + " "
+	}
+	// Also include messages to account for web search results and scrapes
+	for _, message := range chatManager.GetMessages() {
+		totalContent += message.Content + " "
 	}
 
 	encoding := tokenizer.Cl100kBase

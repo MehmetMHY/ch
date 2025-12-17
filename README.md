@@ -358,10 +358,10 @@ Offers two modes for exporting chat history:
 
 **Clipboard Copy (`!y`):**
 
-- Select one or more AI responses with fzf
-- Edit content in your preferred editor before copying
+- Three copy modes: **auto copy** (extract code blocks), **manual copy** (select responses), **link copy** (select URLs)
+- Edit content in your preferred editor before copying (manual mode)
 - Cross-platform clipboard support (macOS, Linux, Android/Termux, Windows)
-- Usage: `!y` then select responses to copy
+- Usage: `!y` then select mode and items to copy
 
 ### Web Content Interaction
 

@@ -1830,19 +1830,23 @@ func (t *Terminal) CopyToClipboard(content string) error {
 }
 
 // CopyResponsesInteractive allows user to select and copy chat responses to clipboard
-func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory) error {
+func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory, messages []types.ChatMessage) error {
 	if len(chatHistory) == 0 {
 		return fmt.Errorf("no chat history available")
 	}
 
 	// Ask for copy mode
-	copyMode, err := t.FzfSelect([]string{"auto copy", "manual copy"}, "select copy mode: ")
+	copyMode, err := t.FzfSelect([]string{"auto copy", "manual copy", "link copy"}, "select copy mode: ")
 	if err != nil {
 		return fmt.Errorf("selection cancelled or failed: %v", err)
 	}
 
 	if copyMode == "auto copy" {
 		return t.copyResponsesAuto(chatHistory)
+	}
+
+	if copyMode == "link copy" {
+		return t.copyResponsesLinks(chatHistory, messages)
 	}
 
 	if copyMode == "" {
@@ -2023,6 +2027,59 @@ func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
 		responseWord = "responses"
 	}
 	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(selected), responseWord)
+	return nil
+}
+
+// copyResponsesLinks allows user to select and copy URLs to clipboard
+func (t *Terminal) copyResponsesLinks(chatHistory []types.ChatHistory, messages []types.ChatMessage) error {
+	// Extract all URLs from both chat history and messages
+	urls := t.ExtractURLsFromChatHistory(chatHistory)
+
+	// Also extract from messages to catch web search and scrape results
+	if len(messages) > 0 {
+		messagesURLs := t.ExtractURLsFromMessages(messages)
+		// Merge with history URLs, preserving order and removing duplicates
+		seen := make(map[string]bool)
+		for _, url := range urls {
+			seen[url] = true
+		}
+		for _, url := range messagesURLs {
+			if !seen[url] {
+				urls = append(urls, url)
+				seen[url] = true
+			}
+		}
+	}
+
+	if len(urls) == 0 {
+		return fmt.Errorf("no URLs found")
+	}
+
+	// Use fzf for multi-selection
+	selectedURLs, err := t.FzfMultiSelect(urls, "select URLs to copy (tab=multi): ")
+	if err != nil {
+		return fmt.Errorf("selection failed: %w", err)
+	}
+
+	if len(selectedURLs) == 0 {
+		t.PrintInfo("no URLs selected")
+		return nil
+	}
+
+	// Join URLs with single space
+	finalContent := strings.Join(selectedURLs, " ")
+
+	// Copy to clipboard
+	err = t.CopyToClipboard(finalContent)
+	if err != nil {
+		return fmt.Errorf("failed to copy to clipboard: %w", err)
+	}
+
+	urlWord := "URL"
+	if len(selectedURLs) > 1 {
+		urlWord = "URLs"
+	}
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(selectedURLs), urlWord)
 	return nil
 }
 
