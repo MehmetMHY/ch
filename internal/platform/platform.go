@@ -375,12 +375,13 @@ func (m *Manager) isSlowModel(modelName string) bool {
 		return false
 	}
 
-	// Special handling for gpt-5 models: only consider them slow if they don't end with nano or mini
-	// Also treat gpt-5.2 as fast
-	if strings.HasPrefix(modelName, "gpt-5") {
-		if strings.HasPrefix(modelName, "gpt-5.2") || strings.HasSuffix(modelName, "nano") || strings.HasSuffix(modelName, "mini") {
-			return false
-		}
+	// Special handling for gpt-5 models: only "gpt-5" exactly is slow
+	if modelName == "gpt-5" {
+		return true
+	}
+
+	// Check if model contains both "gpt" and "codex" (slow)
+	if strings.Contains(modelName, "gpt") && strings.Contains(modelName, "codex") {
 		return true
 	}
 
