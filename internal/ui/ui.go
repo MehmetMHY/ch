@@ -1930,8 +1930,44 @@ func (t *Terminal) copyResponsesAuto(chatHistory []types.ChatHistory) error {
 		}
 	}
 
+	var finalContent string
+
 	if len(snippets) == 0 {
-		return fmt.Errorf("no code blocks found in selected entries")
+		// No code blocks found, fallback to copying all selected content
+		var allContent strings.Builder
+		for _, item := range selectedItems {
+			var index int
+			parts := strings.SplitN(item, ":", 2)
+			if len(parts) < 2 {
+				continue
+			}
+			_, err := fmt.Sscanf(parts[0], "%d", &index)
+			if err != nil {
+				continue
+			}
+
+			// Find the entry and get all content
+			for _, entry := range chatEntries {
+				if entry.Time == chatHistory[index].Time && entry.Bot != "" {
+					if allContent.Len() > 0 {
+						allContent.WriteString("\n\n")
+					}
+					allContent.WriteString(entry.Bot)
+					break
+				}
+			}
+		}
+
+		finalContent = allContent.String()
+
+		// Copy to clipboard
+		err = t.CopyToClipboard(finalContent)
+		if err != nil {
+			return fmt.Errorf("failed to copy to clipboard: %w", err)
+		}
+
+		fmt.Printf("\033[93mNo code blocks, copying selected content instead\033[0m\n")
+		return nil
 	}
 
 	// Combine snippets
@@ -1943,7 +1979,7 @@ func (t *Terminal) copyResponsesAuto(chatHistory []types.ChatHistory) error {
 		combinedContent.WriteString(snippet.Content)
 	}
 
-	finalContent := combinedContent.String()
+	finalContent = combinedContent.String()
 
 	// Copy to clipboard
 	err = t.CopyToClipboard(finalContent)
