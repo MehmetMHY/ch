@@ -633,7 +633,7 @@ update_version() {
 	echo "Next steps:"
 	echo "1) Commit the Makefile changes"
 	echo "2) Build with: make build"
-	echo "3) Create release with: make release"
+	echo "3) Release with: make release"
 }
 
 show_help() {
