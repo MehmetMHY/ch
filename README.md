@@ -321,6 +321,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!d`** - generate codedump
 - **`!e`** - export chat(s)
 - **`!y`** - add to clipboard
+- **`CC`** - quick copy latest response
 - **`ctrl+c`** - clear prompt input
 - **`ctrl+d`** - exit completely
 

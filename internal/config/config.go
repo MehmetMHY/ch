@@ -96,6 +96,9 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.CopyToClipboard != "" {
 		defaultConfig.CopyToClipboard = userConfig.CopyToClipboard
 	}
+	if userConfig.QuickCopyLatest != "" {
+		defaultConfig.QuickCopyLatest = userConfig.QuickCopyLatest
+	}
 	if userConfig.LoadFiles != "" {
 		defaultConfig.LoadFiles = userConfig.LoadFiles
 	}
@@ -204,6 +207,7 @@ func DefaultConfig() *types.Config {
 		SearchLang:        "en",
 		ScrapeURL:         "!s",
 		CopyToClipboard:   "!y",
+		QuickCopyLatest:   "CC",
 		LoadFiles:         "!l",
 		AnswerSearch:      "!a",
 		PlatformSwitch:    "!p",

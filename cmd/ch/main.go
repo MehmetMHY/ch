@@ -1029,6 +1029,15 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		return true
 
+	case input == config.QuickCopyLatest:
+		err := terminal.CopyLatestResponseToClipboard(chatManager.GetChatHistory())
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("%v", err))
+		} else {
+			terminal.PrintInfo("latest response copied to clipboard")
+		}
+		return true
+
 	case input == config.MultiLine:
 		var lines []string
 		terminal.PrintInfo("multi-line mode (exit with '\\')")

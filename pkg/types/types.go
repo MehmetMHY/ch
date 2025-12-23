@@ -95,6 +95,7 @@ type Config struct {
 	SearchLang        string              `json:"search_lang,omitempty"`
 	ScrapeURL         string              `json:"scrape_url,omitempty"`
 	CopyToClipboard   string              `json:"copy_to_clipboard,omitempty"`
+	QuickCopyLatest   string              `json:"quick_copy_latest,omitempty"`
 	LoadFiles         string              `json:"load_files,omitempty"`
 	AnswerSearch      string              `json:"answer_search,omitempty"`
 	PlatformSwitch    string              `json:"platform_switch,omitempty"`

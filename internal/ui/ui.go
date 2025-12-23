@@ -357,6 +357,7 @@ func (t *Terminal) getCommandList() []string {
 		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
 		fmt.Sprintf("%s - export chat(s)", t.config.ExportChat),
 		fmt.Sprintf("%s - add to clipboard", t.config.CopyToClipboard),
+		fmt.Sprintf("%s - quick copy latest response", t.config.QuickCopyLatest),
 		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
 		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
 		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
@@ -1855,6 +1856,22 @@ func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory, mes
 
 	// Manual copy mode - proceed with original logic
 	return t.copyResponsesManual(chatHistory)
+}
+
+// CopyLatestResponseToClipboard copies the latest bot response directly to clipboard
+func (t *Terminal) CopyLatestResponseToClipboard(chatHistory []types.ChatHistory) error {
+	if len(chatHistory) < 2 {
+		return fmt.Errorf("no bot responses available")
+	}
+
+	// Get the latest bot response (skip the system prompt at index 0)
+	latestResponse := chatHistory[len(chatHistory)-1].Bot
+	if latestResponse == "" {
+		return fmt.Errorf("latest response is empty")
+	}
+
+	// Copy to clipboard using existing clipboard utility
+	return t.CopyToClipboard(latestResponse)
 }
 
 // copyResponsesAuto automatically extracts code blocks from selected chat entries
