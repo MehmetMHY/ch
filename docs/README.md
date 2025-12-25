@@ -2,11 +2,11 @@
 
 ## About
 
-The official website for [ch](../README.md), a lightweight AI CLI tool for terminal-based AI interactions. The site is hosted on **GitHub Pages** at https://mehmetmhy.github.io/ch/
+This is the official website for the project [ch](../README.md). The site is hosted on **[GitHub Pages](https://docs.github.com/)** at the following URL: https://mehmetmhy.github.io/ch/
 
 ## Usage
 
-Run `./build.sh` to open the website locally.
+Run `./run.sh` to open the website locally.
 
 ## License
 
