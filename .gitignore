@@ -113,7 +113,6 @@ cha_*
 ch_*
 history/
 searxng/
-.claude
 .claude/
 .gemini/
 .kiro/
