@@ -231,6 +231,15 @@ func DefaultConfig() *types.Config {
 					JSONPath: "data.id",
 				},
 			},
+			"openrouter": {
+				Name:    "openrouter",
+				BaseURL: types.BaseURLValue{Single: "https://openrouter.ai/api/v1"},
+				EnvName: "OPENROUTER_API_KEY",
+				Models: types.PlatformModels{
+					URL:      "https://openrouter.ai/api/v1/models",
+					JSONPath: "data.id",
+				},
+			},
 			"deepseek": {
 				Name:    "deepseek",
 				BaseURL: types.BaseURLValue{Single: "https://api.deepseek.com"},

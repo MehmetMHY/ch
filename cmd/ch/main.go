@@ -23,6 +23,16 @@ import (
 	"github.com/tiktoken-go/tokenizer"
 )
 
+func init() {
+	// Override default flag usage to show custom help
+	flag.Usage = func() {
+		state := config.InitializeAppState()
+		terminal := ui.NewTerminal(state.Config)
+		terminal.ShowHelp()
+		os.Exit(0)
+	}
+}
+
 func main() {
 	// initialize application state
 	state := config.InitializeAppState()
@@ -57,6 +67,7 @@ func main() {
 	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file")
 	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
 	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
+	flag.BoolVar(historyFlag, "hs", false, "Search and load previous sessions")
 
 	flag.Parse()
 	remainingArgs := flag.Args()

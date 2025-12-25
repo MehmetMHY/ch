@@ -74,7 +74,7 @@ ch "What are the key features of Go programming language?"
 ## Features
 
 - **High Performance**: Built for speed with minimal startup overhead
-- **Multi-Platform Support**: OpenAI, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, Mistral AI, Amazon Bedrock, and Ollama
+- **Multi-Platform Support**: OpenAI, OpenRouter, Groq, DeepSeek, Anthropic, XAI, Together, Google Gemini, Mistral AI, Amazon Bedrock, and Ollama
 - **Multi-Region Support**: Switch between regional endpoints for platforms like Amazon Bedrock (22 AWS regions)
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
@@ -161,6 +161,7 @@ export OPENAI_API_KEY="your-openai-key"
 export BRAVE_API_KEY="your-brave-api-key" # for web search
 
 # optional
+export OPENROUTER_API_KEY="your-openrouter-key"
 export GROQ_API_KEY="your-groq-key"
 export DEEP_SEEK_API_KEY="your-deepseek-key"
 export ANTHROPIC_API_KEY="your-anthropic-key"
@@ -177,6 +178,7 @@ You can find links to obtain API keys below:
 | -------------- | -------------------------------------------------- |
 | OpenAI         | https://openai.com/api/                            |
 | Brave Search   | https://brave.com/search/api/                      |
+| OpenRouter     | https://openrouter.ai/settings/keys                |
 | Google Gemini  | https://ai.google.dev/gemini-api/docs/api-key      |
 | xAI            | https://x.ai/api                                   |
 | Groq           | https://console.groq.com/keys                      |
@@ -296,6 +298,7 @@ ch -w "golang features" | head -10
 ch -c                              # continue last session interactively
 ch -c "follow up question"         # continue with a new query
 ch -a                              # fuzzy search and load a previous session
+ch -hs                             # same as -a (alias for --history)
 ch -a exact                        # exact match search for previous sessions
 ch --clear                         # clear all temporary files and sessions
 ```
@@ -314,7 +317,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!o`** - select from all models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
-- **`!a [exact]`** - search and load sessions
+- **`!a [exact]`** - search and load sessions (also: `-hs`, `--history`)
 - **`!x`** - record shell session
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
@@ -394,6 +397,7 @@ Ch supports multiple AI platforms with seamless switching:
 | Platform       | Models                      | Environment Variable  | Regions/Endpoints |
 | -------------- | --------------------------- | --------------------- | ----------------- |
 | OpenAI         | GPT-4o, GPT-4o-mini, etc.   | `OPENAI_API_KEY`      | 1                 |
+| OpenRouter     | Various models              | `OPENROUTER_API_KEY`  | 1                 |
 | Groq           | Llama3, Mixtral, etc.       | `GROQ_API_KEY`        | 1                 |
 | DeepSeek       | DeepSeek-Chat, etc.         | `DEEP_SEEK_API_KEY`   | 1                 |
 | Anthropic      | Claude-3.5, etc.            | `ANTHROPIC_API_KEY`   | 1                 |
