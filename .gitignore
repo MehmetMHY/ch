@@ -5,10 +5,10 @@
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
+# Test binary, built with go test
 *.test
 
-# Code coverage profiles and other test artifacts
+# Coverage profiles and test artifacts
 *.out
 coverage.*
 *.coverprofile
@@ -32,7 +32,7 @@ go.work.sum
 /build/
 /dist/
 
-# Configuration and environment files
+# Config and env files
 .env*
 *.env
 .env.local
@@ -42,7 +42,7 @@ config.local.*
 *.log
 logs/
 
-# Python files (for sxng directory)
+# General python files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -103,6 +103,7 @@ ch
 *.jpg
 *.jpeg
 *.srt
+*.mp4
 ig_*.json
 ig_*.jpg
 code_dump_*.txt
@@ -113,6 +114,13 @@ ch_*
 history/
 searxng/
 .claude
-meme/*
-meme.*
+.claude/
+.gemini/
+.kiro/
+.amazonq/
+.github/agents/
+meme*
 cha/
+ch_clipboard_*.md
+*.tar.gz
+release/
