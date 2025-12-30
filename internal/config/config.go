@@ -269,10 +269,10 @@ func DefaultConfig() *types.Config {
 			},
 			"ollama": {
 				Name:    "ollama",
-				BaseURL: types.BaseURLValue{Single: "http://localhost:11434/v1"},
+				BaseURL: types.BaseURLValue{Single: "http://127.0.0.1:11434/v1"},
 				EnvName: "ollama",
 				Models: types.PlatformModels{
-					URL:      "http://localhost:11434/api/tags",
+					URL:      "http://127.0.0.1:11434/api/tags",
 					JSONPath: "models.name",
 				},
 			},

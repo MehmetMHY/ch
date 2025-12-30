@@ -11,7 +11,7 @@ CMD_DIR=./cmd/ch
 MAIN_FILE=$(CMD_DIR)/main.go
 
 # Build information
-VERSION?=v3.3.0
+VERSION?=v3.3.1
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)"
