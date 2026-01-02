@@ -49,7 +49,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
     />
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@13.0.1/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
     <title>Ch: Lightweight AI CLI Tool</title>
@@ -674,7 +674,7 @@
         </div>
       </div>
       <div class="feature">
-        <div class="feature-title">Multi-Platform</div>
+        <div class="feature-title">Multi-Platform Support</div>
         <div class="feature-desc">
           <a href="https://openai.com/api/" target="_blank">OpenAI</a>,
           <a href="https://openrouter.ai/" target="_blank">OpenRouter</a>,
@@ -692,7 +692,17 @@
         </div>
       </div>
       <div class="feature">
-        <div class="feature-title">Interactive & Direct</div>
+        <div class="feature-title">Multi-Region Support</div>
+        <div class="feature-desc">
+          Switch between regional endpoints for platforms like
+          <a href="https://aws.amazon.com/bedrock/" target="_blank"
+            >Amazon Bedrock</a
+          >
+          (22 AWS regions)
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Interactive & Direct Modes</div>
         <div class="feature-desc">
           Chat interactively or run single queries. Your choice
         </div>
@@ -703,6 +713,71 @@
           Pipe any command output or file content directly to Ch. Automatically
           suppresses colors and UI elements for seamless shell pipeline
           integration
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Smart File Handling</div>
+        <div class="feature-desc">
+          Load text files, PDFs, Word docs (DOCX/ODT/RTF), spreadsheets
+          (XLSX/CSV), images (with OCR text extraction), and directories
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Advanced Export</div>
+        <div class="feature-desc">
+          Interactive chat export with fzf selection and editor integration.
+          Extract and save markdown code blocks with proper file extensions
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Session State Viewer</div>
+        <div class="feature-desc">
+          Check current session details like model, platform, and token usage
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Token Counting</div>
+        <div class="feature-desc">
+          Estimate token usage for files with model-aware tokenization
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Text Editor Integration</div>
+        <div class="feature-desc">
+          Use your preferred editor for complex prompts and content editing
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Dynamic Switching</div>
+        <div class="feature-desc">
+          Change models and platforms mid-conversation without losing context
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Chat Backtracking</div>
+        <div class="feature-desc">
+          Revert to any point in conversation history
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Session Continuation</div>
+        <div class="feature-desc">
+          Automatically save and restore sessions to continue conversations
+          later
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Session History Search</div>
+        <div class="feature-desc">
+          Search and load any previous session from history with fuzzy or exact
+          matching
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Code Dump</div>
+        <div class="feature-desc">
+          Package entire directories for AI analysis. Automatically compile text
+          and document files for comprehensive context
         </div>
       </div>
       <div class="feature">
@@ -726,52 +801,18 @@
         </div>
       </div>
       <div class="feature">
-        <div class="feature-title">Smart File Handling</div>
+        <div class="feature-title">Web Scraping & Search</div>
         <div class="feature-desc">
-          Load PDFs, Word docs, spreadsheets, images (with OCR), and directories
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Web Integration</div>
-        <div class="feature-desc">
-          Scrape URLs, search the web using
+          Built-in URL scraping and web search using
           <a href="https://brave.com/search/api/" target="_blank"
             >Brave Search API</a
-          >, and analyze YouTube content seamlessly
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Code Export & Editing</div>
-        <div class="feature-desc">
-          Extract and save markdown code blocks with proper extensions.
-          Interactive export with fzf selection and text editor integration for
-          composing complex prompts
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Universal Model Selection</div>
-        <div class="feature-desc">
-          Select from all available models across all supported platforms.
-          Change models and platforms mid-conversation without losing context
+          >. Analyze YouTube content seamlessly
         </div>
       </div>
       <div class="feature">
         <div class="feature-title">Clipboard Integration</div>
         <div class="feature-desc">
           Copy AI responses to clipboard with cross-platform support
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Token Counting</div>
-        <div class="feature-desc">
-          Estimate token usage for files with model-aware tokenization
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Code Dump</div>
-        <div class="feature-desc">
-          Package entire directories for AI analysis. Automatically compile text
-          and document files for comprehensive context
         </div>
       </div>
     </div>
