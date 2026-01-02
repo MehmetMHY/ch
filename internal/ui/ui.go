@@ -1837,13 +1837,17 @@ func (t *Terminal) CopyResponsesInteractive(chatHistory []types.ChatHistory, mes
 	}
 
 	// Ask for copy mode
-	copyMode, err := t.FzfSelect([]string{"auto copy", "manual copy", "link copy"}, "select copy mode: ")
+	copyMode, err := t.FzfSelect([]string{"turn copy", "block copy", "manual copy", "link copy"}, "select copy mode: ")
 	if err != nil {
 		return fmt.Errorf("selection cancelled or failed: %v", err)
 	}
 
-	if copyMode == "auto copy" {
-		return t.copyResponsesAuto(chatHistory)
+	if copyMode == "turn copy" {
+		return t.copyResponsesTurn(chatHistory)
+	}
+
+	if copyMode == "block copy" {
+		return t.copyResponsesBlock(chatHistory)
 	}
 
 	if copyMode == "link copy" {
@@ -1874,129 +1878,95 @@ func (t *Terminal) CopyLatestResponseToClipboard(chatHistory []types.ChatHistory
 	return t.CopyToClipboard(latestResponse)
 }
 
-// copyResponsesAuto automatically extracts code blocks from selected chat entries
-func (t *Terminal) copyResponsesAuto(chatHistory []types.ChatHistory) error {
-	// Create list of chat entries for fzf selection (same format as !e)
+// copyResponsesTurn allows user to select user prompts and bot responses to copy
+func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
+	// Create list of all user prompts and bot responses
 	var items []string
-	var chatEntries []types.ChatHistory
+	type replyEntry struct {
+		content string
+		isUser  bool
+		index   int
+	}
+	var entries []replyEntry
 
 	// Iterate in reverse order (newest to oldest)
 	for i := len(chatHistory) - 1; i >= 1; i-- {
 		entry := chatHistory[i]
-		if entry.User != "" || entry.Bot != "" {
-			// Create preview for fzf
-			userPreview := strings.Split(entry.User, "\n")[0]
-			if len(userPreview) > 60 {
-				userPreview = userPreview[:60] + "..."
-			}
 
-			timestamp := time.Unix(entry.Time, 0).Format("2006-01-02 15:04:05")
-			items = append(items, fmt.Sprintf("%d: %s - %s", i, timestamp, userPreview))
-			chatEntries = append(chatEntries, entry)
+		// Add bot response first (so it appears after user in reverse order display)
+		if entry.Bot != "" {
+			preview := strings.Split(entry.Bot, "\n")[0]
+			if len(preview) > 70 {
+				preview = preview[:70] + "..."
+			}
+			items = append(items, fmt.Sprintf("BOT: %s", preview))
+			entries = append(entries, replyEntry{content: entry.Bot, isUser: false, index: i})
+		}
+
+		// Add user prompt
+		if entry.User != "" {
+			preview := strings.Split(entry.User, "\n")[0]
+			if len(preview) > 70 {
+				preview = preview[:70] + "..."
+			}
+			items = append(items, fmt.Sprintf("USER: %s", preview))
+			entries = append(entries, replyEntry{content: entry.User, isUser: true, index: i})
 		}
 	}
 
 	if len(items) == 0 {
-		return fmt.Errorf("no chat entries available")
+		return fmt.Errorf("no turns available")
 	}
 
-	// Use fzf for selection
-	selectedItems, err := t.FzfMultiSelect(items, "select entries to copy (tab=multi): ")
+	// Add >all option at the top of the list
+	fzfOptions := append([]string{">all"}, items...)
+
+	// Use fzf for multi-selection
+	selectedItems, err := t.FzfMultiSelect(fzfOptions, "select turns to copy (tab=multi): ")
 	if err != nil {
 		return fmt.Errorf("selection failed: %w", err)
 	}
 
 	if len(selectedItems) == 0 {
-		t.PrintInfo("no entries selected")
+		t.PrintInfo("no turns selected")
 		return nil
 	}
 
-	// Parse selected indices and extract code blocks
-	type ExtractedSnippet struct {
-		Content  string
-		Language string
-	}
-	var snippets []ExtractedSnippet
-	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
-
+	// Check if >all was selected
+	allSelected := false
 	for _, item := range selectedItems {
-		var index int
-		parts := strings.SplitN(item, ":", 2)
-		if len(parts) < 2 {
-			continue
-		}
-		_, err := fmt.Sscanf(parts[0], "%d", &index)
-		if err != nil {
-			continue
-		}
-
-		// Find the entry
-		for _, entry := range chatEntries {
-			if entry.Time == chatHistory[index].Time && entry.Bot != "" {
-				matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
-				for _, match := range matches {
-					language := match[1]
-					if language == "" {
-						language = "text"
-					}
-					content := match[2]
-					snippets = append(snippets, ExtractedSnippet{Content: content, Language: language})
-				}
-				break
-			}
+		if strings.HasPrefix(item, ">all") {
+			allSelected = true
+			break
 		}
 	}
 
-	var finalContent string
-
-	if len(snippets) == 0 {
-		// No code blocks found, fallback to copying all selected content
-		var allContent strings.Builder
-		for _, item := range selectedItems {
-			var index int
-			parts := strings.SplitN(item, ":", 2)
-			if len(parts) < 2 {
-				continue
+	// Build content from selected items
+	var combinedContent strings.Builder
+	if allSelected {
+		// Copy all entries
+		for i, entry := range entries {
+			if i > 0 {
+				combinedContent.WriteString("\n\n")
 			}
-			_, err := fmt.Sscanf(parts[0], "%d", &index)
-			if err != nil {
-				continue
-			}
-
-			// Find the entry and get all content
-			for _, entry := range chatEntries {
-				if entry.Time == chatHistory[index].Time && entry.Bot != "" {
-					if allContent.Len() > 0 {
-						allContent.WriteString("\n\n")
+			combinedContent.WriteString(entry.content)
+		}
+	} else {
+		for i, selected := range selectedItems {
+			// Find the matching entry
+			for j, item := range items {
+				if item == selected {
+					if i > 0 {
+						combinedContent.WriteString("\n\n")
 					}
-					allContent.WriteString(entry.Bot)
+					combinedContent.WriteString(entries[j].content)
 					break
 				}
 			}
 		}
-
-		finalContent = allContent.String()
-
-		// Copy to clipboard
-		err = t.CopyToClipboard(finalContent)
-		if err != nil {
-			return fmt.Errorf("failed to copy to clipboard: %w", err)
-		}
-
-		fmt.Printf("\033[93mNo code blocks, copying selected content instead\033[0m\n")
-		return nil
 	}
 
-	// Combine snippets
-	var combinedContent strings.Builder
-	for i, snippet := range snippets {
-		if i > 0 {
-			combinedContent.WriteString("\n\n")
-		}
-		combinedContent.WriteString(snippet.Content)
-	}
-
-	finalContent = combinedContent.String()
+	finalContent := combinedContent.String()
 
 	// Copy to clipboard
 	err = t.CopyToClipboard(finalContent)
@@ -2004,11 +1974,125 @@ func (t *Terminal) copyResponsesAuto(chatHistory []types.ChatHistory) error {
 		return fmt.Errorf("failed to copy to clipboard: %w", err)
 	}
 
+	count := len(selectedItems)
+	if allSelected {
+		count = len(entries)
+	}
+	turnWord := "turn"
+	if count > 1 {
+		turnWord = "turns"
+	}
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", count, turnWord)
+	return nil
+}
+
+// copyResponsesBlock extracts all code blocks and lets user select individual blocks
+func (t *Terminal) copyResponsesBlock(chatHistory []types.ChatHistory) error {
+	// Extract all code blocks from entire chat history
+	type ExtractedBlock struct {
+		Content  string
+		Language string
+		Preview  string
+	}
+	var blocks []ExtractedBlock
+	var items []string
+
+	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
+
+	// Iterate through all chat entries (newest to oldest)
+	for i := len(chatHistory) - 1; i >= 1; i-- {
+		entry := chatHistory[i]
+		if entry.Bot != "" {
+			matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
+			for _, match := range matches {
+				language := match[1]
+				if language == "" {
+					language = "text"
+				}
+				content := match[2]
+
+				// Create preview (first line, truncated)
+				preview := strings.Split(content, "\n")[0]
+				if len(preview) > 60 {
+					preview = preview[:60] + "..."
+				}
+
+				displayText := fmt.Sprintf("[%s] %s", language, preview)
+				items = append(items, displayText)
+				blocks = append(blocks, ExtractedBlock{Content: content, Language: language, Preview: preview})
+			}
+		}
+	}
+
+	if len(blocks) == 0 {
+		return fmt.Errorf("no code blocks found in chat history")
+	}
+
+	// Add >all option at the top of the list
+	fzfOptions := append([]string{">all"}, items...)
+
+	// Use fzf for multi-selection of individual blocks
+	selectedItems, err := t.FzfMultiSelect(fzfOptions, "select code blocks to copy (tab=multi): ")
+	if err != nil {
+		return fmt.Errorf("selection failed: %w", err)
+	}
+
+	if len(selectedItems) == 0 {
+		t.PrintInfo("no blocks selected")
+		return nil
+	}
+
+	// Check if >all was selected
+	allSelected := false
+	for _, item := range selectedItems {
+		if strings.HasPrefix(item, ">all") {
+			allSelected = true
+			break
+		}
+	}
+
+	// Build content from selected blocks
+	var combinedContent strings.Builder
+	if allSelected {
+		// Copy all blocks
+		for i, block := range blocks {
+			if i > 0 {
+				combinedContent.WriteString("\n\n")
+			}
+			combinedContent.WriteString(block.Content)
+		}
+	} else {
+		for i, selected := range selectedItems {
+			// Find the matching block
+			for j, item := range items {
+				if item == selected {
+					if i > 0 {
+						combinedContent.WriteString("\n\n")
+					}
+					combinedContent.WriteString(blocks[j].Content)
+					break
+				}
+			}
+		}
+	}
+
+	finalContent := combinedContent.String()
+
+	// Copy to clipboard
+	err = t.CopyToClipboard(finalContent)
+	if err != nil {
+		return fmt.Errorf("failed to copy to clipboard: %w", err)
+	}
+
+	count := len(selectedItems)
+	if allSelected {
+		count = len(blocks)
+	}
 	blockWord := "code block"
-	if len(snippets) > 1 {
+	if count > 1 {
 		blockWord = "code blocks"
 	}
-	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(snippets), blockWord)
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", count, blockWord)
 	return nil
 }
 
@@ -2039,8 +2123,11 @@ func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
 		return fmt.Errorf("no responses found in chat history")
 	}
 
+	// Add >all option at the top of the list
+	fzfOptions := append([]string{">all"}, responseOptions...)
+
 	// Use fzf for multi-selection
-	selected, err := t.FzfMultiSelect(responseOptions, "select responses to copy (tab=multi): ")
+	selected, err := t.FzfMultiSelect(fzfOptions, "select responses to copy (tab=multi): ")
 	if err != nil {
 		return fmt.Errorf("selection failed: %w", err)
 	}
@@ -2050,14 +2137,35 @@ func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
 		return nil
 	}
 
+	// Check if >all was selected
+	allSelected := false
+	for _, item := range selected {
+		if strings.HasPrefix(item, ">all") {
+			allSelected = true
+			break
+		}
+	}
+
 	// Combine selected responses
 	var combinedContent strings.Builder
-	for i, selection := range selected {
-		if entry, exists := responseMap[selection]; exists {
-			if i > 0 {
-				combinedContent.WriteString("\n\n---\n\n")
+	if allSelected {
+		// Copy all responses
+		for i, option := range responseOptions {
+			if entry, exists := responseMap[option]; exists {
+				if i > 0 {
+					combinedContent.WriteString("\n\n---\n\n")
+				}
+				combinedContent.WriteString(entry.Bot)
 			}
-			combinedContent.WriteString(entry.Bot)
+		}
+	} else {
+		for i, selection := range selected {
+			if entry, exists := responseMap[selection]; exists {
+				if i > 0 {
+					combinedContent.WriteString("\n\n---\n\n")
+				}
+				combinedContent.WriteString(entry.Bot)
+			}
 		}
 	}
 
@@ -2075,11 +2183,15 @@ func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
 		return fmt.Errorf("failed to copy to clipboard: %w", err)
 	}
 
+	count := len(selected)
+	if allSelected {
+		count = len(responseOptions)
+	}
 	responseWord := "response"
-	if len(selected) > 1 {
+	if count > 1 {
 		responseWord = "responses"
 	}
-	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(selected), responseWord)
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", count, responseWord)
 	return nil
 }
 
@@ -2108,8 +2220,11 @@ func (t *Terminal) copyResponsesLinks(chatHistory []types.ChatHistory, messages 
 		return fmt.Errorf("no URLs found")
 	}
 
+	// Add >all option at the top of the list
+	fzfOptions := append([]string{">all"}, urls...)
+
 	// Use fzf for multi-selection
-	selectedURLs, err := t.FzfMultiSelect(urls, "select URLs to copy (tab=multi): ")
+	selectedURLs, err := t.FzfMultiSelect(fzfOptions, "select URLs to copy (tab=multi): ")
 	if err != nil {
 		return fmt.Errorf("selection failed: %w", err)
 	}
@@ -2119,8 +2234,22 @@ func (t *Terminal) copyResponsesLinks(chatHistory []types.ChatHistory, messages 
 		return nil
 	}
 
-	// Join URLs with single space
-	finalContent := strings.Join(selectedURLs, " ")
+	// Check if >all was selected
+	allSelected := false
+	for _, item := range selectedURLs {
+		if strings.HasPrefix(item, ">all") {
+			allSelected = true
+			break
+		}
+	}
+
+	// Build final content
+	var finalContent string
+	if allSelected {
+		finalContent = strings.Join(urls, " ")
+	} else {
+		finalContent = strings.Join(selectedURLs, " ")
+	}
 
 	// Copy to clipboard
 	err = t.CopyToClipboard(finalContent)
@@ -2128,11 +2257,15 @@ func (t *Terminal) copyResponsesLinks(chatHistory []types.ChatHistory, messages 
 		return fmt.Errorf("failed to copy to clipboard: %w", err)
 	}
 
+	count := len(selectedURLs)
+	if allSelected {
+		count = len(urls)
+	}
 	urlWord := "URL"
-	if len(selectedURLs) > 1 {
+	if count > 1 {
 		urlWord = "URLs"
 	}
-	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", len(selectedURLs), urlWord)
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", count, urlWord)
 	return nil
 }
 

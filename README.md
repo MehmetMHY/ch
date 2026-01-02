@@ -362,7 +362,8 @@ Offers two modes for exporting chat history:
 
 **Clipboard Copy (`!y`):**
 
-- Three copy modes: **auto copy** (extract code blocks), **manual copy** (select responses), **link copy** (select URLs)
+- Four copy modes: **turn copy** (select individual prompts and responses), **block copy** (extract code blocks), **manual copy** (select responses with editor), **link copy** (select URLs)
+- Use `>all` option at the top of any list to quickly select everything
 - Edit content in your preferred editor before copying (manual mode)
 - Cross-platform clipboard support (macOS, Linux, Android/Termux, Windows)
 - Usage: `!y` then select mode and items to copy
