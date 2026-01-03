@@ -1941,15 +1941,20 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 		}
 	}
 
-	// Build content from selected items
+	// Build content from selected items with USER/BOT labels
 	var combinedContent strings.Builder
 	if allSelected {
-		// Copy all entries
-		for i, entry := range entries {
-			if i > 0 {
+		// Copy all entries in chronological order (reverse of display order)
+		for i := len(entries) - 1; i >= 0; i-- {
+			if i < len(entries)-1 {
 				combinedContent.WriteString("\n\n")
 			}
-			combinedContent.WriteString(entry.content)
+			if entries[i].isUser {
+				combinedContent.WriteString("USER:\n")
+			} else {
+				combinedContent.WriteString("BOT:\n")
+			}
+			combinedContent.WriteString(entries[i].content)
 		}
 	} else {
 		for i, selected := range selectedItems {
@@ -1958,6 +1963,11 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 				if item == selected {
 					if i > 0 {
 						combinedContent.WriteString("\n\n")
+					}
+					if entries[j].isUser {
+						combinedContent.WriteString("USER:\n")
+					} else {
+						combinedContent.WriteString("BOT:\n")
 					}
 					combinedContent.WriteString(entries[j].content)
 					break

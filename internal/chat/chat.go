@@ -647,13 +647,17 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	}
 
 	// Ask for edit mode
-	editMode, err := terminal.FzfSelect([]string{"auto export", "manual export"}, "select export mode: ")
+	editMode, err := terminal.FzfSelect([]string{"turn export", "block export", "manual export"}, "select export mode: ")
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled or failed: %v", err)
 	}
 
-	if editMode == "auto export" {
-		return m.ExportChatAuto(terminal)
+	if editMode == "turn export" {
+		return m.ExportChatTurn(terminal)
+	}
+
+	if editMode == "block export" {
+		return m.ExportChatBlock(terminal)
 	}
 
 	if editMode == "" {
@@ -835,8 +839,8 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	return "", nil
 }
 
-// ExportChatAuto allows user to automatically extract and save code blocks from chat history
-func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
+// ExportChatBlock allows user to extract and save code blocks from chat history
+func (m *Manager) ExportChatBlock(terminal *ui.Terminal) (string, error) {
 	// Step 1: Create list of chat entries for fzf selection (same format as manual mode)
 	var items []string
 	var chatEntries []types.ChatHistory
@@ -963,6 +967,168 @@ func (m *Manager) ExportChatAuto(terminal *ui.Terminal) (string, error) {
 		m.AddRecentlyCreatedFile(fullPath)
 		savedFiles = append(savedFiles, fullPath)
 	}
+
+	return "", nil
+}
+
+// ExportChatTurn allows user to select individual prompts and responses to export
+func (m *Manager) ExportChatTurn(terminal *ui.Terminal) (string, error) {
+	// Create list of all user prompts and bot responses
+	var items []string
+	type turnEntry struct {
+		content string
+		isUser  bool
+		index   int
+	}
+	var entries []turnEntry
+
+	// Iterate in reverse order (newest to oldest)
+	for i := len(m.state.ChatHistory) - 1; i >= 1; i-- {
+		entry := m.state.ChatHistory[i]
+
+		// Add bot response first (so it appears after user in reverse order display)
+		if entry.Bot != "" {
+			preview := strings.Split(entry.Bot, "\n")[0]
+			if len(preview) > 70 {
+				preview = preview[:70] + "..."
+			}
+			items = append(items, fmt.Sprintf("BOT: %s", preview))
+			entries = append(entries, turnEntry{content: entry.Bot, isUser: false, index: i})
+		}
+
+		// Add user prompt
+		if entry.User != "" {
+			preview := strings.Split(entry.User, "\n")[0]
+			if len(preview) > 70 {
+				preview = preview[:70] + "..."
+			}
+			items = append(items, fmt.Sprintf("USER: %s", preview))
+			entries = append(entries, turnEntry{content: entry.User, isUser: true, index: i})
+		}
+	}
+
+	if len(items) == 0 {
+		return "", fmt.Errorf("no turns available")
+	}
+
+	// Add >all option at the top of the list
+	fzfOptions := append([]string{">all"}, items...)
+
+	// Use fzf for multi-selection
+	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "select turns to export (tab=multi): ")
+	if err != nil {
+		return "", fmt.Errorf("selection failed: %w", err)
+	}
+
+	if len(selectedItems) == 0 {
+		return "", fmt.Errorf("no turns selected")
+	}
+
+	// Check if >all was selected
+	allSelected := false
+	for _, item := range selectedItems {
+		if strings.HasPrefix(item, ">all") {
+			allSelected = true
+			break
+		}
+	}
+
+	// Build content from selected items with USER/BOT labels
+	var combinedContent strings.Builder
+	if allSelected {
+		// Export all entries in chronological order (reverse of display order)
+		for i := len(entries) - 1; i >= 0; i-- {
+			if i < len(entries)-1 {
+				combinedContent.WriteString("\n\n")
+			}
+			if entries[i].isUser {
+				combinedContent.WriteString("USER:\n")
+			} else {
+				combinedContent.WriteString("BOT:\n")
+			}
+			combinedContent.WriteString(entries[i].content)
+		}
+	} else {
+		for i, selected := range selectedItems {
+			// Find the matching entry
+			for j, item := range items {
+				if item == selected {
+					if i > 0 {
+						combinedContent.WriteString("\n\n")
+					}
+					if entries[j].isUser {
+						combinedContent.WriteString("USER:\n")
+					} else {
+						combinedContent.WriteString("BOT:\n")
+					}
+					combinedContent.WriteString(entries[j].content)
+					break
+				}
+			}
+		}
+	}
+
+	finalContent := combinedContent.String()
+
+	// Open editor for final editing
+	editedContent, err := m.openInEditor(finalContent)
+	if err != nil {
+		return "", fmt.Errorf("editor failed: %w", err)
+	}
+
+	if strings.TrimSpace(editedContent) == "" {
+		return "", fmt.Errorf("no content to save")
+	}
+
+	// Get filename options
+	allFiles, err := m.getAllFilesInCurrentDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory files: %v", err)
+	}
+	loadedFiles := m.extractLoadedFilesFromHistory()
+	suggestedFilenames := m.generateFilenameOptions(editedContent)
+
+	fileOptions := m.createUnifiedFileOptions(".txt", suggestedFilenames, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
+
+	// Select filename
+	selectedOption, err := terminal.FzfSelect(fileOptions, "save to file: ")
+	if err != nil {
+		return "", fmt.Errorf("filename selection failed: %v", err)
+	}
+
+	if selectedOption == "" {
+		return "", fmt.Errorf("export cancelled")
+	}
+
+	var filename string
+	if strings.HasPrefix(selectedOption, "[w] ") {
+		filename = strings.TrimPrefix(selectedOption, "[w] ")
+	} else {
+		filename = selectedOption
+	}
+
+	// Save to file
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %v", err)
+	}
+
+	fullPath := filepath.Join(currentDir, filename)
+	if err := os.WriteFile(fullPath, []byte(editedContent), 0644); err != nil {
+		return "", fmt.Errorf("failed to write file: %v", err)
+	}
+
+	m.AddRecentlyCreatedFile(fullPath)
+
+	count := len(selectedItems)
+	if allSelected {
+		count = len(entries)
+	}
+	turnWord := "turn"
+	if count > 1 {
+		turnWord = "turns"
+	}
+	terminal.PrintInfo(fmt.Sprintf("exported %d %s to %s", count, turnWord, filename))
 
 	return "", nil
 }
