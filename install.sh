@@ -146,8 +146,8 @@ install_dependencies() {
 
 	for dep in "${missing_optional[@]}"; do
 		if [[ "$dep" == "tesseract" ]]; then
-			warning "Tesseract OCR is not installed. Image-to-text extraction will be disabled."
-			warning "The script will attempt to install it. If it fails, you can install it manually (e.g., 'brew install tesseract' or 'sudo apt-get install tesseract-ocr')."
+			warning "Tesseract OCR is not installed. Image-to-text extraction will be disabled"
+			warning "The script will attempt to install it. If it fails, you can install it manually (e.g., 'brew install tesseract' or 'sudo apt-get install tesseract-ocr')"
 		fi
 	done
 
@@ -158,21 +158,21 @@ install_dependencies() {
 		fi
 		for dep in "${missing_required[@]}"; do
 			log "Installing required dependency $dep with Homebrew..."
-			brew install "$dep" || error "Failed to install required dependency: $dep. Please install it manually."
+			brew install "$dep" || error "Failed to install required dependency: $dep. Please install it manually"
 		done
 		for dep in "${missing_optional[@]}"; do
 			log "Installing optional dependency $dep with Homebrew..."
-			brew install "$dep" || warning "Failed to install optional dependency: $dep."
+			brew install "$dep" || warning "Failed to install optional dependency: $dep"
 		done
 		;;
 	"android")
 		if ! command -v pkg >/dev/null 2>&1; then
-			error "pkg package manager not found. Make sure you're running this in Termux."
+			error "pkg package manager not found. Make sure you're running this in Termux"
 		fi
 		pkg update -y
 		for dep in "${missing_required[@]}"; do
 			log "Installing required dependency $dep with pkg..."
-			pkg install -y "$dep" || error "Failed to install required dependency: $dep. Please install it manually."
+			pkg install -y "$dep" || error "Failed to install required dependency: $dep. Please install it manually"
 		done
 		for dep in "${missing_optional[@]}"; do
 			local install_name="$dep"
@@ -180,12 +180,12 @@ install_dependencies() {
 				install_name="tesseract-ocr"
 			fi
 			log "Installing optional dependency $install_name with pkg..."
-			pkg install -y "$install_name" || warning "Failed to install optional dependency: $dep."
+			pkg install -y "$install_name" || warning "Failed to install optional dependency: $dep"
 		done
 		;;
 	"linux")
 		if ! command -v sudo >/dev/null 2>&1; then
-			error "sudo is required to install dependencies on Linux. Please install it first."
+			error "sudo is required to install dependencies on Linux. Please install it first"
 		fi
 
 		local pkg_manager=""
@@ -217,7 +217,7 @@ install_dependencies() {
 			"apk") sudo apk add "$dep" ;;
 			esac
 			if ! command -v "$dep" >/dev/null 2>&1; then
-				error "Failed to install required dependency: $dep. Please install it manually."
+				error "Failed to install required dependency: $dep. Please install it manually"
 			fi
 		done
 
@@ -238,7 +238,7 @@ install_dependencies() {
 			"apk") sudo apk add "$install_name" ;;
 			esac
 			if ! command -v "$dep" >/dev/null 2>&1; then
-				warning "Failed to install optional dependency: $dep."
+				warning "Failed to install optional dependency: $dep"
 			fi
 		done
 		;;
@@ -319,7 +319,7 @@ create_symlink() {
 		ln -sf "$source_path" "$symlink_path"
 		log "Symlink created: $symlink_path -> $source_path"
 	else
-		log "Attempting to create symlink for 'ch' in a directory in your PATH."
+		log "Attempting to create symlink for 'ch' in a directory in your PATH"
 		local target_dir="/usr/local/bin"
 		local symlink_path="$target_dir/ch"
 
@@ -331,7 +331,7 @@ create_symlink() {
 		fi
 
 		# If it fails, skip symlink creation
-		warning "Could not create symlink in $target_dir without elevated permissions."
+		warning "Could not create symlink in $target_dir without elevated permissions"
 		SYMLINK_SKIPPED=true
 	fi
 }
@@ -396,7 +396,7 @@ print_success() {
 		echo
 		echo -e "\033[92mexport PATH=\"$HOME/.ch/bin:\$PATH\"\033[0m"
 		echo
-		echo -e "After adding it, restart your shell or run 'source <your_profile_file>'."
+		echo -e "After adding it, restart your shell or run 'source <your_profile_file>'"
 	else
 		echo -e "A symlink was created at /usr/local/bin/ch"
 		echo
@@ -414,7 +414,7 @@ print_success() {
 
 check_git_and_pull() {
 	if ! command -v git >/dev/null 2>&1; then
-		error "Git is required to run the installation script. Please install it first."
+		error "Git is required to run the installation script. Please install it first"
 	fi
 	log "Pulling latest changes from git..."
 	git pull || error "Failed to pull latest changes from git"
@@ -436,7 +436,7 @@ build_only() {
 	check_go
 
 	if [[ ! -f "Makefile" ]]; then
-		error "Makefile not found. Please run from the Ch repository root."
+		error "Makefile not found. Please run from the Ch repository root"
 	fi
 
 	log "Downloading dependencies..."
@@ -491,7 +491,7 @@ update_cli_tools() {
 			if command -v apk >/dev/null 2>&1; then pkg_manager="apk"; fi
 
 			if [[ -z "$pkg_manager" ]]; then
-				warning "Unsupported package manager. Skipping CLI tool updates."
+				warning "Unsupported package manager. Skipping CLI tool updates"
 				return
 			fi
 
@@ -550,7 +550,7 @@ update_version() {
 
 	# Check if Makefile exists
 	if [[ ! -f "$makefile" ]]; then
-		error "Makefile not found. Please run from the Ch repository root."
+		error "Makefile not found. Please run from the Ch repository root"
 	fi
 
 	# Extract current version from Makefile
@@ -696,7 +696,7 @@ main() {
 			exit 0
 			;;
 		*)
-			error "Unknown option: $1. Use -h or --help to see available options."
+			error "Unknown option: $1. Use -h or --help to see available options"
 			;;
 		esac
 		shift
@@ -716,7 +716,7 @@ main() {
 	fi
 
 	if [ -f "go.mod" ] && [ -f "cmd/ch/main.go" ] && [ -d ".git" ]; then
-		log "Running installer from existing local repository."
+		log "Running installer from existing local repository"
 
 		if [[ "$refresh_deps_flag" == true ]]; then
 			refresh_deps
@@ -726,10 +726,10 @@ main() {
 		_install_ch_from_repo
 	else
 		log "Welcome to the Ch installer!"
-		log "This script will download and install Ch on your system."
+		log "This script will download and install Ch on your system"
 
 		if ! command -v git >/dev/null 2>&1; then
-			error "Git is required to run this installer. Please install it first."
+			error "Git is required to run this installer. Please install it first"
 		fi
 
 		local temp_dir
@@ -739,9 +739,9 @@ main() {
 		trap "rm -rf '$temp_dir'" EXIT
 
 		log "Cloning Ch repository into a temporary directory..."
-		git clone --depth 1 "$REPO_URL" "$temp_dir" || error "Failed to clone the repository."
+		git clone --depth 1 "$REPO_URL" "$temp_dir" || error "Failed to clone the repository"
 
-		cd "$temp_dir" || error "Failed to enter the temporary directory."
+		cd "$temp_dir" || error "Failed to enter the temporary directory"
 
 		_install_ch_from_repo
 

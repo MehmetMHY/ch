@@ -713,8 +713,10 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	}
 
 	if allSelected {
-		// Select all entries
-		selectedEntries = chatEntries
+		// Select all entries in chronological order (oldest to newest)
+		for i := len(chatEntries) - 1; i >= 0; i-- {
+			selectedEntries = append(selectedEntries, chatEntries[i])
+		}
 	} else {
 		// Extract selected chat entries
 		for _, selectedItem := range selectedItems {
@@ -865,8 +867,11 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no chat entries to export")
 	}
 
+	// Add >all option at the top of the list
+	fzfOptions := append([]string{">all"}, items...)
+
 	// Step 2: Select chat entries with fzf
-	selectedItems, err := terminal.FzfMultiSelect(items, "export entries (tab=multi): ")
+	selectedItems, err := terminal.FzfMultiSelect(fzfOptions, "export entries (tab=multi): ")
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled or failed: %v", err)
 	}
@@ -882,20 +887,20 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal) (string, error) {
 	var selectedSnippets []ExtractedSnippet
 	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
 
+	// Check if >all was selected
+	allSelected := false
 	for _, item := range selectedItems {
-		var index int
-		parts := strings.SplitN(item, ":", 2)
-		if len(parts) < 2 {
-			continue
+		if strings.HasPrefix(item, ">all") {
+			allSelected = true
+			break
 		}
-		_, err := fmt.Sscanf(parts[0], "%d", &index)
-		if err != nil {
-			continue
-		}
+	}
 
-		// Find the entry
-		for _, entry := range chatEntries {
-			if entry.Time == m.state.ChatHistory[index].Time && entry.Bot != "" {
+	if allSelected {
+		// Extract blocks from all entries in chronological order (oldest to newest)
+		for i := len(chatEntries) - 1; i >= 0; i-- {
+			entry := chatEntries[i]
+			if entry.Bot != "" {
 				matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
 				for _, match := range matches {
 					language := match[1]
@@ -905,7 +910,34 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal) (string, error) {
 					content := match[2]
 					selectedSnippets = append(selectedSnippets, ExtractedSnippet{Content: content, Language: language})
 				}
-				break
+			}
+		}
+	} else {
+		for _, item := range selectedItems {
+			var index int
+			parts := strings.SplitN(item, ":", 2)
+			if len(parts) < 2 {
+				continue
+			}
+			_, err := fmt.Sscanf(parts[0], "%d", &index)
+			if err != nil {
+				continue
+			}
+
+			// Find the entry
+			for _, entry := range chatEntries {
+				if entry.Time == m.state.ChatHistory[index].Time && entry.Bot != "" {
+					matches := codeBlockRegex.FindAllStringSubmatch(entry.Bot, -1)
+					for _, match := range matches {
+						language := match[1]
+						if language == "" {
+							language = "text"
+						}
+						content := match[2]
+						selectedSnippets = append(selectedSnippets, ExtractedSnippet{Content: content, Language: language})
+					}
+					break
+				}
 			}
 		}
 	}
