@@ -432,7 +432,14 @@ Supported AWS Bedrock regions: US East (N. Virginia, Ohio), US West (Oregon), As
 
 ## Website
 
-The project website is hosted on **[GitHub Pages](https://docs.github.com/en/pages)** right [HERE](https://mehmetmhy.github.io/ch/). See the [`docs/`](./docs/README.md) sub-directory for the website source and build script.
+The project website is hosted on **[GitHub Pages](https://docs.github.com/en/pages)** at: https://mehmetmhy.github.io/ch/
+
+The website source is located in the [`docs/`](./docs/) directory. To run the website locally, run the following commands:
+
+```bash
+cd docs
+./run.sh
+```
 
 ## Development
 
