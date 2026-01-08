@@ -334,12 +334,14 @@ func (t *Terminal) processHelpSelection(selected string, options []string) strin
 	parts := strings.Fields(selected)
 	if len(parts) > 0 {
 		command := parts[0]
-		// Handle commands that start with ! or single character commands like 'l'
-		if strings.HasPrefix(command, "!") || len(command) == 1 {
+		// Handle commands that start with ! or special commands like CC
+		if strings.HasPrefix(command, "!") || command == "CC" {
 			return command
 		}
 	}
 
+	// Print the selected option for display-only items
+	fmt.Printf("\033[93m%s\033[0m\n", selected)
 	return ""
 }
 
