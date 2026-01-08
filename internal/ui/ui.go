@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bufio"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -29,6 +30,13 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/tealeg/xlsx/v3"
 	"golang.org/x/net/html"
+)
+
+// Compiled regex patterns for reuse
+var (
+	codeBlockRegex = regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
+	urlRegex       = regexp.MustCompile(`https?://[^\s<>"{}|\\^` + "`" + `\[\]]+`)
+	sentenceRegex  = regexp.MustCompile(`[.!?]+\s+`)
 )
 
 // Terminal handles terminal-related operations
@@ -1561,11 +1569,16 @@ func (t *Terminal) textContentFromHTML(body io.Reader) (string, error) {
 func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	var result strings.Builder
 
-	// Get metadata
+	// Get metadata with 30 second timeout
 	result.WriteString("--- Metadata ---\n")
-	metadataCmd := exec.Command("yt-dlp", "-j", urlStr)
+	metadataCtx, metadataCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer metadataCancel()
+	metadataCmd := exec.CommandContext(metadataCtx, "yt-dlp", "-j", urlStr)
 	metadataOutput, err := metadataCmd.Output()
 	if err != nil {
+		if metadataCtx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("failed to get YouTube metadata: command timed out")
+		}
 		return "", fmt.Errorf("failed to get YouTube metadata: %w", err)
 	}
 
@@ -1583,8 +1596,10 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 
 	baseName := filepath.Join(tempDir, fmt.Sprintf("yt_%d", time.Now().UnixNano()))
 
-	// Download subtitles
-	subtitleCmd := exec.Command("yt-dlp", "--quiet", "--skip-download",
+	// Download subtitles with 30 second timeout
+	subtitleCtx, subtitleCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer subtitleCancel()
+	subtitleCmd := exec.CommandContext(subtitleCtx, "yt-dlp", "--quiet", "--skip-download",
 		"--write-auto-subs", "--sub-lang", "en", "--sub-format", "srt",
 		"-o", baseName+".%(ext)s", urlStr)
 
@@ -2009,8 +2024,6 @@ func (t *Terminal) copyResponsesBlock(chatHistory []types.ChatHistory) error {
 	var blocks []ExtractedBlock
 	var items []string
 
-	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
-
 	// Iterate through all chat entries (newest to oldest)
 	for i := len(chatHistory) - 1; i >= 1; i-- {
 		entry := chatHistory[i]
@@ -2323,8 +2336,6 @@ func (t *Terminal) runEditorWithFallback(filePath string) error {
 
 // ExtractURLsFromText extracts all URLs from a given text using regex
 func (t *Terminal) ExtractURLsFromText(text string) []string {
-	// URL regex pattern
-	urlRegex := regexp.MustCompile(`https?://[^\s<>"{}|\\^` + "`" + `\[\]]+`)
 	matches := urlRegex.FindAllString(text, -1)
 
 	// Remove duplicates
@@ -2390,7 +2401,6 @@ func (t *Terminal) ExtractURLsFromMessages(messages []types.ChatMessage) []strin
 // ExtractSentencesFromText extracts all sentences from a given text
 func (t *Terminal) ExtractSentencesFromText(text string) []string {
 	// Split by sentence terminators
-	sentenceRegex := regexp.MustCompile(`[.!?]+\s+`)
 	rawSentences := sentenceRegex.Split(text, -1)
 
 	var sentences []string
