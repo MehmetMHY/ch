@@ -3,7 +3,6 @@ package chat
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -218,7 +217,7 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 				fullPath := filepath.Join(tmpDir, filename)
 
 				// Read the file to check timestamp
-				data, err := ioutil.ReadFile(fullPath)
+				data, err := os.ReadFile(fullPath)
 				if err != nil {
 					continue
 				}
@@ -242,7 +241,7 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 		}
 
 		// Load the most recent session
-		data, err := ioutil.ReadFile(latestFile)
+		data, err := os.ReadFile(latestFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read session file: %v", err)
 		}
@@ -263,7 +262,7 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 			return nil, fmt.Errorf("no session file found")
 		}
 
-		data, err := ioutil.ReadFile(fullPath)
+		data, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read session file: %v", err)
 		}
@@ -329,7 +328,7 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 	var entries []SessionEntry
 
 	for _, sessionPath := range matches {
-		data, err := ioutil.ReadFile(sessionPath)
+		data, err := os.ReadFile(sessionPath)
 		if err != nil {
 			continue
 		}
@@ -434,7 +433,7 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 	}
 
 	// Load the selected session
-	data, err := ioutil.ReadFile(selectedFilePath)
+	data, err := os.ReadFile(selectedFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read session file: %v", err)
 	}
@@ -521,7 +520,7 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 		return "", fmt.Errorf("failed to get temp directory: %v", err)
 	}
 
-	tmpFile, err := ioutil.TempFile(tmpDir, "ch-*.txt")
+	tmpFile, err := os.CreateTemp(tmpDir, "ch-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("error creating temp file: %v", err)
 	}
@@ -536,7 +535,7 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
 
-	content, err := ioutil.ReadFile(tmpFilePath)
+	content, err := os.ReadFile(tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error reading temp file: %v", err)
 	}
@@ -702,15 +701,8 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no entries selected")
 	}
 
-	// Check if >all was selected
 	var selectedEntries []types.ChatHistory
-	allSelected := false
-	for _, item := range selectedItems {
-		if strings.HasPrefix(item, ">all") {
-			allSelected = true
-			break
-		}
-	}
+	allSelected := ui.ContainsAllOption(selectedItems)
 
 	if allSelected {
 		// Select all entries in chronological order (oldest to newest)
@@ -887,14 +879,7 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal) (string, error) {
 	var selectedSnippets []ExtractedSnippet
 	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
 
-	// Check if >all was selected
-	allSelected := false
-	for _, item := range selectedItems {
-		if strings.HasPrefix(item, ">all") {
-			allSelected = true
-			break
-		}
-	}
+	allSelected := ui.ContainsAllOption(selectedItems)
 
 	if allSelected {
 		// Extract blocks from all entries in chronological order (oldest to newest)
@@ -1056,14 +1041,7 @@ func (m *Manager) ExportChatTurn(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no turns selected")
 	}
 
-	// Check if >all was selected
-	allSelected := false
-	for _, item := range selectedItems {
-		if strings.HasPrefix(item, ">all") {
-			allSelected = true
-			break
-		}
-	}
+	allSelected := ui.ContainsAllOption(selectedItems)
 
 	// Build content from selected items with USER/BOT labels
 	var combinedContent strings.Builder
@@ -1288,7 +1266,7 @@ func (m *Manager) openInEditor(content string) (string, error) {
 		return "", fmt.Errorf("failed to get temp directory: %v", err)
 	}
 
-	tmpFile, err := ioutil.TempFile(tmpDir, "ch-export-*.txt")
+	tmpFile, err := os.CreateTemp(tmpDir, "ch-export-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("error creating temp file: %v", err)
 	}
@@ -1312,7 +1290,7 @@ func (m *Manager) openInEditor(content string) (string, error) {
 	}
 
 	// Read edited content
-	editedContent, err := ioutil.ReadFile(tmpFilePath)
+	editedContent, err := os.ReadFile(tmpFilePath)
 	if err != nil {
 		return "", fmt.Errorf("error reading edited file: %v", err)
 	}

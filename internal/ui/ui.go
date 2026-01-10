@@ -12,7 +12,6 @@ import (
 	_ "image/png"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -51,118 +50,86 @@ func NewTerminal(config *types.Config) *Terminal {
 	}
 }
 
-// runFzfSSHSafe executes fzf in a way that works correctly over SSH connections
-// by keeping stderr attached to TTY for UI display and redirecting stdout to temp file
-func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, error) {
+// escapeShellArg escapes a string for safe shell usage by wrapping in single quotes
+func escapeShellArg(arg string) string {
+	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
+}
+
+// ContainsAllOption checks if the ">all" option was selected in a list of items
+func ContainsAllOption(items []string) bool {
+	for _, item := range items {
+		if strings.HasPrefix(item, ">all") {
+			return true
+		}
+	}
+	return false
+}
+
+// runFzfCore executes fzf and returns raw output bytes, handling common setup and error cases
+func (t *Terminal) runFzfCore(fzfArgs []string, inputText string) ([]byte, bool, error) {
 	tempDir, err := config.GetTempDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to get temp directory: %w", err)
+		return nil, false, fmt.Errorf("failed to get temp directory: %w", err)
 	}
 
 	outputFile := filepath.Join(tempDir, fmt.Sprintf("fzf-output-%d", time.Now().UnixNano()))
+	defer os.Remove(outputFile)
 
-	// Build command that redirects only stdout to temp file, keeping stderr on TTY
-	// Escape each fzf argument for shell safety
 	var escapedArgs []string
 	for _, arg := range fzfArgs {
-		// Simple shell escaping - wrap each arg in single quotes and escape any single quotes
-		escapedArg := "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
-		escapedArgs = append(escapedArgs, escapedArg)
+		escapedArgs = append(escapedArgs, escapeShellArg(arg))
 	}
 
-	// Escape the output file path for shell safety
-	escapedOutput := "'" + strings.ReplaceAll(outputFile, "'", "'\"'\"'") + "'"
-	cmdStr := fmt.Sprintf("fzf %s > %s", strings.Join(escapedArgs, " "), escapedOutput)
+	cmdStr := fmt.Sprintf("fzf %s > %s", strings.Join(escapedArgs, " "), escapeShellArg(outputFile))
 
 	cmd := exec.Command("sh", "-c", cmdStr)
 	cmd.Stdin = strings.NewReader(inputText)
-	// stdout goes to file (via shell redirection)
-	// stderr stays attached to TTY for UI display
 	cmd.Stderr = os.Stderr
 
 	err = cmd.Run()
 
-	// Clean up temp file
-	defer os.Remove(outputFile)
-
-	// Handle cancellation (exit code 130 or 1)
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		if exitErr.ExitCode() == 130 || exitErr.ExitCode() == 1 {
-			return "", nil // User cancelled
+			return nil, true, nil // User cancelled
 		}
-		return "", fmt.Errorf("fzf failed: %w", err)
+		return nil, false, fmt.Errorf("fzf failed: %w", err)
 	} else if err != nil {
-		return "", fmt.Errorf("fzf execution failed: %w", err)
+		return nil, false, fmt.Errorf("fzf execution failed: %w", err)
 	}
 
-	// Read the selection from temp file
-	content, err := ioutil.ReadFile(outputFile)
+	content, err := os.ReadFile(outputFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", nil // No selection made
+			return nil, true, nil // No selection made
 		}
-		return "", fmt.Errorf("failed to read fzf output: %w", err)
+		return nil, false, fmt.Errorf("failed to read fzf output: %w", err)
 	}
 
+	return content, false, nil
+}
+
+// runFzfSSHSafe executes fzf in a way that works correctly over SSH connections
+func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, error) {
+	content, cancelled, err := t.runFzfCore(fzfArgs, inputText)
+	if err != nil {
+		return "", err
+	}
+	if cancelled || len(content) == 0 {
+		return "", nil
+	}
 	return strings.TrimSpace(string(content)), nil
 }
 
 // runFzfSSHSafeWithQuery executes fzf with --print-query in a SSH-safe way
 func (t *Terminal) runFzfSSHSafeWithQuery(fzfArgs []string, inputText string) ([]string, error) {
-	tempDir, err := config.GetTempDir()
+	content, cancelled, err := t.runFzfCore(fzfArgs, inputText)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get temp directory: %w", err)
+		return nil, err
 	}
-
-	outputFile := filepath.Join(tempDir, fmt.Sprintf("fzf-query-output-%d", time.Now().UnixNano()))
-
-	// Build command that redirects only stdout to temp file, keeping stderr on TTY
-	// Escape each fzf argument for shell safety
-	var escapedArgs []string
-	for _, arg := range fzfArgs {
-		// Simple shell escaping - wrap each arg in single quotes and escape any single quotes
-		escapedArg := "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
-		escapedArgs = append(escapedArgs, escapedArg)
-	}
-
-	// Escape the output file path for shell safety
-	escapedOutput := "'" + strings.ReplaceAll(outputFile, "'", "'\"'\"'") + "'"
-	cmdStr := fmt.Sprintf("fzf %s > %s", strings.Join(escapedArgs, " "), escapedOutput)
-
-	cmd := exec.Command("sh", "-c", cmdStr)
-	cmd.Stdin = strings.NewReader(inputText)
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
-
-	// Clean up temp file
-	defer os.Remove(outputFile)
-
-	// Handle cancellation (exit code 130 or 1)
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		if exitErr.ExitCode() == 130 || exitErr.ExitCode() == 1 {
-			return []string{}, nil // User cancelled
-		}
-		return nil, fmt.Errorf("fzf failed: %w", err)
-	} else if err != nil {
-		return nil, fmt.Errorf("fzf execution failed: %w", err)
-	}
-
-	// Read the output from temp file
-	content, err := ioutil.ReadFile(outputFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []string{}, nil // No output
-		}
-		return nil, fmt.Errorf("failed to read fzf output: %w", err)
-	}
-
-	if len(content) == 0 {
+	if cancelled || len(content) == 0 {
 		return []string{}, nil
 	}
-
-	lines := strings.Split(strings.TrimRight(string(content), "\n"), "\n")
-	return lines, nil
+	return strings.Split(strings.TrimRight(string(content), "\n"), "\n"), nil
 }
 
 // IsTerminal checks if the input is from a terminal
@@ -227,7 +194,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	}
 
 	// Create a temporary file to store the session recording
-	tempFile, err := ioutil.TempFile(tempDir, "ch_shell_session_*.log")
+	tempFile, err := os.CreateTemp(tempDir, "ch_shell_session_*.log")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary file: %w", err)
 	}
@@ -274,7 +241,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	t.PrintInfo("shell session ended")
 
 	// Read the recorded content from the temporary file
-	content, err := ioutil.ReadFile(tempFile.Name())
+	content, err := os.ReadFile(tempFile.Name())
 	if err != nil {
 		return "", fmt.Errorf("failed to read session recording: %w", err)
 	}
@@ -604,7 +571,7 @@ func (t *Terminal) loadTextFile(filePath string) (string, error) {
 		content, err = t.loadImage(filePath)
 	default:
 		// Handle regular text files
-		fileContent, readErr := ioutil.ReadFile(filePath)
+		fileContent, readErr := os.ReadFile(filePath)
 		if readErr != nil {
 			return "", readErr
 		}
@@ -1297,7 +1264,7 @@ func (t *Terminal) isTextFileByPath(filePath string) bool {
 
 	// For files without extension or unknown extensions, check if it's a text file
 	if ext == "" {
-		content, err := ioutil.ReadFile(filePath)
+		content, err := os.ReadFile(filePath)
 		if err != nil {
 			return false
 		}
@@ -1384,7 +1351,7 @@ func (t *Terminal) generateCodeDumpFromDir(files []string, sourceDir string) (st
 			content = fileContent
 		} else {
 			// Use regular file reading for text files
-			fileBytes, err := ioutil.ReadFile(fullPath)
+			fileBytes, err := os.ReadFile(fullPath)
 			if err != nil {
 				result.WriteString(fmt.Sprintf("=== FILE: %s ===\nError reading file: %v\n\n", file, err))
 				continue
@@ -1609,7 +1576,7 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 		pattern := baseName + "*.srt"
 		matches, _ := filepath.Glob(pattern)
 		if len(matches) > 0 {
-			srtContent, readErr := ioutil.ReadFile(matches[0])
+			srtContent, readErr := os.ReadFile(matches[0])
 			if readErr == nil {
 				result.WriteString(string(srtContent))
 			}
@@ -1741,7 +1708,7 @@ func (t *Terminal) WebSearch(query string) (string, error) {
 		return "", fmt.Errorf("search request failed with status: %s", resp.Status)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		done <- true
 		return "", fmt.Errorf("failed to read search response: %w", err)
@@ -1949,14 +1916,7 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 		return nil
 	}
 
-	// Check if >all was selected
-	allSelected := false
-	for _, item := range selectedItems {
-		if strings.HasPrefix(item, ">all") {
-			allSelected = true
-			break
-		}
-	}
+	allSelected := ContainsAllOption(selectedItems)
 
 	// Build content from selected items with USER/BOT labels
 	var combinedContent strings.Builder
@@ -2067,14 +2027,7 @@ func (t *Terminal) copyResponsesBlock(chatHistory []types.ChatHistory) error {
 		return nil
 	}
 
-	// Check if >all was selected
-	allSelected := false
-	for _, item := range selectedItems {
-		if strings.HasPrefix(item, ">all") {
-			allSelected = true
-			break
-		}
-	}
+	allSelected := ContainsAllOption(selectedItems)
 
 	// Build content from selected blocks
 	var combinedContent strings.Builder
@@ -2162,14 +2115,7 @@ func (t *Terminal) copyResponsesManual(chatHistory []types.ChatHistory) error {
 		return nil
 	}
 
-	// Check if >all was selected
-	allSelected := false
-	for _, item := range selected {
-		if strings.HasPrefix(item, ">all") {
-			allSelected = true
-			break
-		}
-	}
+	allSelected := ContainsAllOption(selected)
 
 	// Combine selected responses
 	var combinedContent strings.Builder
@@ -2259,14 +2205,7 @@ func (t *Terminal) copyResponsesLinks(chatHistory []types.ChatHistory, messages 
 		return nil
 	}
 
-	// Check if >all was selected
-	allSelected := false
-	for _, item := range selectedURLs {
-		if strings.HasPrefix(item, ">all") {
-			allSelected = true
-			break
-		}
-	}
+	allSelected := ContainsAllOption(selectedURLs)
 
 	// Build final content
 	var finalContent string
@@ -2302,7 +2241,7 @@ func (t *Terminal) openEditorWithContent(content string) (string, error) {
 		return "", fmt.Errorf("failed to get temp directory: %w", err)
 	}
 
-	tempFile, err := ioutil.TempFile(tempDir, "ch_clipboard_*.md")
+	tempFile, err := os.CreateTemp(tempDir, "ch_clipboard_*.md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -2321,7 +2260,7 @@ func (t *Terminal) openEditorWithContent(content string) (string, error) {
 	}
 
 	// Read edited content
-	editedBytes, err := ioutil.ReadFile(tempFile.Name())
+	editedBytes, err := os.ReadFile(tempFile.Name())
 	if err != nil {
 		return "", fmt.Errorf("failed to read edited content: %w", err)
 	}
