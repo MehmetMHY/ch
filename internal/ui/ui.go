@@ -1920,16 +1920,21 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 
 	// Build content from selected items with USER/BOT labels
 	var combinedContent strings.Builder
+	isSingleItem := (allSelected && len(entries) == 1) || (!allSelected && len(selectedItems) == 1)
+
 	if allSelected {
 		// Copy all entries in chronological order (reverse of display order)
 		for i := len(entries) - 1; i >= 0; i-- {
 			if i < len(entries)-1 {
 				combinedContent.WriteString("\n\n")
 			}
-			if entries[i].isUser {
-				combinedContent.WriteString("USER:\n")
-			} else {
-				combinedContent.WriteString("BOT:\n")
+			// Only add labels if multiple items are selected
+			if !isSingleItem {
+				if entries[i].isUser {
+					combinedContent.WriteString("USER:\n")
+				} else {
+					combinedContent.WriteString("BOT:\n")
+				}
 			}
 			combinedContent.WriteString(entries[i].content)
 		}
@@ -1941,10 +1946,13 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 					if i > 0 {
 						combinedContent.WriteString("\n\n")
 					}
-					if entries[j].isUser {
-						combinedContent.WriteString("USER:\n")
-					} else {
-						combinedContent.WriteString("BOT:\n")
+					// Only add labels if multiple items are selected
+					if !isSingleItem {
+						if entries[j].isUser {
+							combinedContent.WriteString("USER:\n")
+						} else {
+							combinedContent.WriteString("BOT:\n")
+						}
 					}
 					combinedContent.WriteString(entries[j].content)
 					break
