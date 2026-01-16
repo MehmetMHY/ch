@@ -309,8 +309,8 @@ func (t *Terminal) processHelpSelection(selected string, options []string) strin
 	parts := strings.Fields(selected)
 	if len(parts) > 0 {
 		command := parts[0]
-		// Handle commands that start with ! or special commands like CC
-		if strings.HasPrefix(command, "!") || command == "CC" {
+		// Handle commands that start with ! or special commands like cc
+		if strings.HasPrefix(command, "!") || command == "cc" {
 			return command
 		}
 	}

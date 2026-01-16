@@ -207,7 +207,7 @@ func DefaultConfig() *types.Config {
 		SearchLang:        "en",
 		ScrapeURL:         "!s",
 		CopyToClipboard:   "!y",
-		QuickCopyLatest:   "CC",
+		QuickCopyLatest:   "cc",
 		LoadFiles:         "!l",
 		AnswerSearch:      "!a",
 		PlatformSwitch:    "!p",
