@@ -901,8 +901,13 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		chatManager.AddToHistory(userInput, response)
 		return true
 
-	case input == config.ExportChat:
-		err := handleExportChatInteractive(chatManager, terminal, state)
+	case input == config.ExportChat || strings.HasPrefix(input, config.ExportChat+" "):
+		// Extract optional filename from "!e <filename>"
+		targetFile := ""
+		if strings.HasPrefix(input, config.ExportChat+" ") {
+			targetFile = strings.TrimSpace(strings.TrimPrefix(input, config.ExportChat+" "))
+		}
+		err := handleExportChatInteractive(chatManager, terminal, state, targetFile)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error exporting chat: %v", err))
 		}
@@ -1400,8 +1405,8 @@ func handleExportCodeBlocks(chatManager *chat.Manager, terminal *ui.Terminal) er
 	return nil
 }
 
-func handleExportChatInteractive(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) error {
-	filePath, err := chatManager.ExportChatInteractive(terminal)
+func handleExportChatInteractive(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState, targetFile string) error {
+	filePath, err := chatManager.ExportChatInteractive(terminal, targetFile)
 	if err != nil {
 		return err
 	}

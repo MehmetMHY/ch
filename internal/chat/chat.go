@@ -644,7 +644,7 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 }
 
 // ExportChatInteractive allows user to select chat entries via fzf, edit in text editor, and save
-func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
+func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string) (string, error) {
 	if len(m.state.ChatHistory) <= 1 {
 		return "", fmt.Errorf("no chat history to export")
 	}
@@ -656,11 +656,11 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	}
 
 	if editMode == "turn export" {
-		return m.ExportChatTurn(terminal)
+		return m.ExportChatTurn(terminal, targetFile)
 	}
 
 	if editMode == "block export" {
-		return m.ExportChatBlock(terminal)
+		return m.ExportChatBlock(terminal, targetFile)
 	}
 
 	if editMode == "" {
@@ -789,34 +789,39 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no content to save")
 	}
 
-	// Get all files in current directory (including subdirectories)
-	allFiles, err := m.getAllFilesInCurrentDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current directory files: %v", err)
-	}
-
-	// Extract loaded files from chat history to prioritize them
-	loadedFiles := m.extractLoadedFilesFromHistory()
-
-	// Generate new filename options
-	newFileOptions := m.generateFilenameOptions(editedContent)
-
-	// Create unified list of new and existing files, prioritizing .txt
-	unifiedOptions := m.createUnifiedFileOptions(".txt", newFileOptions, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
-
-	selectedOption, err := terminal.FzfSelect(unifiedOptions, "save to file: ")
-	if err != nil {
-		return "", fmt.Errorf("file selection failed: %v", err)
-	}
-	if selectedOption == "" {
-		return "", fmt.Errorf("export cancelled")
-	}
-
 	var filename string
-	if strings.HasPrefix(selectedOption, "[w] ") {
-		filename = strings.TrimPrefix(selectedOption, "[w] ")
+	if targetFile != "" {
+		// Use the provided target file directly
+		filename = targetFile
 	} else {
-		filename = selectedOption
+		// Get all files in current directory (including subdirectories)
+		allFiles, err := m.getAllFilesInCurrentDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current directory files: %v", err)
+		}
+
+		// Extract loaded files from chat history to prioritize them
+		loadedFiles := m.extractLoadedFilesFromHistory()
+
+		// Generate new filename options
+		newFileOptions := m.generateFilenameOptions(editedContent)
+
+		// Create unified list of new and existing files, prioritizing .txt
+		unifiedOptions := m.createUnifiedFileOptions(".txt", newFileOptions, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
+
+		selectedOption, err := terminal.FzfSelect(unifiedOptions, "save to file: ")
+		if err != nil {
+			return "", fmt.Errorf("file selection failed: %v", err)
+		}
+		if selectedOption == "" {
+			return "", fmt.Errorf("export cancelled")
+		}
+
+		if strings.HasPrefix(selectedOption, "[w] ") {
+			filename = strings.TrimPrefix(selectedOption, "[w] ")
+		} else {
+			filename = selectedOption
+		}
 	}
 
 	// Save to file
@@ -834,11 +839,13 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal) (string, error) {
 	// Track newly created file for smart prioritization
 	m.AddRecentlyCreatedFile(fullPath)
 
+	terminal.PrintInfo(fmt.Sprintf("exported to %s", filename))
+
 	return "", nil
 }
 
 // ExportChatBlock allows user to extract and save code blocks from chat history
-func (m *Manager) ExportChatBlock(terminal *ui.Terminal) (string, error) {
+func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (string, error) {
 	// Step 1: Create list of chat entries for fzf selection (same format as manual mode)
 	var items []string
 	var chatEntries []types.ChatHistory
@@ -935,12 +942,31 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no code blocks found in selected entries")
 	}
 
-	// Step 4 & 5: Get filename and save files for each snippet
-	var savedFiles []string
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current directory: %v", err)
 	}
+
+	// If targetFile is provided, concatenate all snippets and save to that file
+	if targetFile != "" {
+		var combined strings.Builder
+		for i, snippet := range selectedSnippets {
+			if i > 0 {
+				combined.WriteString("\n\n")
+			}
+			combined.WriteString(snippet.Content)
+		}
+		fullPath := filepath.Join(currentDir, targetFile)
+		if err := os.WriteFile(fullPath, []byte(combined.String()), 0644); err != nil {
+			return "", fmt.Errorf("failed to write file %s: %v", targetFile, err)
+		}
+		m.AddRecentlyCreatedFile(fullPath)
+		terminal.PrintInfo(fmt.Sprintf("exported %d code block(s) to %s", len(selectedSnippets), targetFile))
+		return "", nil
+	}
+
+	// Step 4 & 5: Get filename and save files for each snippet
+	var savedFiles []string
 
 	// Pre-fetch all files once to avoid doing it in the loop
 	allFiles, err := m.getAllFilesInCurrentDir()
@@ -993,7 +1019,7 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal) (string, error) {
 }
 
 // ExportChatTurn allows user to select individual prompts and responses to export
-func (m *Manager) ExportChatTurn(terminal *ui.Terminal) (string, error) {
+func (m *Manager) ExportChatTurn(terminal *ui.Terminal, targetFile string) (string, error) {
 	// Create list of all user prompts and bot responses
 	var items []string
 	type turnEntry struct {
@@ -1106,31 +1132,36 @@ func (m *Manager) ExportChatTurn(terminal *ui.Terminal) (string, error) {
 		return "", fmt.Errorf("no content to save")
 	}
 
-	// Get filename options
-	allFiles, err := m.getAllFilesInCurrentDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current directory files: %v", err)
-	}
-	loadedFiles := m.extractLoadedFilesFromHistory()
-	suggestedFilenames := m.generateFilenameOptions(editedContent)
-
-	fileOptions := m.createUnifiedFileOptions(".txt", suggestedFilenames, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
-
-	// Select filename
-	selectedOption, err := terminal.FzfSelect(fileOptions, "save to file: ")
-	if err != nil {
-		return "", fmt.Errorf("filename selection failed: %v", err)
-	}
-
-	if selectedOption == "" {
-		return "", fmt.Errorf("export cancelled")
-	}
-
 	var filename string
-	if strings.HasPrefix(selectedOption, "[w] ") {
-		filename = strings.TrimPrefix(selectedOption, "[w] ")
+	if targetFile != "" {
+		// Use the provided target file directly
+		filename = targetFile
 	} else {
-		filename = selectedOption
+		// Get filename options
+		allFiles, err := m.getAllFilesInCurrentDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current directory files: %v", err)
+		}
+		loadedFiles := m.extractLoadedFilesFromHistory()
+		suggestedFilenames := m.generateFilenameOptions(editedContent)
+
+		fileOptions := m.createUnifiedFileOptions(".txt", suggestedFilenames, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
+
+		// Select filename
+		selectedOption, err := terminal.FzfSelect(fileOptions, "save to file: ")
+		if err != nil {
+			return "", fmt.Errorf("filename selection failed: %v", err)
+		}
+
+		if selectedOption == "" {
+			return "", fmt.Errorf("export cancelled")
+		}
+
+		if strings.HasPrefix(selectedOption, "[w] ") {
+			filename = strings.TrimPrefix(selectedOption, "[w] ")
+		} else {
+			filename = selectedOption
+		}
 	}
 
 	// Save to file

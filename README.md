@@ -326,7 +326,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump
-- **`!e`** - export chat(s)
+- **`!e [file]`** - export chat(s)
 - **`!y`** - add to clipboard
 - **`cc`** - quick copy latest response
 - **`ctrl+c`** - clear prompt input
@@ -340,13 +340,15 @@ When in interactive mode (`ch`), use these commands:
 - Saves with proper file extensions
 - Supports 25+ languages and file types
 
-**Interactive Export (`!e`):**
+**Interactive Export (`!e` and `!e [file]`):**
 
 Offers three modes for exporting chat history:
 
 1.  **turn export**: Select individual user prompts and bot responses to export. Uses `>all` option to quickly select everything. Opens editor for final review before saving.
 2.  **block export**: Extracts all code blocks from your entire chat history. Lets you save each snippet individually, intelligently suggesting file names and extensions based on the code's language and content. Presents a prioritized list of suggested new names and existing files (marked with `[w]` for overwrite).
 3.  **manual export**: Allows you to select specific chat entries, which are then combined into a single file for you to edit and save manually. Also benefits from the smart file-saving interface.
+
+Optional: Provide a filename (`!e output.txt`) to skip the file selection step and save directly to that file.
 
 **URL Scraping (`!s` and `-l` with URLs):**
 
