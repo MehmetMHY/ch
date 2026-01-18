@@ -148,4 +148,5 @@ type AppState struct {
 	StreamingCancel      func()
 	IsExecutingCommand   bool
 	CommandCancel        func()
+	SessionStartTime     int64 // Tracks when the current session started for consistent filename
 }

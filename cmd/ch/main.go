@@ -69,7 +69,15 @@ func main() {
 	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
 	flag.BoolVar(historyFlag, "hs", false, "Search and load previous sessions")
 
+	noHistoryFlag := flag.Bool("nh", false, "Disable session saving for this run")
+	flag.Bool("no-history", false, "Disable session saving for this run")
+
 	flag.Parse()
+
+	// Link -nh and --no-history flags together
+	if flag.Lookup("no-history").Value.String() == "true" {
+		*noHistoryFlag = true
+	}
 	remainingArgs := flag.Args()
 
 	// Check if input is being piped
@@ -385,7 +393,7 @@ func main() {
 		}
 
 		// If prompt provided, send to AI with context
-		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedResults, prompt)
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedResults, prompt, *noHistoryFlag)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error: %v", err))
 		}
@@ -417,7 +425,7 @@ func main() {
 		}
 
 		// If prompt provided, send to AI with context
-		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt)
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt, *noHistoryFlag)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error: %v", err))
 		}
@@ -466,7 +474,7 @@ func main() {
 		}
 
 		// If prompt provided, send to AI with context
-		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt)
+		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt, *noHistoryFlag)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error: %v", err))
 		}
@@ -507,7 +515,7 @@ func main() {
 			query = strings.Join(remainingArgs, " ")
 		}
 
-		err := processDirectQuery(query, chatManager, platformManager, terminal, state, *exportCodeFlag)
+		err := processDirectQuery(query, chatManager, platformManager, terminal, state, *exportCodeFlag, *noHistoryFlag)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 		}
@@ -515,11 +523,11 @@ func main() {
 	}
 
 	// interactive mode
-	runInteractiveMode(chatManager, platformManager, terminal, state)
+	runInteractiveMode(chatManager, platformManager, terminal, state, *noHistoryFlag)
 }
 
-func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, exportCode bool) error {
-	if handleSpecialCommands(query, chatManager, platformManager, terminal, state) {
+func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, exportCode bool, noHistory bool) error {
+	if handleSpecialCommands(query, chatManager, platformManager, terminal, state, noHistory) {
 		return nil
 	}
 
@@ -537,8 +545,8 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 	chatManager.AddAssistantMessage(response)
 	chatManager.AddToHistory(query, response)
 
-	// Auto-save session state if enabled
-	if state.Config.EnableSessionSave {
+	// Auto-save session state if enabled (unless -nh flag is set)
+	if state.Config.EnableSessionSave && !noHistory {
 		if err := chatManager.SaveSessionState(); err != nil {
 			terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
 		}
@@ -559,7 +567,7 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 	return nil
 }
 
-func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) {
+func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool) {
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          "\033[94muser: \033[0m",
 		InterruptPrompt: "", // Don't show ^C when Ctrl+C is pressed
@@ -644,7 +652,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 			}
 		}
 
-		if handleSpecialCommands(input, chatManager, platformManager, terminal, state) {
+		if handleSpecialCommands(input, chatManager, platformManager, terminal, state, noHistory) {
 			continue
 		}
 
@@ -684,8 +692,8 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 		chatManager.AddAssistantMessage(response)
 		chatManager.AddToHistory(input, response)
 
-		// Auto-save session state if enabled
-		if state.Config.EnableSessionSave {
+		// Auto-save session state if enabled (unless -nh flag is set)
+		if state.Config.EnableSessionSave && !noHistory {
 			if err := chatManager.SaveSessionState(); err != nil {
 				terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
 			}
@@ -693,11 +701,11 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 	}
 }
 
-func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) bool {
-	return handleSpecialCommandsInternal(input, chatManager, platformManager, terminal, state, false)
+func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool) bool {
+	return handleSpecialCommandsInternal(input, chatManager, platformManager, terminal, state, false, noHistory)
 }
 
-func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, fromHelp bool) bool {
+func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, fromHelp bool, noHistory bool) bool {
 	config := state.Config
 
 	switch {
@@ -716,7 +724,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		if selectedCommand != "" {
 			// Recursively handle the selected command
-			return handleSpecialCommandsInternal(selectedCommand, chatManager, platformManager, terminal, state, true)
+			return handleSpecialCommandsInternal(selectedCommand, chatManager, platformManager, terminal, state, true, noHistory)
 		}
 		return true
 
@@ -1544,7 +1552,7 @@ func splitByDelimiters(input string) []string {
 // handleFlagWithPrompt sends context and prompt to AI, then displays response
 // context: the loaded/scraped/searched content
 // prompt: the user's query/instruction
-func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, context string, prompt string) error {
+func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, context string, prompt string, noHistory bool) error {
 	// Combine context and prompt for the message
 	combinedMessage := context + "\n\n" + prompt
 
@@ -1584,8 +1592,8 @@ func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.M
 	chatManager.AddAssistantMessage(response)
 	chatManager.AddToHistory(prompt, response)
 
-	// Auto-save session state if enabled
-	if state.Config.EnableSessionSave {
+	// Auto-save session state if enabled (unless -nh flag is set)
+	if state.Config.EnableSessionSave && !noHistory {
 		if err := chatManager.SaveSessionState(); err != nil {
 			terminal.PrintError(fmt.Sprintf("warning: failed to save session: %v", err))
 		}

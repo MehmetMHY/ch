@@ -173,8 +173,12 @@ func (m *Manager) SaveSessionState() error {
 
 	var filename string
 	if m.state.Config.SaveAllSessions {
-		// Use timestamp-based filename for saving all sessions
-		filename = fmt.Sprintf("ch_session_%d.json", session.Timestamp)
+		// Set session start time on first save, then reuse for consistent filename
+		if m.state.SessionStartTime == 0 {
+			m.state.SessionStartTime = time.Now().Unix()
+		}
+		// Use session start time for filename (stays constant within a session)
+		filename = fmt.Sprintf("ch_session_%d.json", m.state.SessionStartTime)
 	} else {
 		// Use fixed filename (timestamp is stored in the JSON content)
 		filename = "ch_session_latest.json"
