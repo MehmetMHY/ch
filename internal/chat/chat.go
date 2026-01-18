@@ -1063,22 +1063,34 @@ func (m *Manager) ExportChatTurn(terminal *ui.Terminal) (string, error) {
 			combinedContent.WriteString(entries[i].content)
 		}
 	} else {
-		for i, selected := range selectedItems {
-			// Find the matching entry
+		// Collect matched entries first
+		var selectedEntries []turnEntry
+		for _, selected := range selectedItems {
 			for j, item := range items {
 				if item == selected {
-					if i > 0 {
-						combinedContent.WriteString("\n\n")
-					}
-					if entries[j].isUser {
-						combinedContent.WriteString("USER:\n")
-					} else {
-						combinedContent.WriteString("BOT:\n")
-					}
-					combinedContent.WriteString(entries[j].content)
+					selectedEntries = append(selectedEntries, entries[j])
 					break
 				}
 			}
+		}
+		// Sort by index ascending, then by isUser descending (USER before BOT within same index)
+		sort.Slice(selectedEntries, func(i, j int) bool {
+			if selectedEntries[i].index != selectedEntries[j].index {
+				return selectedEntries[i].index < selectedEntries[j].index
+			}
+			return selectedEntries[i].isUser && !selectedEntries[j].isUser
+		})
+		// Build output in chronological order
+		for i, entry := range selectedEntries {
+			if i > 0 {
+				combinedContent.WriteString("\n\n")
+			}
+			if entry.isUser {
+				combinedContent.WriteString("USER:\n")
+			} else {
+				combinedContent.WriteString("BOT:\n")
+			}
+			combinedContent.WriteString(entry.content)
 		}
 	}
 
