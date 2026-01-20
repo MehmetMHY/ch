@@ -2295,18 +2295,52 @@ func (t *Terminal) runEditorWithFallback(filePath string) error {
 	return RunEditorWithFallback(t.config, filePath)
 }
 
+// normalizeURL trims trailing punctuation and normalizes URL for deduplication
+func normalizeURL(rawURL string) string {
+	// Trim trailing punctuation that commonly gets captured by regex
+	cleaned := strings.TrimRight(rawURL, ".,;:!?'\"`)>]}")
+
+	// Parse and normalize
+	u, err := url.Parse(cleaned)
+	if err != nil {
+		return cleaned
+	}
+
+	// Lowercase host for consistent comparison (hosts are case-insensitive per RFC 3986)
+	u.Host = strings.ToLower(u.Host)
+
+	// Remove trailing slash from path if there's no query string
+	if u.RawQuery == "" && strings.HasSuffix(u.Path, "/") && u.Path != "/" {
+		u.Path = strings.TrimSuffix(u.Path, "/")
+	}
+
+	return u.String()
+}
+
 // ExtractURLsFromText extracts all URLs from a given text using regex
+// Normalizes URLs to handle trailing punctuation and variations
 func (t *Terminal) ExtractURLsFromText(text string) []string {
 	matches := urlRegex.FindAllString(text, -1)
 
-	// Remove duplicates
+	// Use normalized URLs for deduplication
 	seen := make(map[string]bool)
 	var uniqueURLs []string
-	for _, url := range matches {
-		if url != "" && !seen[url] {
-			uniqueURLs = append(uniqueURLs, url)
-			seen[url] = true
+
+	for _, rawURL := range matches {
+		normalized := normalizeURL(rawURL)
+
+		// Skip if empty after normalization
+		if normalized == "" {
+			continue
 		}
+
+		// Skip if already seen (using normalized form)
+		if seen[normalized] {
+			continue
+		}
+
+		seen[normalized] = true
+		uniqueURLs = append(uniqueURLs, normalized)
 	}
 
 	return uniqueURLs
