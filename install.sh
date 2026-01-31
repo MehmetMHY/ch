@@ -147,7 +147,11 @@ install_dependencies() {
 	for dep in "${missing_optional[@]}"; do
 		if [[ "$dep" == "tesseract" ]]; then
 			warning "Tesseract OCR is not installed. Image-to-text extraction will be disabled"
-			warning "The script will attempt to install it. If it fails, you can install it manually (e.g., 'brew install tesseract' or 'sudo apt-get install tesseract-ocr')"
+			warning "The script will attempt to install it. If it fails, you can install it manually:"
+			warning "  macOS: brew install tesseract"
+			warning "  Debian/Ubuntu: sudo apt-get install tesseract-ocr libtesseract-dev libleptonica-dev"
+			warning "  Arch: sudo pacman -S tesseract leptonica"
+			warning "  Fedora: sudo dnf install tesseract tesseract-devel leptonica-devel"
 		fi
 	done
 
@@ -176,11 +180,13 @@ install_dependencies() {
 		done
 		for dep in "${missing_optional[@]}"; do
 			local install_name="$dep"
+			local extra_packages=""
 			if [[ "$dep" == "tesseract" ]]; then
 				install_name="tesseract-ocr"
+				extra_packages="leptonica-dev"
 			fi
 			log "Installing optional dependency $install_name with pkg..."
-			pkg install -y "$install_name" || warning "Failed to install optional dependency: $dep"
+			pkg install -y "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep"
 		done
 		;;
 	"linux")
@@ -223,19 +229,39 @@ install_dependencies() {
 
 		for dep in "${missing_optional[@]}"; do
 			local install_name="$dep"
+			local extra_packages=""
 			if [[ "$dep" == "tesseract" ]]; then
-				if [[ "$pkg_manager" == "apt-get" ]]; then
+				case "$pkg_manager" in
+				"apt-get")
 					install_name="tesseract-ocr"
-				fi
+					extra_packages="libtesseract-dev libleptonica-dev"
+					;;
+				"pacman")
+					install_name="tesseract"
+					extra_packages="leptonica"
+					;;
+				"dnf" | "yum")
+					install_name="tesseract"
+					extra_packages="tesseract-devel leptonica-devel"
+					;;
+				"zypper")
+					install_name="tesseract-ocr"
+					extra_packages="tesseract-ocr-devel leptonica-devel"
+					;;
+				"apk")
+					install_name="tesseract-ocr"
+					extra_packages="tesseract-ocr-dev leptonica-dev"
+					;;
+				esac
 			fi
 			log "Installing optional dependency $install_name with $pkg_manager..."
 			case "$pkg_manager" in
-			"apt-get") sudo apt-get install -y "$install_name" ;;
-			"pacman") sudo pacman -S --noconfirm "$install_name" ;;
-			"dnf") sudo dnf install -y "$install_name" ;;
-			"yum") sudo yum install -y "$install_name" ;;
-			"zypper") sudo zypper install -y "$install_name" ;;
-			"apk") sudo apk add "$install_name" ;;
+			"apt-get") sudo apt-get install -y "$install_name" $extra_packages ;;
+			"pacman") sudo pacman -S --noconfirm "$install_name" $extra_packages ;;
+			"dnf") sudo dnf install -y "$install_name" $extra_packages ;;
+			"yum") sudo yum install -y "$install_name" $extra_packages ;;
+			"zypper") sudo zypper install -y "$install_name" $extra_packages ;;
+			"apk") sudo apk add "$install_name" $extra_packages ;;
 			esac
 			if ! command -v "$dep" >/dev/null 2>&1; then
 				warning "Failed to install optional dependency: $dep"
