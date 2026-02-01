@@ -31,12 +31,12 @@ func GenerateHashFromContentWithOffset(content string, length, offset int) strin
 			seed += int64(char) * int64(i+offset+1)
 		}
 	}
-	rand.Seed(seed)
+	r := rand.New(rand.NewSource(seed))
 
 	// Generate hash
 	hash := make([]rune, length)
 	for i := range hash {
-		hash[i] = charset[rand.Intn(len(charset))]
+		hash[i] = charset[r.Intn(len(charset))]
 	}
 
 	return string(hash)
