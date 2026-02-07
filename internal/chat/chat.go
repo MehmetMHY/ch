@@ -305,6 +305,28 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 	}
 }
 
+// LoadCustomHistoryFile loads a session from a custom history file path
+func (m *Manager) LoadCustomHistoryFile(filePath string) (*types.SessionFile, error) {
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("history file does not exist: %s", filePath)
+	}
+
+	// Read the file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read history file: %v", err)
+	}
+
+	// Unmarshal the JSON
+	var session types.SessionFile
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, fmt.Errorf("failed to parse history file: %v", err)
+	}
+
+	return &session, nil
+}
+
 // SearchSessions searches through all saved sessions using fzf
 func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.SessionFile, error) {
 	if !m.state.Config.SaveAllSessions {

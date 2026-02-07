@@ -304,40 +304,72 @@ func main() {
 			return
 		}
 
-		session, err := chatManager.LoadLatestSessionState()
-		if err != nil {
-			// If no session found, exit with error
-			if !strings.Contains(err.Error(), "no session file found") {
-				terminal.PrintError(fmt.Sprintf("error loading session: %v", err))
+		var session *types.SessionFile
+		var err error
+
+		// Check if a custom history file path was provided
+		if len(remainingArgs) > 0 {
+			customPath := remainingArgs[0]
+			// Check if it's a valid file path
+			if _, statErr := os.Stat(customPath); statErr == nil {
+				// File exists, load it as a custom history file
+				session, err = chatManager.LoadCustomHistoryFile(customPath)
+				if err != nil {
+					terminal.PrintError(fmt.Sprintf("%v", err))
+					return
+				}
+				// Remove the path from remainingArgs so it doesn't get treated as a query
+				remainingArgs = remainingArgs[1:]
+			} else {
+				// Path provided but file doesn't exist, treat as latest session
+				session, err = chatManager.LoadLatestSessionState()
+				if err != nil {
+					// If no session found, exit with error
+					if !strings.Contains(err.Error(), "no session file found") {
+						terminal.PrintError(fmt.Sprintf("error loading session: %v", err))
+						return
+					}
+					terminal.PrintError("no previous session found to continue from")
+					return
+				}
+			}
+		} else {
+			// No custom path provided, load latest session
+			session, err = chatManager.LoadLatestSessionState()
+			if err != nil {
+				// If no session found, exit with error
+				if !strings.Contains(err.Error(), "no session file found") {
+					terminal.PrintError(fmt.Sprintf("error loading session: %v", err))
+					return
+				}
+				terminal.PrintError("no previous session found to continue from")
 				return
 			}
-			terminal.PrintError("no previous session found to continue from")
-			return
-		} else {
-			// Restore session state successfully
-			chatManager.RestoreSessionState(session)
-			sessionRestored = true
+		}
 
-			// Override the final platform and model with session values
-			finalPlatform = session.Platform
-			finalModel = session.Model
+		// Restore session state successfully
+		chatManager.RestoreSessionState(session)
+		sessionRestored = true
 
-			// Print session restoration message in red
-			fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+		// Override the final platform and model with session values
+		finalPlatform = session.Platform
+		finalModel = session.Model
 
-			// Print the entire conversation history
-			for _, entry := range session.ChatHistory {
-				if entry.User == state.Config.SystemPrompt {
-					continue // Skip system prompt
-				}
-				// Print user message
-				if entry.User != "" {
-					fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
-				}
-				// Print bot response
-				if entry.Bot != "" {
-					fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
-				}
+		// Print session restoration message in red
+		fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+
+		// Print the entire conversation history
+		for _, entry := range session.ChatHistory {
+			if entry.User == state.Config.SystemPrompt {
+				continue // Skip system prompt
+			}
+			// Print user message
+			if entry.User != "" {
+				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+			}
+			// Print bot response
+			if entry.Bot != "" {
+				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
 			}
 		}
 	}

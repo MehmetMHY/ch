@@ -301,6 +301,7 @@ ch -w "golang features" | head -10
 # session continuation - automatically saves and restores conversations
 ch -c                              # continue last session interactively
 ch -c "follow up question"         # continue with a new query
+ch -c /path/to/history.json        # load custom history file and continue
 ch -a                              # fuzzy search and load a previous session
 ch -hs                             # same as -a (alias for --history)
 ch -a exact                        # exact match search for previous sessions
