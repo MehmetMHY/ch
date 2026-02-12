@@ -130,7 +130,7 @@ The installer automatically:
 - Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`.
 - Attempts to create a global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux).
 - If the symlink creation fails due to permissions, it will automatically install to `~/.ch/bin` and provide instructions to add it to your `PATH`.
-- Warns you if Tesseract OCR is not installed, as it is required for image-to-text extraction.
+- Gracefully handles missing tesseract development libraries by building without OCR support. If tesseract dev headers are missing, the app will still install and work normally—image-to-text extraction will simply be disabled.
 
 ## Configuration
 

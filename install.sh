@@ -287,6 +287,22 @@ build_ch() {
 	chmod +x "$bin_path" || error "Failed to make binary executable"
 }
 
+# Check if tesseract/leptonica C development headers are available for CGO
+check_tesseract_libs() {
+	if command -v pkg-config >/dev/null 2>&1; then
+		pkg-config --exists tesseract lept 2>/dev/null && return 0
+	fi
+	for dir in /usr/include /usr/local/include; do
+		[[ -f "${dir}/leptonica/allheaders.h" ]] && return 0
+	done
+	if command -v brew >/dev/null 2>&1; then
+		local bp
+		bp=$(brew --prefix 2>/dev/null || true)
+		[[ -n "$bp" ]] && [[ -f "${bp}/include/leptonica/allheaders.h" ]] && return 0
+	fi
+	return 1
+}
+
 # Helper function to execute build command with OS-specific settings
 # Takes two arguments:
 #   1. build_method: either "direct" (for go build) or "make" (for make build)
@@ -304,6 +320,18 @@ execute_build() {
 			CGO_ENABLED=0 go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
 		else
 			log "Building for Android (disabling CGO)..."
+			CGO_ENABLED=0 make build || error "Build failed"
+		fi
+	elif ! check_tesseract_libs; then
+		warning "Tesseract development libraries not found. Building without OCR support"
+		warning "To enable OCR, install the development libraries:"
+		warning "  Debian/Ubuntu: sudo apt-get install libtesseract-dev libleptonica-dev"
+		warning "  Arch: sudo pacman -S tesseract leptonica"
+		warning "  Fedora: sudo dnf install tesseract-devel leptonica-devel"
+		warning "  macOS: brew install tesseract"
+		if [[ "$build_method" == "direct" ]]; then
+			CGO_ENABLED=0 go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+		else
 			CGO_ENABLED=0 make build || error "Build failed"
 		fi
 	elif [[ "$os" == "macos" ]] && [[ "$(uname -m)" == "arm64" ]]; then
