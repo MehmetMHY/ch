@@ -191,7 +191,12 @@ install_dependencies() {
 		;;
 	"linux")
 		local has_sudo=true
-		if ! command -v sudo >/dev/null 2>&1; then
+		if [[ "$(id -u)" -eq 0 ]]; then
+			# Running as root, sudo not needed; define sudo as empty if missing
+			if ! command -v sudo >/dev/null 2>&1; then
+				sudo() { "$@"; }
+			fi
+		elif ! command -v sudo >/dev/null 2>&1; then
 			has_sudo=false
 		fi
 
@@ -548,7 +553,10 @@ update_cli_tools() {
 		fi
 		;;
 	"linux")
-		if command -v sudo >/dev/null 2>&1; then
+		if command -v sudo >/dev/null 2>&1 || [[ "$(id -u)" -eq 0 ]]; then
+			if [[ "$(id -u)" -eq 0 ]] && ! command -v sudo >/dev/null 2>&1; then
+				sudo() { "$@"; }
+			fi
 			local pkg_manager=""
 			if command -v apt-get >/dev/null 2>&1; then pkg_manager="apt-get"; fi
 			if command -v pacman >/dev/null 2>&1; then pkg_manager="pacman"; fi
