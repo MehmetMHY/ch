@@ -190,8 +190,9 @@ install_dependencies() {
 		done
 		;;
 	"linux")
+		local has_sudo=true
 		if ! command -v sudo >/dev/null 2>&1; then
-			error "sudo is required to install dependencies on Linux. Please install it first"
+			has_sudo=false
 		fi
 
 		local pkg_manager=""
@@ -202,71 +203,82 @@ install_dependencies() {
 		if command -v zypper >/dev/null 2>&1; then pkg_manager="zypper"; fi
 		if command -v apk >/dev/null 2>&1; then pkg_manager="apk"; fi
 
-		if [[ -z "$pkg_manager" ]]; then
-			error "Unsupported package manager. Please install manually: fzf (required), ${optional_deps[*]} (optional)"
+		if [[ ${#missing_required[@]} -gt 0 ]]; then
+			if [[ "$has_sudo" == false ]]; then
+				error "sudo is required to install missing required dependencies (${missing_required[*]}) on Linux. Please install them manually"
+			fi
+			if [[ -z "$pkg_manager" ]]; then
+				error "Unsupported package manager. Please install manually: ${missing_required[*]} (required)"
+			fi
+
+			log "Updating package manager..."
+			case "$pkg_manager" in
+			"apt-get") sudo apt-get update -qq ;;
+			"pacman") sudo pacman -Sy --noconfirm ;;
+			esac
+
+			for dep in "${missing_required[@]}"; do
+				log "Installing required dependency $dep with $pkg_manager..."
+				case "$pkg_manager" in
+				"apt-get") sudo apt-get install -y "$dep" ;;
+				"pacman") sudo pacman -S --noconfirm "$dep" ;;
+				"dnf") sudo dnf install -y "$dep" ;;
+				"yum") sudo yum install -y "$dep" ;;
+				"zypper") sudo zypper install -y "$dep" ;;
+				"apk") sudo apk add "$dep" ;;
+				esac
+				if ! command -v "$dep" >/dev/null 2>&1; then
+					error "Failed to install required dependency: $dep. Please install it manually"
+				fi
+			done
 		fi
 
-		log "Updating package manager..."
-		case "$pkg_manager" in
-		"apt-get") sudo apt-get update -qq ;;
-		"pacman") sudo pacman -Sy --noconfirm ;;
-		esac
-
-		for dep in "${missing_required[@]}"; do
-			log "Installing required dependency $dep with $pkg_manager..."
-			case "$pkg_manager" in
-			"apt-get") sudo apt-get install -y "$dep" ;;
-			"pacman") sudo pacman -S --noconfirm "$dep" ;;
-			"dnf") sudo dnf install -y "$dep" ;;
-			"yum") sudo yum install -y "$dep" ;;
-			"zypper") sudo zypper install -y "$dep" ;;
-			"apk") sudo apk add "$dep" ;;
-			esac
-			if ! command -v "$dep" >/dev/null 2>&1; then
-				error "Failed to install required dependency: $dep. Please install it manually"
+		if [[ ${#missing_optional[@]} -gt 0 ]]; then
+			if [[ "$has_sudo" == false ]] || [[ -z "$pkg_manager" ]]; then
+				warning "Cannot install optional dependencies (${missing_optional[*]}) without sudo or a supported package manager. Skipping"
+			else
+				for dep in "${missing_optional[@]}"; do
+					local install_name="$dep"
+					local extra_packages=""
+					if [[ "$dep" == "tesseract" ]]; then
+						case "$pkg_manager" in
+						"apt-get")
+							install_name="tesseract-ocr"
+							extra_packages="libtesseract-dev libleptonica-dev"
+							;;
+						"pacman")
+							install_name="tesseract"
+							extra_packages="leptonica"
+							;;
+						"dnf" | "yum")
+							install_name="tesseract"
+							extra_packages="tesseract-devel leptonica-devel"
+							;;
+						"zypper")
+							install_name="tesseract-ocr"
+							extra_packages="tesseract-ocr-devel leptonica-devel"
+							;;
+						"apk")
+							install_name="tesseract-ocr"
+							extra_packages="tesseract-ocr-dev leptonica-dev"
+							;;
+						esac
+					fi
+					log "Installing optional dependency $install_name with $pkg_manager..."
+					case "$pkg_manager" in
+					"apt-get") sudo apt-get install -y "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep" ;;
+					"pacman") sudo pacman -S --noconfirm "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep" ;;
+					"dnf") sudo dnf install -y "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep" ;;
+					"yum") sudo yum install -y "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep" ;;
+					"zypper") sudo zypper install -y "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep" ;;
+					"apk") sudo apk add "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep" ;;
+					esac
+					if ! command -v "$dep" >/dev/null 2>&1; then
+						warning "Failed to install optional dependency: $dep"
+					fi
+				done
 			fi
-		done
-
-		for dep in "${missing_optional[@]}"; do
-			local install_name="$dep"
-			local extra_packages=""
-			if [[ "$dep" == "tesseract" ]]; then
-				case "$pkg_manager" in
-				"apt-get")
-					install_name="tesseract-ocr"
-					extra_packages="libtesseract-dev libleptonica-dev"
-					;;
-				"pacman")
-					install_name="tesseract"
-					extra_packages="leptonica"
-					;;
-				"dnf" | "yum")
-					install_name="tesseract"
-					extra_packages="tesseract-devel leptonica-devel"
-					;;
-				"zypper")
-					install_name="tesseract-ocr"
-					extra_packages="tesseract-ocr-devel leptonica-devel"
-					;;
-				"apk")
-					install_name="tesseract-ocr"
-					extra_packages="tesseract-ocr-dev leptonica-dev"
-					;;
-				esac
-			fi
-			log "Installing optional dependency $install_name with $pkg_manager..."
-			case "$pkg_manager" in
-			"apt-get") sudo apt-get install -y "$install_name" $extra_packages ;;
-			"pacman") sudo pacman -S --noconfirm "$install_name" $extra_packages ;;
-			"dnf") sudo dnf install -y "$install_name" $extra_packages ;;
-			"yum") sudo yum install -y "$install_name" $extra_packages ;;
-			"zypper") sudo zypper install -y "$install_name" $extra_packages ;;
-			"apk") sudo apk add "$install_name" $extra_packages ;;
-			esac
-			if ! command -v "$dep" >/dev/null 2>&1; then
-				warning "Failed to install optional dependency: $dep"
-			fi
-		done
+		fi
 		;;
 	esac
 }
