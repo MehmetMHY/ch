@@ -282,6 +282,7 @@ build_ch() {
 	go mod download || error "Failed to download Go modules"
 
 	local bin_path="$BIN_DIR/ch"
+	rm -f "$bin_path"
 	execute_build "direct" "$bin_path"
 
 	chmod +x "$bin_path" || error "Failed to make binary executable"
