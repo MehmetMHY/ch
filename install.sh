@@ -182,8 +182,8 @@ install_dependencies() {
 			local install_name="$dep"
 			local extra_packages=""
 			if [[ "$dep" == "tesseract" ]]; then
-				install_name="tesseract-ocr"
-				extra_packages="leptonica-dev"
+				install_name="tesseract"
+				extra_packages="leptonica"
 			fi
 			log "Installing optional dependency $install_name with pkg..."
 			pkg install -y "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep"
