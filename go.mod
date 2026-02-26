@@ -1,8 +1,6 @@
 module github.com/MehmetMHY/ch
 
-go 1.24.1
-
-toolchain go1.24.5
+go 1.26.0
 
 require (
 	github.com/chzyer/readline v1.5.1
@@ -14,7 +12,7 @@ require (
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/tealeg/xlsx/v3 v3.3.13
 	github.com/tiktoken-go/tokenizer v0.7.0
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 )
 
 require (

@@ -1,6 +1,6 @@
 # Ch
 
-<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a> <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.21+-blue.svg" alt="Go 1.21+"></a> <a href="https://github.com/MehmetMHY/ch/graphs/contributors"><img src="https://img.shields.io/github/contributors/MehmetMHY/ch" alt="Contributors"></a>
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a> <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.26.0+-blue.svg" alt="Go 1.26.0+"></a> <a href="https://github.com/MehmetMHY/ch/graphs/contributors"><img src="https://img.shields.io/github/contributors/MehmetMHY/ch" alt="Contributors"></a>
 
 <p align="left">
   <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">
@@ -452,7 +452,7 @@ cd docs
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- [Go 1.26.0 or higher](https://go.dev/dl/)
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for [YouTube](https://www.youtube.com/) video scraping
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) **(optional)** for image-to-text extraction from images. The installer will warn you if it's missing.

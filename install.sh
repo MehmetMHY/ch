@@ -83,13 +83,13 @@ safe_uninstall_ch() {
 
 check_go() {
 	if ! command -v go >/dev/null 2>&1; then
-		error "Go 1.21+ is required but not installed"
+		error "Go 1.26.0+ is required but not installed"
 	fi
 
 	local go_version
 	go_version=$(go version | cut -d' ' -f3 | sed 's/go//')
-	if ! go version | grep -qE "go(1\.(2[1-9]|[3-9][0-9])|[2-9]\.)"; then
-		error "Go 1.21+ is required (found $go_version)"
+	if ! go version | grep -qE "go(1\.(26|2[7-9]|[3-9][0-9])|[2-9]\.)"; then
+		error "Go 1.26.0+ is required (found $go_version)"
 	fi
 }
 
