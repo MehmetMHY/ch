@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -141,11 +142,17 @@ func (m *Manager) ListModels() ([]string, error) {
 		for _, model := range models.Models {
 			modelNames = append(modelNames, model.ID)
 		}
+		sort.Strings(modelNames)
 		return modelNames, nil
 	}
 
 	platform := m.config.Platforms[m.config.CurrentPlatform]
-	return m.fetchPlatformModels(platform)
+	models, err := m.fetchPlatformModels(platform)
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(models)
+	return models, nil
 }
 
 // SelectPlatform handles platform selection and model selection
@@ -157,6 +164,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 		for name := range m.config.Platforms {
 			platforms = append(platforms, name)
 		}
+		sort.Strings(platforms)
 
 		selected, err := fzfSelector(platforms, "platform: ")
 		if err != nil {
@@ -188,6 +196,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 			for _, model := range models.Models {
 				modelNames = append(modelNames, model.ID)
 			}
+			sort.Strings(modelNames)
 
 			selected, err := fzfSelector(modelNames, "model: ")
 			if err != nil {
@@ -241,6 +250,7 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 		if len(modelsList) == 0 {
 			return nil, fmt.Errorf("no models found or returned in unexpected format")
 		}
+		sort.Strings(modelsList)
 
 		selected, err := fzfSelector(modelsList, "model: ")
 		if err != nil {
@@ -366,41 +376,11 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 	return models, nil
 }
 
-// isSlowModel checks if the model is a slow/reasoning model that requires non-streaming
-// NOTE: This is hard-coded for what is considered a slow model
+// isSlowModel checks if the model matches any user-configured slow model patterns.
+// Patterns are configured via "slow_model_patterns" in ~/.ch/config.json.
+// By default, no models are considered slow (empty list).
 func (m *Manager) isSlowModel(modelName string) bool {
-	// Check if model contains "gpt-*-search" pattern anywhere (not slow)
-	matched, _ := regexp.MatchString(`gpt-.+-search`, modelName)
-	if matched {
-		return false
-	}
-
-	// Special handling for gpt-5 models: only "gpt-5" exactly is slow
-	if modelName == "gpt-5" {
-		return true
-	}
-
-	// Check if model contains both "gpt" and "codex" (slow)
-	if strings.Contains(modelName, "gpt") && strings.Contains(modelName, "codex") {
-		return true
-	}
-
-	// NOTE: (12-16-2025) Special handling for grok-4-fast-non-reasoning model (including versioned variants like grok-4-1-fast-non-reasoning)
-	matched, _ = regexp.MatchString(`grok-4(-\d+)?-fast.*non-reasoning`, modelName)
-	if matched {
-		return false
-	}
-
-	patterns := []string{
-		`^o\d+`,
-		`^(models/)?gemini-\d+\.\d+-pro.*`,
-		`gemini-3-pro-preview$`,
-		`^deepseek-reasoner$`,
-		`^grok-4.*`,
-		`^claude-opus-4.*`,
-	}
-
-	for _, pattern := range patterns {
+	for _, pattern := range m.config.SlowModelPatterns {
 		matched, _ := regexp.MatchString(pattern, modelName)
 		if matched {
 			return true
@@ -468,10 +448,24 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 		*streamingCancel = nil
 	}()
 
+	type streamChunk struct {
+		Choices []struct {
+			Delta struct {
+				Content          string `json:"content"`
+				ReasoningContent string `json:"reasoning_content"`
+				Reasoning        string `json:"reasoning"`
+			} `json:"delta"`
+		} `json:"choices"`
+	}
+
 	var response strings.Builder
+	wasReasoning := false
+	lastReasoningEndsWithNewline := false
+	insideThinkTag := false
+	justExitedThinkTag := false
 
 	for {
-		completion, err := stream.Recv()
+		rawBytes, err := stream.RecvRaw()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -482,16 +476,63 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 			return "", err
 		}
 
-		if len(completion.Choices) > 0 {
-			delta := completion.Choices[0].Delta.Content
-			if delta != "" {
+		var chunk streamChunk
+		if err := json.Unmarshal(rawBytes, &chunk); err != nil || len(chunk.Choices) == 0 {
+			continue
+		}
+
+		delta := chunk.Choices[0].Delta
+		reasoning := delta.Reasoning + delta.ReasoningContent
+
+		if reasoning != "" {
+			wasReasoning = true
+			lastReasoningEndsWithNewline = strings.HasSuffix(reasoning, "\n")
+			if m.config.ShowThinking {
 				if m.config.IsPipedOutput {
-					fmt.Print(delta)
+					fmt.Print(reasoning)
 				} else {
-					fmt.Print("\033[92m" + delta + "\033[0m")
+					fmt.Print("\033[90m" + reasoning + "\033[0m")
 				}
-				response.WriteString(delta)
 			}
+			response.WriteString(reasoning)
+		}
+
+		if delta.Content != "" {
+			if wasReasoning && !lastReasoningEndsWithNewline && m.config.ShowThinking {
+				fmt.Println()
+			}
+			wasReasoning = false
+
+			if strings.Contains(delta.Content, "<think>") {
+				insideThinkTag = true
+			}
+
+			if justExitedThinkTag {
+				delta.Content = strings.TrimLeft(delta.Content, "\n\r ")
+				if delta.Content == "" {
+					continue
+				}
+				justExitedThinkTag = false
+			}
+
+			if insideThinkTag && !m.config.ShowThinking {
+				// Skip displaying think-tagged content
+			} else if m.config.IsPipedOutput {
+				fmt.Print(delta.Content)
+			} else if insideThinkTag {
+				fmt.Print("\033[90m" + delta.Content + "\033[0m")
+			} else {
+				fmt.Print("\033[92m" + delta.Content + "\033[0m")
+			}
+
+			if strings.Contains(delta.Content, "</think>") {
+				insideThinkTag = false
+				if !m.config.ShowThinking {
+					justExitedThinkTag = true
+				}
+			}
+
+			response.WriteString(delta.Content)
 		}
 	}
 

@@ -144,6 +144,7 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	// Only override if the config file has at least one other field set (to distinguish from empty config)
 	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" {
 		defaultConfig.EnableSessionSave = userConfig.EnableSessionSave
+		defaultConfig.ShowThinking = userConfig.ShowThinking
 	}
 	if userConfig.SaveAllSessions {
 		defaultConfig.SaveAllSessions = userConfig.SaveAllSessions
@@ -152,6 +153,11 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	// Merge ShallowLoadDirs if provided
 	if userConfig.ShallowLoadDirs != nil {
 		defaultConfig.ShallowLoadDirs = userConfig.ShallowLoadDirs
+	}
+
+	// Merge SlowModelPatterns if provided
+	if userConfig.SlowModelPatterns != nil {
+		defaultConfig.SlowModelPatterns = userConfig.SlowModelPatterns
 	}
 
 	// Merge platforms if provided
@@ -219,6 +225,7 @@ func DefaultConfig() *types.Config {
 		PreferredEditor:   "vim",
 		CurrentPlatform:   "openai",
 		MuteNotifications: false,
+		ShowThinking:      true,
 		EnableSessionSave: true,
 		ShallowLoadDirs:   shallowDirs,
 		Platforms: map[string]types.Platform{

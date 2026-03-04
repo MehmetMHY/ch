@@ -110,6 +110,8 @@ type Config struct {
 	EnableSessionSave bool                `json:"enable_session_save"`
 	SaveAllSessions   bool                `json:"save_all_sessions,omitempty"`
 	ShallowLoadDirs   []string            `json:"shallow_load_dirs,omitempty"`
+	ShowThinking      bool                `json:"show_thinking"`
+	SlowModelPatterns []string            `json:"slow_model_patterns,omitempty"`
 	IsPipedOutput     bool                `json:"-"` // Runtime detection, not from config file
 	Platforms         map[string]Platform `json:"platforms,omitempty"`
 }

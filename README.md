@@ -92,6 +92,7 @@ ch "What are the key features of Go programming language?"
 - **Code Dump**: Package entire directories for AI analysis (text and document files only)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
+- **Thinking/Reasoning Display**: Shows model thinking tokens (reasoning) in gray before the response, supporting `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
 - **Clipboard Integration**: Copy AI responses to clipboard with cross-platform support
 - **Colored Output**: Platform and model names displayed in distinct colors
 
@@ -210,10 +211,12 @@ For persistent configuration, create `~/.ch/config.json` to override default set
   "current_platform": "xai",
   "preferred_editor": "vim",
   "show_search_results": true,
+  "show_thinking": true,
   "num_search_results": 10,
   "search_country": "us",
   "search_lang": "en",
-  "system_prompt": "You are a helpful assistant."
+  "system_prompt": "You are a helpful assistant.",
+  "slow_model_patterns": ["^o\\d+", "^gpt-5$"]
 }
 ```
 
@@ -231,6 +234,8 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `system_prompt` - Customize the system prompt
 - `enable_session_save` - Enable/disable automatic session saving for continuation (default: true)
 - `save_all_sessions` - Save all sessions with timestamps instead of overwriting the latest (default: false). When enabled, each session gets a unique timestamped file; when disabled, only the latest session is kept
+- `show_thinking` - Show/hide model thinking/reasoning tokens (default: true). When enabled, thinking content is displayed in gray before the response. Supports `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
+- `slow_model_patterns` - List of regex patterns for models that should use non-streaming mode with a loading animation (default: empty). Example: `["^o\\d+", "^gpt-5$"]`
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
 - Plus all other configuration options using snake_case JSON field names
 
@@ -531,7 +536,7 @@ make dev
 - Run `make fmt` and `make lint` before submitting
 - Test your changes thoroughly
 - Update documentation as needed
-- To add new slow models, update patterns in `internal/platform/platform.go`
+- To add new slow models, add regex patterns to `slow_model_patterns` in `~/.ch/config.json`
 
 ## Uninstall
 
