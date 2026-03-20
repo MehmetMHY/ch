@@ -1873,7 +1873,11 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 		isUser  bool
 		index   int
 	}
-	var entries []replyEntry
+	// Use a map keyed by display string for reliable lookup (avoids duplicate preview issues)
+	entryMap := make(map[string]replyEntry)
+
+	// Track display order for chronological reconstruction
+	var orderedKeys []string
 
 	// Iterate in reverse order (newest to oldest)
 	for i := len(chatHistory) - 1; i >= 1; i-- {
@@ -1885,8 +1889,10 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 			if len(preview) > 70 {
 				preview = preview[:70] + "..."
 			}
-			items = append(items, fmt.Sprintf("BOT: %s", preview))
-			entries = append(entries, replyEntry{content: entry.Bot, isUser: false, index: i})
+			key := fmt.Sprintf("%d|BOT: %s", i, preview)
+			items = append(items, key)
+			orderedKeys = append(orderedKeys, key)
+			entryMap[key] = replyEntry{content: entry.Bot, isUser: false, index: i}
 		}
 
 		// Add user prompt
@@ -1895,8 +1901,10 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 			if len(preview) > 70 {
 				preview = preview[:70] + "..."
 			}
-			items = append(items, fmt.Sprintf("USER: %s", preview))
-			entries = append(entries, replyEntry{content: entry.User, isUser: true, index: i})
+			key := fmt.Sprintf("%d|USER: %s", i, preview)
+			items = append(items, key)
+			orderedKeys = append(orderedKeys, key)
+			entryMap[key] = replyEntry{content: entry.User, isUser: true, index: i}
 		}
 	}
 
@@ -1922,33 +1930,38 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 
 	// Build content from selected items with USER/BOT labels
 	var combinedContent strings.Builder
-	isSingleItem := (allSelected && len(entries) == 1) || (!allSelected && len(selectedItems) == 1)
+	var matchedCount int
+
+	if allSelected {
+		matchedCount = len(orderedKeys)
+	} else {
+		matchedCount = len(selectedItems)
+	}
+
+	isSingleItem := matchedCount == 1
 
 	if allSelected {
 		// Copy all entries in chronological order (reverse of display order)
-		for i := len(entries) - 1; i >= 0; i-- {
-			if i < len(entries)-1 {
+		for i := len(orderedKeys) - 1; i >= 0; i-- {
+			entry := entryMap[orderedKeys[i]]
+			if i < len(orderedKeys)-1 {
 				combinedContent.WriteString("\n\n")
 			}
-			// Only add labels if multiple items are selected
 			if !isSingleItem {
-				if entries[i].isUser {
+				if entry.isUser {
 					combinedContent.WriteString("USER:\n")
 				} else {
 					combinedContent.WriteString("BOT:\n")
 				}
 			}
-			combinedContent.WriteString(entries[i].content)
+			combinedContent.WriteString(entry.content)
 		}
 	} else {
-		// Collect matched entries first
+		// Collect matched entries via map lookup
 		var selectedEntries []replyEntry
 		for _, selected := range selectedItems {
-			for j, item := range items {
-				if item == selected {
-					selectedEntries = append(selectedEntries, entries[j])
-					break
-				}
+			if entry, exists := entryMap[selected]; exists {
+				selectedEntries = append(selectedEntries, entry)
 			}
 		}
 		// Sort by index ascending, then by isUser descending (USER before BOT within same index)
@@ -1963,7 +1976,6 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 			if i > 0 {
 				combinedContent.WriteString("\n\n")
 			}
-			// Only add labels if multiple items are selected
 			if !isSingleItem {
 				if entry.isUser {
 					combinedContent.WriteString("USER:\n")
@@ -1983,15 +1995,11 @@ func (t *Terminal) copyResponsesTurn(chatHistory []types.ChatHistory) error {
 		return fmt.Errorf("failed to copy to clipboard: %w", err)
 	}
 
-	count := len(selectedItems)
-	if allSelected {
-		count = len(entries)
-	}
 	turnWord := "turn"
-	if count > 1 {
+	if matchedCount > 1 {
 		turnWord = "turns"
 	}
-	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", count, turnWord)
+	fmt.Printf("\033[93madded %d %s to clipboard\033[0m\n", matchedCount, turnWord)
 	return nil
 }
 
