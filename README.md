@@ -232,7 +232,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `search_country` - Set the country for web searches (default: "us")
 - `search_lang` - Set the language for web searches (default: "en")
 - `system_prompt` - Customize the system prompt
-- `enable_session_save` - Enable/disable automatic session saving for continuation (default: true)
+- `enable_session_save` - Enable/disable automatic session saving for continuation (default: false)
 - `save_all_sessions` - Save all sessions with timestamps instead of overwriting the latest (default: false). When enabled, each session gets a unique timestamped file; when disabled, only the latest session is kept
 - `show_thinking` - Show/hide model thinking/reasoning tokens (default: true). When enabled, thinking content is displayed in gray before the response. Supports `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
 - `slow_model_patterns` - List of regex patterns for models that should use non-streaming mode with a loading animation (default: empty). Example: `["^o\\d+", "^gpt-5$"]`

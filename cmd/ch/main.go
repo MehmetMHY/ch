@@ -611,6 +611,10 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 	}
 	defer rl.Close()
 
+	if noHistory && state.Config.EnableSessionSave {
+		fmt.Printf("\033[91mChat Is Temporary\033[0m\n")
+	}
+
 	for {
 		line, err := rl.Readline()
 		if err != nil {

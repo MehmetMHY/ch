@@ -226,7 +226,7 @@ func DefaultConfig() *types.Config {
 		CurrentPlatform:   "openai",
 		MuteNotifications: false,
 		ShowThinking:      true,
-		EnableSessionSave: true,
+		EnableSessionSave: false,
 		ShallowLoadDirs:   shallowDirs,
 		Platforms: map[string]types.Platform{
 			"groq": {
