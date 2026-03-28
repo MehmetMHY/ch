@@ -291,7 +291,7 @@ ch -t ./README.md
 ch -m "gpt-4" -t ./main.go
 
 # disable session saving for this run (only works if enable_session_save is true in config)
-ch -nh "What is AI?"
+ch -n "What is AI?"
 ch --no-history "Explain quantum computing"
 
 # piping support (colors/UI automatically suppressed)

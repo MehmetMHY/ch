@@ -69,12 +69,12 @@ func main() {
 	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
 	flag.BoolVar(historyFlag, "hs", false, "Search and load previous sessions")
 
-	noHistoryFlag := flag.Bool("nh", false, "Disable session saving for this run")
+	noHistoryFlag := flag.Bool("n", false, "Disable session saving for this run")
 	flag.Bool("no-history", false, "Disable session saving for this run")
 
 	flag.Parse()
 
-	// Link -nh and --no-history flags together
+	// Link -n and --no-history flags together
 	if flag.Lookup("no-history").Value.String() == "true" {
 		*noHistoryFlag = true
 	}
