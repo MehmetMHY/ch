@@ -86,6 +86,7 @@ ch "What are the key features of Go programming language?"
 - **Token Counting**: Estimate token usage for files with model-aware tokenization
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
+- **Smart Model Sorting**: Model lists are sorted newest-first using API-provided timestamps, with alphabetical fallback for platforms that don't provide them
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Session Continuation**: Automatically save and restore sessions to continue conversations later
 - **Session History Search**: Search and load any previous session from history with fuzzy or exact matching

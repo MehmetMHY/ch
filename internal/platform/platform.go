@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -130,6 +131,123 @@ func (m *Manager) mergeConsecutiveUserMessages(messages []types.ChatMessage) []t
 	return result
 }
 
+// modelWithTime holds a model name and its creation timestamp for sorting
+type modelWithTime struct {
+	name    string
+	created int64
+}
+
+// parseTimestamp attempts to extract a Unix timestamp (in seconds) from a value.
+// Handles: epoch seconds, milliseconds, nanoseconds (float64), and ISO 8601 strings.
+// Returns 0 if the value cannot be parsed.
+func parseTimestamp(val interface{}) int64 {
+	switch v := val.(type) {
+	case float64:
+		epoch := int64(v)
+		if epoch <= 0 {
+			return 0
+		}
+		// Nanoseconds (>= 1e18, e.g. 1686588896000000000)
+		if epoch >= 1e18 {
+			return epoch / 1e9
+		}
+		// Microseconds (>= 1e15)
+		if epoch >= 1e15 {
+			return epoch / 1e6
+		}
+		// Milliseconds (>= 1e12, e.g. 1686588896000)
+		if epoch >= 1e12 {
+			return epoch / 1e3
+		}
+		// Seconds
+		return epoch
+	case string:
+		// Try parsing as a numeric string (e.g., "1686588896" or "1.686e9")
+		if numVal, err := strconv.ParseFloat(v, 64); err == nil && numVal > 0 {
+			return parseTimestamp(numVal)
+		}
+		// Try common ISO 8601 formats
+		for _, layout := range []string{
+			time.RFC3339Nano,
+			time.RFC3339,
+			"2006-01-02T15:04:05Z",
+			"2006-01-02",
+		} {
+			if t, err := time.Parse(layout, v); err == nil {
+				return t.Unix()
+			}
+		}
+		return 0
+	default:
+		return 0
+	}
+}
+
+// sortModelsByTime sorts models by created timestamp descending (newest first),
+// falling back to alphabetical sort when no timestamps are available
+func sortModelsByTime(models []modelWithTime) []string {
+	hasTimestamps := false
+	for _, m := range models {
+		if m.created > 0 {
+			hasTimestamps = true
+			break
+		}
+	}
+
+	if hasTimestamps {
+		sort.Slice(models, func(i, j int) bool {
+			if models[i].created != models[j].created {
+				return models[i].created > models[j].created
+			}
+			return models[i].name < models[j].name
+		})
+	} else {
+		sort.Slice(models, func(i, j int) bool {
+			return models[i].name < models[j].name
+		})
+	}
+
+	names := make([]string, len(models))
+	for i, m := range models {
+		names[i] = m.name
+	}
+	return names
+}
+
+// sortModelsGroupedByPlatform sorts "platform|model" entries alphabetically by platform,
+// then within each platform group by timestamp descending (newest first).
+// Falls back to alphabetical within a group when no timestamps are available.
+func sortModelsGroupedByPlatform(models []modelWithTime) []string {
+	// Group models by platform prefix
+	type group struct {
+		platform string
+		models   []modelWithTime
+	}
+	groupMap := make(map[string][]modelWithTime)
+	for _, m := range models {
+		parts := strings.SplitN(m.name, "|", 2)
+		plat := ""
+		if len(parts) == 2 {
+			plat = parts[0]
+		}
+		groupMap[plat] = append(groupMap[plat], m)
+	}
+
+	// Get sorted platform names
+	var platformNames []string
+	for p := range groupMap {
+		platformNames = append(platformNames, p)
+	}
+	sort.Strings(platformNames)
+
+	// Sort within each group, then concatenate
+	var result []string
+	for _, p := range platformNames {
+		result = append(result, sortModelsByTime(groupMap[p])...)
+	}
+	return result
+}
+
 // ListModels returns available models for the current platform
 func (m *Manager) ListModels() ([]string, error) {
 	if m.config.CurrentPlatform == "openai" {
@@ -138,21 +256,22 @@ func (m *Manager) ListModels() ([]string, error) {
 			return nil, err
 		}
 
-		var modelNames []string
+		var modelsWithTime []modelWithTime
 		for _, model := range models.Models {
-			modelNames = append(modelNames, model.ID)
+			modelsWithTime = append(modelsWithTime, modelWithTime{
+				name:    model.ID,
+				created: model.CreatedAt,
+			})
 		}
-		sort.Strings(modelNames)
-		return modelNames, nil
+		return sortModelsByTime(modelsWithTime), nil
 	}
 
 	platform := m.config.Platforms[m.config.CurrentPlatform]
-	models, err := m.fetchPlatformModels(platform)
+	models, err := m.fetchPlatformModelsWithTime(platform)
 	if err != nil {
 		return nil, err
 	}
-	sort.Strings(models)
-	return models, nil
+	return sortModelsByTime(models), nil
 }
 
 // SelectPlatform handles platform selection and model selection
@@ -192,11 +311,14 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 				return nil, err
 			}
 
-			var modelNames []string
+			var modelsWithTime []modelWithTime
 			for _, model := range models.Models {
-				modelNames = append(modelNames, model.ID)
+				modelsWithTime = append(modelsWithTime, modelWithTime{
+					name:    model.ID,
+					created: model.CreatedAt,
+				})
 			}
-			sort.Strings(modelNames)
+			modelNames := sortModelsByTime(modelsWithTime)
 
 			selected, err := fzfSelector(modelNames, "model: ")
 			if err != nil {
@@ -241,16 +363,15 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 	var modelsList []string
 
 	if finalModel == "" || platformChanged {
-		var err error
-		modelsList, err = m.fetchPlatformModels(platform)
+		modelsWithTime, err := m.fetchPlatformModelsWithTime(platform)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve models: %v", err)
 		}
 
-		if len(modelsList) == 0 {
+		if len(modelsWithTime) == 0 {
 			return nil, fmt.Errorf("no models found or returned in unexpected format")
 		}
-		sort.Strings(modelsList)
+		modelsList = sortModelsByTime(modelsWithTime)
 
 		selected, err := fzfSelector(modelsList, "model: ")
 		if err != nil {
@@ -274,13 +395,13 @@ func (m *Manager) SelectPlatform(platformKey, modelName string, fzfSelector func
 }
 
 // FetchAllModelsAsync fetches all models from all platforms asynchronously
-// Returns a list of models formatted as "platform|model_name"
+// Returns a list of models formatted as "platform|model_name" sorted by newest first
 // Only fetches from platforms where API keys are defined and not empty
 func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 	var wg sync.WaitGroup
-	results := make(chan string)
+	results := make(chan modelWithTime)
 	done := make(chan bool)
-	var models []string
+	var models []modelWithTime
 	var mu sync.Mutex
 
 	// Create a list of all platforms to fetch from
@@ -336,7 +457,10 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 
 				for _, model := range modelList.Models {
 					platformNameFormatted := strings.ReplaceAll(name, " ", "-")
-					results <- fmt.Sprintf("%s|%s", platformNameFormatted, model.ID)
+					results <- modelWithTime{
+						name:    fmt.Sprintf("%s|%s", platformNameFormatted, model.ID),
+						created: model.CreatedAt,
+					}
 				}
 				return
 			}
@@ -348,14 +472,17 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 			}
 
 			// Fetch models from this platform
-			modelList, err := m.fetchPlatformModels(platformConfig)
+			modelList, err := m.fetchPlatformModelsWithTime(platformConfig)
 			if err != nil {
 				return // Silently ignore errors
 			}
 
 			for _, model := range modelList {
 				platformNameFormatted := strings.ReplaceAll(name, " ", "-")
-				results <- fmt.Sprintf("%s|%s", platformNameFormatted, model)
+				results <- modelWithTime{
+					name:    fmt.Sprintf("%s|%s", platformNameFormatted, model.name),
+					created: model.created,
+				}
 			}
 		}(platformName, platformConfig)
 	}
@@ -373,7 +500,7 @@ func (m *Manager) FetchAllModelsAsync() ([]string, error) {
 		return nil, fmt.Errorf("no models found from any platform")
 	}
 
-	return models, nil
+	return sortModelsGroupedByPlatform(models), nil
 }
 
 // isSlowModel checks if the model matches any user-configured slow model patterns.
@@ -540,7 +667,8 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 	return response.String(), nil
 }
 
-func (m *Manager) fetchPlatformModels(platform types.Platform) ([]string, error) {
+// fetchPlatformModelsWithTime fetches models with their creation timestamps
+func (m *Manager) fetchPlatformModelsWithTime(platform types.Platform) ([]modelWithTime, error) {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 
 	apiKey := os.Getenv(platform.EnvName)
@@ -584,10 +712,13 @@ func (m *Manager) fetchPlatformModels(platform types.Platform) ([]string, error)
 		return nil, err
 	}
 
-	return m.extractModelsFromJSON(jsonData, platform.Models.JSONPath)
+	return m.extractModelsWithTimeFromJSON(jsonData, platform.Models.JSONPath)
 }
 
-func (m *Manager) extractModelsFromJSON(data interface{}, jsonPath string) ([]string, error) {
+// extractModelsWithTimeFromJSON extracts model names and their creation timestamps from JSON.
+// Tries timestamp fields in priority order: "created", "created_at", "modified_at".
+// Handles epoch numbers (seconds/ms/ns) and ISO 8601 strings.
+func (m *Manager) extractModelsWithTimeFromJSON(data interface{}, jsonPath string) ([]modelWithTime, error) {
 	parts := strings.Split(jsonPath, ".")
 
 	current := data
@@ -605,14 +736,27 @@ func (m *Manager) extractModelsFromJSON(data interface{}, jsonPath string) ([]st
 	}
 
 	fieldName := parts[len(parts)-1]
-	var models []string
+	timestampFields := []string{"created", "created_at", "modified_at"}
+	var models []modelWithTime
 
 	if dataArray, ok := current.([]interface{}); ok {
 		for _, item := range dataArray {
 			if itemMap, ok := item.(map[string]interface{}); ok {
 				if modelName, exists := itemMap[fieldName]; exists {
 					if nameStr, ok := modelName.(string); ok {
-						models = append(models, nameStr)
+						var created int64
+						for _, field := range timestampFields {
+							if val, exists := itemMap[field]; exists {
+								if ts := parseTimestamp(val); ts > 0 {
+									created = ts
+									break
+								}
+							}
+						}
+						models = append(models, modelWithTime{
+							name:    nameStr,
+							created: created,
+						})
 					}
 				}
 			}

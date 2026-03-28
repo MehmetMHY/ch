@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -1758,7 +1757,6 @@ func handleAllModels(chatManager *chat.Manager, platformManager *platform.Manage
 	}
 
 	models := result.models
-	sort.Strings(models)
 
 	// Create a map to store platform and model info indexed by display string
 	type modelInfo struct {
