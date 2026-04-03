@@ -56,6 +56,27 @@ func (m *Manager) AddToHistory(user, bot string) {
 	})
 }
 
+// AddToHistoryWithContext adds an entry with full context content that gets
+// persisted in sessions and used in exports/clipboard instead of the summary
+func (m *Manager) AddToHistoryWithContext(user, bot, context string) {
+	m.state.ChatHistory = append(m.state.ChatHistory, types.ChatHistory{
+		Time:     time.Now().Unix(),
+		User:     user,
+		Bot:      bot,
+		Platform: m.state.Config.CurrentPlatform,
+		Model:    m.state.Config.CurrentModel,
+		Context:  context,
+	})
+}
+
+// EffectiveUserContent returns Context if set, otherwise User
+func EffectiveUserContent(entry types.ChatHistory) string {
+	if entry.Context != "" {
+		return entry.Context
+	}
+	return entry.User
+}
+
 // RemoveLastUserMessage removes the last user message (for interrupted requests)
 func (m *Manager) RemoveLastUserMessage() {
 	if len(m.state.Messages) > 0 {
@@ -91,11 +112,11 @@ func (m *Manager) ExportFullHistory() (string, error) {
 
 	var entries []types.ExportEntry
 	for _, entry := range m.state.ChatHistory[1:] {
-		if entry.User != "" || entry.Bot != "" {
+		if entry.User != "" || entry.Bot != "" || entry.Context != "" {
 			entries = append(entries, types.ExportEntry{
 				Platform:    entry.Platform,
 				ModelName:   entry.Model,
-				UserPrompt:  entry.User,
+				UserPrompt:  EffectiveUserContent(entry),
 				BotResponse: entry.Bot,
 				Timestamp:   entry.Time,
 			})
@@ -298,8 +319,8 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 		if i == 0 {
 			continue // Skip system prompt entry
 		}
-		if entry.User != "" {
-			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: entry.User})
+		if entry.User != "" || entry.Context != "" {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: EffectiveUserContent(entry)})
 		}
 		if entry.Bot != "" {
 			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
@@ -424,6 +445,7 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 	// Prepare fzf arguments
 	fzfArgs := []string{
 		"--reverse",
+		"--height=40%",
 		"--border",
 		"--prompt=select session: ",
 	}
@@ -531,8 +553,8 @@ func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 		{Role: "system", Content: m.state.Config.SystemPrompt},
 	}
 	for _, entry := range m.state.ChatHistory[1:] {
-		if entry.User != "" {
-			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: entry.User})
+		if entry.User != "" || entry.Context != "" {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: EffectiveUserContent(entry)})
 		}
 		if entry.Bot != "" {
 			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
@@ -700,7 +722,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 	for i := len(m.state.ChatHistory) - 1; i >= 1; i-- {
 		entry := m.state.ChatHistory[i]
 
-		if entry.User != "" || entry.Bot != "" {
+		if entry.User != "" || entry.Bot != "" || entry.Context != "" {
 			// Create preview for fzf
 			userPreview := strings.Split(entry.User, "\n")[0]
 			if len(userPreview) > 60 {
@@ -777,22 +799,9 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 		timestamp := time.Unix(entry.Time, 0).Format("2006-01-02 15:04:05")
 		contentBuilder.WriteString(fmt.Sprintf("Entry %d - %s - %s/%s\n\n", i+1, timestamp, entry.Platform, entry.Model))
 
-		if entry.User != "" {
+		if entry.User != "" || entry.Context != "" {
 			contentBuilder.WriteString("USER:\n")
-
-			// Check if this is a file loading entry and try to get the actual content
-			if strings.HasPrefix(entry.User, "loaded: ") {
-				actualContent := m.getLoadedContentForHistoryEntry(entry)
-				if actualContent != "" {
-					// Clean up excessive newlines from loaded content
-					cleanedContent := m.cleanupLoadedContent(actualContent)
-					contentBuilder.WriteString(cleanedContent)
-				} else {
-					contentBuilder.WriteString(entry.User)
-				}
-			} else {
-				contentBuilder.WriteString(entry.User)
-			}
+			contentBuilder.WriteString(EffectiveUserContent(entry))
 
 			contentBuilder.WriteString("\n\n")
 		}
@@ -878,7 +887,7 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (str
 	// Iterate in reverse order (newest to oldest)
 	for i := len(m.state.ChatHistory) - 1; i >= 1; i-- {
 		entry := m.state.ChatHistory[i]
-		if entry.User != "" || entry.Bot != "" {
+		if entry.User != "" || entry.Bot != "" || entry.Context != "" {
 			// Create preview for fzf
 			userPreview := strings.Split(entry.User, "\n")[0]
 			if len(userPreview) > 60 {
@@ -1068,14 +1077,18 @@ func (m *Manager) ExportChatTurn(terminal *ui.Terminal, targetFile string) (stri
 			entries = append(entries, turnEntry{content: entry.Bot, isUser: false, index: i})
 		}
 
-		// Add user prompt
-		if entry.User != "" {
-			preview := strings.Split(entry.User, "\n")[0]
+		// Add user prompt (use full context if available)
+		if entry.User != "" || entry.Context != "" {
+			displayText := entry.User
+			if displayText == "" {
+				displayText = entry.Context
+			}
+			preview := strings.Split(displayText, "\n")[0]
 			if len(preview) > 70 {
 				preview = preview[:70] + "..."
 			}
 			items = append(items, fmt.Sprintf("USER: %s", preview))
-			entries = append(entries, turnEntry{content: entry.User, isUser: true, index: i})
+			entries = append(entries, turnEntry{content: EffectiveUserContent(entry), isUser: true, index: i})
 		}
 	}
 

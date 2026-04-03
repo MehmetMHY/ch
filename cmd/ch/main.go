@@ -887,7 +887,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			fmt.Printf("\033[94m> %s\033[0m\n", strings.ReplaceAll(userInput, "\n", "\n> "))
 
 			chatManager.AddUserMessage(userInput)
-			chatManager.AddToHistory("Text editor buffer loaded", "")
+			chatManager.AddToHistoryWithContext("Text editor buffer loaded", "", userInput)
 			return true
 		}
 
@@ -1249,10 +1249,10 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 		chatManager.AddUserMessage(content)
 		if dirPath != "" {
 			historySummary := fmt.Sprintf("Loaded from %s: %s", dirPath, strings.Join(selections, ", "))
-			chatManager.AddToHistory(historySummary, "")
+			chatManager.AddToHistoryWithContext(historySummary, "", content)
 		} else {
 			historySummary := fmt.Sprintf("Loaded: %s", strings.Join(selections, ", "))
-			chatManager.AddToHistory(historySummary, "")
+			chatManager.AddToHistoryWithContext(historySummary, "", content)
 		}
 	}
 
@@ -1268,7 +1268,7 @@ func handleCodeDump(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 
 	if codedump != "" {
 		chatManager.AddUserMessage(codedump)
-		chatManager.AddToHistory("Codedump loaded", "")
+		chatManager.AddToHistoryWithContext("Codedump loaded", "", codedump)
 	}
 
 	return true
@@ -1297,7 +1297,7 @@ func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *
 		formattedContent := fmt.Sprintf("The user ran the following shell session and here is the output:\n\n---\n%s\n---", cleanedContent)
 
 		chatManager.AddUserMessage(formattedContent)
-		chatManager.AddToHistory("Shell session loaded", "")
+		chatManager.AddToHistoryWithContext("Shell session loaded", "", formattedContent)
 	} else {
 		terminal.PrintInfo("no activity recorded in shell session")
 	}
@@ -1407,7 +1407,7 @@ func handleShellCommand(command string, chatManager *chat.Manager, terminal *ui.
 	formattedContent := fmt.Sprintf("The user executed the following command and here is the output:\n\n---\n%s\n---", result)
 
 	chatManager.AddUserMessage(formattedContent)
-	chatManager.AddToHistory(fmt.Sprintf("!x %s", command), "Command executed and output added to context")
+	chatManager.AddToHistoryWithContext(fmt.Sprintf("!x %s", command), "Command executed and output added to context", formattedContent)
 
 	return true
 }
@@ -1635,7 +1635,7 @@ func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.M
 	}
 
 	chatManager.AddAssistantMessage(response)
-	chatManager.AddToHistory(prompt, response)
+	chatManager.AddToHistoryWithContext(prompt, response, context)
 
 	// Auto-save session state if enabled (unless -nh flag is set)
 	if state.Config.EnableSessionSave && !noHistory {
@@ -1663,7 +1663,7 @@ func handleScrapeURLs(urls []string, chatManager *chat.Manager, terminal *ui.Ter
 	if content != "" {
 		chatManager.AddUserMessage(content)
 		historySummary := fmt.Sprintf("Scraped: %s", strings.Join(urls, ", "))
-		chatManager.AddToHistory(historySummary, "")
+		chatManager.AddToHistoryWithContext(historySummary, "", content)
 	}
 
 	return true
@@ -1685,7 +1685,7 @@ func handleWebSearch(query string, chatManager *chat.Manager, terminal *ui.Termi
 	if content != "" {
 		chatManager.AddUserMessage(content)
 		historySummary := fmt.Sprintf("Web search: %s", query)
-		chatManager.AddToHistory(historySummary, "")
+		chatManager.AddToHistoryWithContext(historySummary, "", content)
 	}
 
 	return true

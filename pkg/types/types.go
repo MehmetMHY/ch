@@ -56,6 +56,7 @@ type ChatHistory struct {
 	Bot      string `json:"bot"`
 	Platform string `json:"platform"`
 	Model    string `json:"model"`
+	Context  string `json:"context,omitempty"`
 }
 
 // Platform represents an AI platform configuration
