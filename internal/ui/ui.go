@@ -257,7 +257,7 @@ func (t *Terminal) ShowHelpFzf() string {
 	options := t.getInteractiveHelpOptions()
 
 	fzfArgs := []string{
-		"--reverse", "--height=40%", "--border",
+		"--reverse", "--border",
 		"--prompt=option: ", "--multi",
 	}
 	inputText := strings.Join(options, "\n")
@@ -381,7 +381,7 @@ func (t *Terminal) ShowLoadingAnimation(message string, done chan bool) {
 
 // FzfSelect provides a fuzzy finder interface for selection
 func (t *Terminal) FzfSelect(items []string, prompt string) (string, error) {
-	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt}
+	fzfArgs := []string{"--reverse", "--border", "--prompt=" + prompt}
 	inputText := strings.Join(items, "\n")
 
 	return t.runFzfSSHSafe(fzfArgs, inputText)
@@ -389,7 +389,7 @@ func (t *Terminal) FzfSelect(items []string, prompt string) (string, error) {
 
 // FzfMultiSelect provides a fuzzy finder interface for multiple selections
 func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, error) {
-	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down"}
+	fzfArgs := []string{"--reverse", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down"}
 	inputText := strings.Join(items, "\n")
 
 	result, err := t.runFzfSSHSafe(fzfArgs, inputText)
@@ -406,7 +406,7 @@ func (t *Terminal) FzfMultiSelect(items []string, prompt string) ([]string, erro
 
 // FzfMultiSelectExact provides an exact matching fuzzy finder interface for multiple selections
 func (t *Terminal) FzfMultiSelectExact(items []string, prompt string) ([]string, error) {
-	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down", "--exact"}
+	fzfArgs := []string{"--reverse", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down", "--exact"}
 	inputText := strings.Join(items, "\n")
 
 	result, err := t.runFzfSSHSafe(fzfArgs, inputText)
@@ -423,7 +423,7 @@ func (t *Terminal) FzfMultiSelectExact(items []string, prompt string) ([]string,
 
 // FzfMultiSelectForCLI provides a fuzzy finder interface for multiple selections with cancellation detection
 func (t *Terminal) FzfMultiSelectForCLI(items []string, prompt string) ([]string, error) {
-	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down"}
+	fzfArgs := []string{"--reverse", "--border", "--prompt=" + prompt, "--multi", "--bind=tab:toggle+down"}
 	inputText := strings.Join(items, "\n")
 
 	result, err := t.runFzfSSHSafe(fzfArgs, inputText)
@@ -441,7 +441,7 @@ func (t *Terminal) FzfMultiSelectForCLI(items []string, prompt string) ([]string
 
 // FzfSelectOrQuery provides a fuzzy finder interface that allows for selection or custom query input.
 func (t *Terminal) FzfSelectOrQuery(items []string, prompt string) (string, error) {
-	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--print-query"}
+	fzfArgs := []string{"--reverse", "--border", "--prompt=" + prompt, "--print-query"}
 	inputText := strings.Join(items, "\n")
 
 	lines, err := t.runFzfSSHSafeWithQuery(fzfArgs, inputText)

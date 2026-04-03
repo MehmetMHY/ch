@@ -138,6 +138,7 @@ type SessionFile struct {
 	Model       string        `json:"model"`
 	BaseURL     string        `json:"base_url"`
 	ChatHistory []ChatHistory `json:"messages"`
+	SourceFile  string        `json:"-"`
 }
 
 // AppState holds the application's runtime state

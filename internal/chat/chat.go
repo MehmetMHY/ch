@@ -256,6 +256,7 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 			return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
 		}
 
+		session.SourceFile = latestFile
 		return &session, nil
 	} else {
 		// Load the single session file
@@ -277,6 +278,7 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 			return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
 		}
 
+		session.SourceFile = fullPath
 		return &session, nil
 	}
 }
@@ -324,6 +326,7 @@ func (m *Manager) LoadCustomHistoryFile(filePath string) (*types.SessionFile, er
 		return nil, fmt.Errorf("failed to parse history file: %v", err)
 	}
 
+	session.SourceFile = filePath
 	return &session, nil
 }
 
@@ -421,7 +424,6 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 	// Prepare fzf arguments
 	fzfArgs := []string{
 		"--reverse",
-		"--height=40%",
 		"--border",
 		"--prompt=select session: ",
 	}
@@ -469,6 +471,7 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 		return nil, fmt.Errorf("failed to parse session file: %v", err)
 	}
 
+	session.SourceFile = selectedFilePath
 	return &session, nil
 }
 

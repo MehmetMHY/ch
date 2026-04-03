@@ -185,6 +185,7 @@ func main() {
 			}
 		}
 
+		fmt.Printf("\033[91mloaded chat %s\033[0m\n", filepath.Base(session.SourceFile))
 		return
 	}
 
@@ -372,6 +373,8 @@ func main() {
 				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
 			}
 		}
+
+		fmt.Printf("\033[91mloaded chat %s\033[0m\n", filepath.Base(session.SourceFile))
 	}
 
 	// Apply the final platform and model (if not restored from session)
@@ -999,6 +1002,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			}
 		}
 
+		fmt.Printf("\033[91mloaded chat %s\033[0m\n", filepath.Base(session.SourceFile))
 		return true
 
 	case input == config.ScrapeURL:
