@@ -198,7 +198,7 @@ Customize default platform and model via environment variables:
 # default: openai
 export CH_DEFAULT_PLATFORM="groq"
 
-# default: gpt-4.1-mini
+# default: gpt-5.4-mini
 export CH_DEFAULT_MODEL="llama3-8b-8192"
 ```
 

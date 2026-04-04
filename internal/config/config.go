@@ -196,8 +196,8 @@ func DefaultConfig() *types.Config {
 	// Start with hardcoded defaults
 	defaultConfig := &types.Config{
 		OpenAIAPIKey:      "", // API keys are fetched per-platform in Initialize()
-		DefaultModel:      "gpt-4.1-mini",
-		CurrentModel:      "gpt-4.1-mini",
+		DefaultModel:      "gpt-5.4-mini",
+		CurrentModel:      "gpt-5.4-mini",
 		SystemPrompt:      "You are a helpful assistant powered by Ch who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. Do NOT use em dashes (—) characters ever. But still, do NOT go crazy long with your response if you DON'T HAVE TO. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
 		ExitKey:           "!q",
 		ModelSwitch:       "!m",
