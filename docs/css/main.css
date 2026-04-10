@@ -47,7 +47,7 @@ a:hover {
 }
 
 header {
-  padding: 20px 0 5px 0;
+  padding: 15px 0 0 0;
   text-align: center;
 }
 
@@ -57,6 +57,7 @@ header {
   letter-spacing: 6px;
   margin: 0;
   color: #000;
+  line-height: 1.1;
 }
 
 body.dark-mode .logo {
@@ -66,19 +67,20 @@ body.dark-mode .logo {
 .subtitle {
   font-size: 22.5px;
   color: var(--secondary-text);
-  margin: 0;
+  margin-top: 0;
+  margin-bottom: 17.5px;
   font-weight: normal;
 }
 
 nav {
   text-align: center;
   padding: 0;
-  margin-bottom: 5px;
+  margin-bottom: 0;
 }
 
 .links-container {
   font-size: 20px;
-  margin: 5px 20px;
+  margin: 0;
 }
 
 .links-container a {
@@ -109,21 +111,22 @@ nav {
 }
 
 h2 {
-  margin-top: 32px;
-  margin-bottom: 8px;
+  margin-top: 35px;
+  margin-bottom: 4px;
   scroll-margin-top: 40px;
   font-weight: 700;
 }
 
-h2:first-of-type {
-  margin-top: 20px;
+p {
+  margin-top: 0;
+  margin-bottom: 10px;
 }
 
 .demo-container {
   background-color: var(--terminal-bg);
   padding: 0;
-  border-radius: 12px;
-  margin: 40px 0;
+  border-radius: 0;
+  margin: 15px 0;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border-color);
@@ -183,7 +186,7 @@ h2:first-of-type {
   height: 56px;
   background: rgba(0, 0, 0, 0.75);
   color: #fff;
-  border-radius: 14%;
+  border-radius: 0;
   font-size: 28px;
   display: flex;
   align-items: center;
@@ -214,8 +217,8 @@ h2:first-of-type {
 
 .install-command {
   background-color: var(--terminal-bg);
-  border-radius: 8px;
-  margin: 24px 0;
+  border-radius: 0;
+  margin: 10px 0;
   border: 1px solid var(--border-color);
   overflow-x: auto;
   position: relative;
@@ -276,7 +279,7 @@ body.dark-mode .cmd-url {
   color: var(--secondary-text);
   border: 1px solid var(--border-color);
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   font-family: var(--font-ui);
@@ -291,31 +294,42 @@ body.dark-mode .cmd-url {
 
 .features {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 30px;
-  margin: 40px 0;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin: 10px 0;
 }
 
 .feature {
-  padding: 20px;
-  border-left: 4px solid var(--text-color);
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 0 8px 8px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-left: 3px solid var(--text-color);
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 0;
 }
 
 body.dark-mode .feature {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .feature-title {
   font-weight: bold;
-  margin-bottom: 10px;
-  font-size: 20px;
+  margin-bottom: 2px;
+  font-size: 17px;
+  line-height: 1.3;
+  min-height: 2.6em;
+  display: flex;
+  align-items: flex-start;
 }
 
 .feature-desc {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--secondary-text);
+  line-height: 1.5;
+  flex-grow: 1;
 }
 
 .back-to-top-link {
@@ -323,6 +337,25 @@ body.dark-mode .feature {
   text-decoration: underline;
   transition: opacity 0.3s ease;
   display: inline;
+}
+
+.footer-text {
+  margin-top: 150px;
+  margin-bottom: 15px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--secondary-text);
+}
+
+.footer-text .separator {
+  margin: 0 10px;
+  letter-spacing: normal;
+}
+
+@media (max-width: 1024px) {
+  .features {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
@@ -347,14 +380,17 @@ body.dark-mode .feature {
   .theme-toggle {
     margin: 0 4px;
   }
-  .features {
-    grid-template-columns: 1fr;
-  }
   .install-command code {
     font-size: 14px;
   }
   .separator {
     display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .features {
+    grid-template-columns: 1fr;
   }
 }
 
