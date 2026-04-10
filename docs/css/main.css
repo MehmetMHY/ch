@@ -374,7 +374,7 @@ body.dark-mode .feature {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 8px;
+    gap: 0;
   }
   .links-container a,
   .theme-toggle {
@@ -384,7 +384,12 @@ body.dark-mode .feature {
     font-size: 14px;
   }
   .separator {
-    display: none;
+    letter-spacing: normal;
+    margin: 0;
+    opacity: 0.3;
+  }
+  .footer-text {
+    margin-top: 80px;
   }
 }
 
