@@ -1,0 +1,176 @@
+/* Docs Section Styles */
+.docs-toggle-link {
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.docs-toggle-link:hover {
+  opacity: 0.7;
+}
+
+#docs-content {
+  margin-top: 30px;
+  display: block;
+  line-height: 1.7;
+}
+
+#docs-content h1,
+#docs-content h2,
+#docs-content h3 {
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+
+#docs-content p {
+  margin-bottom: 12px;
+}
+
+#docs-content pre {
+  background-color: var(--terminal-bg);
+  padding: 24px 70px 24px 24px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+  margin: 24px 0;
+  position: relative;
+  white-space: pre;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+#docs-content pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+#docs-content pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#docs-content pre::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+body.dark-mode #docs-content pre::-webkit-scrollbar-thumb {
+  background: #555;
+}
+
+#docs-content .hljs {
+  background: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+body.dark-mode #docs-content .hljs {
+  background: none !important;
+  color: #e0e0e0 !important;
+}
+
+body.dark-mode #docs-content .hljs-keyword {
+  color: #66b3ff !important;
+}
+
+body.dark-mode #docs-content .hljs-string {
+  color: #98d982 !important;
+}
+
+body.dark-mode #docs-content .hljs-comment {
+  color: #999 !important;
+}
+
+body.dark-mode #docs-content .hljs-number {
+  color: #ffcc99 !important;
+}
+
+#docs-content code {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  background-color: var(--terminal-bg);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+#docs-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  white-space: pre;
+  display: block;
+}
+
+.docs-copy-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background-color: var(--bg-color);
+  color: var(--secondary-text);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  transition: all 0.2s ease;
+}
+
+.docs-copy-btn:hover {
+  background-color: var(--text-color);
+  color: var(--bg-color);
+  border-color: var(--text-color);
+}
+
+#docs-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 32px 0;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+#docs-content table::-webkit-scrollbar {
+  height: 8px;
+}
+
+#docs-content table::-webkit-scrollbar-track {
+  background: var(--terminal-bg);
+}
+
+#docs-content table::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+#docs-content th,
+#docs-content td {
+  border: 1px solid var(--border-color);
+  padding: 14px 18px;
+  text-align: left;
+  min-width: 120px;
+}
+
+#docs-content th {
+  background-color: var(--terminal-bg);
+  font-weight: 700;
+}
+
+#docs-content tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+body.dark-mode #docs-content tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+#docs-content tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+body.dark-mode #docs-content tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}

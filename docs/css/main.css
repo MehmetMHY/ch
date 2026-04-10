@@ -1,0 +1,371 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono&display=swap");
+
+:root {
+  --bg-color: white;
+  --text-color: #111;
+  --accent-color: #0066cc;
+  --secondary-text: #666;
+  --border-color: #ddd;
+  --terminal-bg: #f5f5f5;
+  --font-ui: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", monospace;
+  --transition-speed: 0.3s;
+}
+
+body.dark-mode {
+  --bg-color: #1a1a1a;
+  --text-color: #e0e0e0;
+  --accent-color: #66b3ff;
+  --secondary-text: #999;
+  --border-color: #444;
+  --terminal-bg: #2a2a2a;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 50px;
+  box-sizing: border-box;
+  line-height: 1.6;
+  transition:
+    background-color var(--transition-speed),
+    color var(--transition-speed);
+}
+
+a {
+  color: inherit;
+  text-decoration: underline;
+  transition: opacity 0.2s;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+header {
+  padding: 20px 0 5px 0;
+  text-align: center;
+}
+
+.logo {
+  font-size: 85px;
+  font-weight: bold;
+  letter-spacing: 6px;
+  margin: 0;
+  color: #000;
+}
+
+body.dark-mode .logo {
+  color: #e0e0e0;
+}
+
+.subtitle {
+  font-size: 22.5px;
+  color: var(--secondary-text);
+  margin: 0;
+  font-weight: normal;
+}
+
+nav {
+  text-align: center;
+  padding: 0;
+  margin-bottom: 5px;
+}
+
+.links-container {
+  font-size: 20px;
+  margin: 5px 20px;
+}
+
+.links-container a {
+  text-decoration: underline;
+  margin: 0 12px;
+  color: inherit;
+  font-weight: 500;
+}
+
+.separator {
+  letter-spacing: -9px;
+  color: var(--secondary-text);
+  opacity: 0.5;
+}
+
+.theme-toggle {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: inherit;
+  padding: 0;
+  margin: 0 12px;
+  text-decoration: underline;
+  vertical-align: baseline;
+  line-height: inherit;
+}
+
+h2 {
+  margin-top: 32px;
+  margin-bottom: 8px;
+  scroll-margin-top: 40px;
+  font-weight: 700;
+}
+
+h2:first-of-type {
+  margin-top: 20px;
+}
+
+.demo-container {
+  background-color: var(--terminal-bg);
+  padding: 0;
+  border-radius: 12px;
+  margin: 40px 0;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+}
+
+.demo-video {
+  width: 100%;
+  height: 600px;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .demo-video {
+    height: 450px;
+  }
+}
+
+@media (max-width: 600px) {
+  .demo-video {
+    height: 300px;
+  }
+}
+
+.youtube-facade {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 600px;
+  padding: 0;
+  border: 0;
+  background: #000;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.youtube-facade img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+  border: 0;
+}
+
+.youtube-facade:hover img,
+.youtube-facade:focus img {
+  opacity: 1;
+}
+
+.youtube-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 56px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  border-radius: 14%;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+
+.youtube-facade:hover .youtube-play,
+.youtube-facade:focus .youtube-play {
+  background: #f00;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+@media (max-width: 900px) {
+  .youtube-facade {
+    height: 450px;
+  }
+}
+
+@media (max-width: 600px) {
+  .youtube-facade {
+    height: 300px;
+  }
+}
+
+.install-command {
+  background-color: var(--terminal-bg);
+  border-radius: 8px;
+  margin: 24px 0;
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.install-command pre {
+  margin: 0;
+  padding: 24px 70px 24px 24px;
+}
+
+.install-command code {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  color: var(--text-color);
+  white-space: nowrap;
+}
+
+.cmd-keyword {
+  color: #0066cc !important;
+  font-weight: bold !important;
+}
+
+.cmd-flag {
+  color: #994c00 !important;
+}
+
+.cmd-url {
+  color: #009900 !important;
+}
+
+.cmd-pipe {
+  color: var(--secondary-text) !important;
+}
+
+body.dark-mode .cmd-keyword {
+  color: #66b3ff !important;
+}
+
+body.dark-mode .cmd-flag {
+  color: #ffcc99 !important;
+}
+
+body.dark-mode .cmd-url {
+  color: #66ff66 !important;
+}
+
+.copyable {
+  position: relative;
+}
+
+.copyable button {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  background-color: var(--bg-color);
+  color: var(--secondary-text);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--font-ui);
+  transition: all 0.2s ease;
+}
+
+.copyable button:hover {
+  background-color: var(--text-color);
+  color: var(--bg-color);
+  border-color: var(--text-color);
+}
+
+.features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin: 40px 0;
+}
+
+.feature {
+  padding: 20px;
+  border-left: 4px solid var(--text-color);
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 0 8px 8px 0;
+}
+
+body.dark-mode .feature {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.feature-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+  font-size: 20px;
+}
+
+.feature-desc {
+  font-size: 16px;
+  color: var(--secondary-text);
+}
+
+.back-to-top-link {
+  color: var(--secondary-text);
+  text-decoration: underline;
+  transition: opacity 0.3s ease;
+  display: inline;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 0 24px;
+    font-size: 16px;
+  }
+  .logo {
+    font-size: 64px;
+  }
+  .subtitle {
+    font-size: 18px;
+  }
+  .links-container {
+    font-size: 17px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  .links-container a,
+  .theme-toggle {
+    margin: 0 4px;
+  }
+  .features {
+    grid-template-columns: 1fr;
+  }
+  .install-command code {
+    font-size: 14px;
+  }
+  .separator {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 0 16px;
+  }
+  .logo {
+    font-size: 48px;
+  }
+  .subtitle {
+    font-size: 16px;
+  }
+}
