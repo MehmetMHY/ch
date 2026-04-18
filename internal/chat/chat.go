@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -359,14 +360,76 @@ func (m *Manager) LoadCustomHistoryFile(filePath string) (*types.SessionFile, er
 }
 
 // SearchSessions searches through all saved sessions using fzf
-func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.SessionFile, error) {
+func (m *Manager) SearchSessions(terminal *ui.Terminal, args []string) (*types.SessionFile, error) {
 	if !m.state.Config.SaveAllSessions {
 		return nil, fmt.Errorf("session search requires save_all_sessions to be enabled in config")
+	}
+
+	var exact bool
+	var minTime, maxTime int64
+	var targetFile string
+
+	// Parse arguments
+	for _, arg := range args {
+		if arg == "exact" {
+			exact = true
+			continue
+		}
+
+		if strings.HasSuffix(arg, ".json") {
+			targetFile = arg
+			continue
+		}
+
+		// Relative time (e.g., 1d, 1w, 1m, 1y)
+		reRel := regexp.MustCompile(`^(\d+)([dwmy])$`)
+		if matches := reRel.FindStringSubmatch(arg); matches != nil {
+			val, _ := strconv.ParseInt(matches[1], 10, 64)
+			unit := matches[2]
+			var duration int64
+			switch unit {
+			case "d":
+				duration = val * 24 * 3600
+			case "w":
+				duration = val * 7 * 24 * 3600
+			case "m":
+				duration = val * 30 * 24 * 3600
+			case "y":
+				duration = val * 365 * 24 * 3600
+			}
+			minTime = time.Now().Unix() - duration
+			continue
+		}
+
+		// Range (e.g., 1776500000-1776542796)
+		reRange := regexp.MustCompile(`^(\d+)-(\d+)$`)
+		if matches := reRange.FindStringSubmatch(arg); matches != nil {
+			minTime, _ = strconv.ParseInt(matches[1], 10, 64)
+			maxTime, _ = strconv.ParseInt(matches[2], 10, 64)
+			continue
+		}
+
+		// Single epoch (start point)
+		reEpoch := regexp.MustCompile(`^(\d+)$`)
+		if matches := reEpoch.FindStringSubmatch(arg); matches != nil {
+			minTime, _ = strconv.ParseInt(matches[1], 10, 64)
+			continue
+		}
 	}
 
 	tmpDir, err := config.GetTempDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	// Handle direct file load if specified
+	if targetFile != "" {
+		// Check if it's a full path or just a filename
+		fullPath := targetFile
+		if !filepath.IsAbs(targetFile) && !strings.Contains(targetFile, string(filepath.Separator)) {
+			fullPath = filepath.Join(tmpDir, targetFile)
+		}
+		return m.LoadCustomHistoryFile(fullPath)
 	}
 
 	// Find all session files
@@ -392,6 +455,14 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 
 		var session types.SessionFile
 		if err := json.Unmarshal(data, &session); err != nil {
+			continue
+		}
+
+		// Apply time filtering
+		if minTime > 0 && session.Timestamp < minTime {
+			continue
+		}
+		if maxTime > 0 && session.Timestamp > maxTime {
 			continue
 		}
 
@@ -435,7 +506,7 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, exact bool) (*types.Sess
 	}
 
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("no session entries found")
+		return nil, fmt.Errorf("no session entries found matching criteria")
 	}
 
 	// Sort entries by timestamp (latest to oldest)

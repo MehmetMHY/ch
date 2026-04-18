@@ -148,10 +148,7 @@ func main() {
 			return
 		}
 
-		// Determine if exact search based on remaining args
-		exact := len(remainingArgs) > 0 && remainingArgs[0] == "exact"
-
-		session, err := chatManager.SearchSessions(terminal, exact)
+		session, err := chatManager.SearchSessions(terminal, remainingArgs)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 			return
@@ -184,7 +181,6 @@ func main() {
 				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
 			}
 		}
-
 
 		return
 	}
@@ -373,7 +369,6 @@ func main() {
 				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
 			}
 		}
-
 
 	}
 
@@ -971,14 +966,14 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		return true
 
-	case input == "!a" || input == "!a exact":
+	case input == config.AnswerSearch || strings.HasPrefix(input, config.AnswerSearch+" "):
 		if !config.SaveAllSessions {
 			terminal.PrintError("session search requires save_all_sessions to be enabled in config")
 			return true
 		}
 
-		exact := input == "!a exact"
-		session, err := chatManager.SearchSessions(terminal, exact)
+		args := strings.Fields(strings.TrimPrefix(input, config.AnswerSearch))
+		session, err := chatManager.SearchSessions(terminal, args)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 			return true
@@ -1011,7 +1006,6 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
 			}
 		}
-
 
 		return true
 

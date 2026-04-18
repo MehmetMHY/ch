@@ -150,7 +150,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %-18s %s\n", "-h, --help", "show help and exit")
 	fmt.Printf("  %-18s %s\n", "-c, --continue", "continue from latest session")
 	fmt.Printf("  %-18s %s\n", "--clear", "clear all tmp files")
-	fmt.Printf("  %-18s %s\n", "-a, -hs, --history", "search sessions")
+	fmt.Printf("  %-18s %s\n", "-a, -hs, --history", "search sessions (supports filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>)")
 	fmt.Printf("  %-18s %s\n", "-n, --no-history", "disable session saving for this run")
 	fmt.Printf("  %-18s %s\n", "-d [dir]", "generate codedump")
 	fmt.Printf("  %-18s %s\n", "-p [platform]", "switch platform")
@@ -342,7 +342,7 @@ func (t *Terminal) getCommandList() []string {
 		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
 		fmt.Sprintf("%s [url] - scrape URL(s)", t.config.ScrapeURL),
 		fmt.Sprintf("%s [query] - web search", t.config.WebSearch),
-		fmt.Sprintf("%s [exact] - search sessions", t.config.AnswerSearch),
+		fmt.Sprintf("%s [filter] - search sessions", t.config.AnswerSearch),
 		"ctrl+c - clear prompt input",
 		"ctrl+d - exit completely",
 	}

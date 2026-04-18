@@ -89,7 +89,7 @@ ch "What are the key features of Go programming language?"
 - **Smart Model Sorting**: Model lists are sorted newest-first using API-provided timestamps, with alphabetical fallback for platforms that don't provide them
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Session Continuation**: Automatically save and restore sessions to continue conversations later
-- **Session History Search**: Search and load any previous session from history with fuzzy or exact matching
+- **Session History Search**: Search and load any previous session from history with fuzzy or exact matching. Supports time-based filters (1d, 1w, 1m, 1y), epoch ranges, and direct session file loading.
 - **Code Dump**: Package entire directories for AI analysis (text and document files only)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
@@ -311,6 +311,9 @@ ch -c /path/to/history.json        # load custom history file and continue
 ch -a                              # fuzzy search and load a previous session
 ch -hs                             # same as -a (alias for --history)
 ch -a exact                        # exact match search for previous sessions
+ch -a 1w                           # filter sessions from the last week
+ch -a 1776500000-1776542796        # filter sessions by epoch range
+ch -a ch_session_latest.json       # load a specific session file directly
 ch --clear                         # clear all temporary files and sessions
 ```
 
@@ -328,7 +331,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!o`** - select from all models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
-- **`!a [exact]`** - search and load sessions (also: `-hs`, `--history`)
+- **`!a [filter]`** - search and load sessions (filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>)
 - **`!x`** - record shell session
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
