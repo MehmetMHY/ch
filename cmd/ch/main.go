@@ -168,7 +168,7 @@ func main() {
 		}
 
 		// Print session info and conversation
-		fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
 		// Print the entire conversation history
 		for _, entry := range session.ChatHistory {
@@ -185,7 +185,7 @@ func main() {
 			}
 		}
 
-		fmt.Printf("\033[91mloaded chat %s\033[0m\n", filepath.Base(session.SourceFile))
+
 		return
 	}
 
@@ -357,7 +357,7 @@ func main() {
 		finalModel = session.Model
 
 		// Print session restoration message in red
-		fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
 		// Print the entire conversation history
 		for _, entry := range session.ChatHistory {
@@ -374,7 +374,7 @@ func main() {
 			}
 		}
 
-		fmt.Printf("\033[91mloaded chat %s\033[0m\n", filepath.Base(session.SourceFile))
+
 	}
 
 	// Apply the final platform and model (if not restored from session)
@@ -995,7 +995,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 
 		// Print session info and conversation
-		fmt.Printf("\033[91mrestored session from %s UTC\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"))
+		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
 		// Print the entire conversation history
 		for _, entry := range session.ChatHistory {
@@ -1012,7 +1012,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			}
 		}
 
-		fmt.Printf("\033[91mloaded chat %s\033[0m\n", filepath.Base(session.SourceFile))
+
 		return true
 
 	case input == config.ScrapeURL:
