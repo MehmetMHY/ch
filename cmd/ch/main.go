@@ -528,6 +528,9 @@ func main() {
 				fmt.Print("\r\033[K")
 				state.CommandCancel()
 			} else {
+				if state.Config.EnableSessionSave && !*noHistoryFlag {
+					chatManager.SaveSessionState()
+				}
 				os.Exit(0)
 			}
 		}
@@ -559,6 +562,10 @@ func main() {
 
 	// interactive mode
 	runInteractiveMode(chatManager, platformManager, terminal, state, *noHistoryFlag)
+
+	if state.Config.EnableSessionSave && !*noHistoryFlag {
+		chatManager.SaveSessionState()
+	}
 }
 
 func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, exportCode bool, noHistory bool) error {
@@ -749,6 +756,9 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	switch {
 	case input == config.ExitKey:
+		if state.Config.EnableSessionSave && !noHistory {
+			chatManager.SaveSessionState()
+		}
 		os.Exit(0)
 		return true
 

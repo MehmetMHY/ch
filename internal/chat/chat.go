@@ -205,10 +205,17 @@ func (m *Manager) SaveSessionState() error {
 		filename = "ch_session_latest.json"
 	}
 	fullPath := filepath.Join(tmpDir, filename)
+	tempFullPath := fullPath + ".tmp"
 
-	err = os.WriteFile(fullPath, jsonData, 0644)
+	err = os.WriteFile(tempFullPath, jsonData, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write session file: %v", err)
+	}
+
+	err = os.Rename(tempFullPath, fullPath)
+	if err != nil {
+		os.Remove(tempFullPath)
+		return fmt.Errorf("failed to rename session file: %v", err)
 	}
 
 	return nil
