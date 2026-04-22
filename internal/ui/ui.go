@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -34,7 +35,7 @@ import (
 
 // Compiled regex patterns for reuse
 var (
-	codeBlockRegex = regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
+	codeBlockRegex = regexp.MustCompile("(?s)```([a-zA-Z0-9+#\\-\\.]*)\\s*?\\n(.*?)\\n?```")
 	urlRegex       = regexp.MustCompile(`https?://[^\s<>"{}|\\^` + "`" + `\[\]]+`)
 	sentenceRegex  = regexp.MustCompile(`[.!?]+\s+`)
 )
@@ -1812,8 +1813,15 @@ func (t *Terminal) CopyToClipboard(content string) error {
 		return fmt.Errorf("no clipboard utility found. Please install: pbcopy (macOS), xclip/xsel (Linux), wl-copy (Wayland), or termux-clipboard-set (Android)")
 	}
 
+	var stderr bytes.Buffer
 	cmd.Stdin = strings.NewReader(content)
-	return cmd.Run()
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy to clipboard: %v (stderr: %s)", err, stderr.String())
+	}
+
+	return nil
 }
 
 // CopyResponsesInteractive allows user to select and copy chat responses to clipboard
@@ -2041,7 +2049,9 @@ func (t *Terminal) copyResponsesBlock(chatHistory []types.ChatHistory) error {
 				}
 
 				displayText := fmt.Sprintf("[%s] %s", language, preview)
-				items = append(items, displayText)
+				// Use a unique key with index to avoid matching issues with identical display texts
+				uniqueKey := fmt.Sprintf("%d|%s", len(items), displayText)
+				items = append(items, uniqueKey)
 				blocks = append(blocks, ExtractedBlock{Content: content, Language: language, Preview: preview})
 			}
 		}
@@ -2079,16 +2089,20 @@ func (t *Terminal) copyResponsesBlock(chatHistory []types.ChatHistory) error {
 		}
 	} else {
 		for i, selected := range selectedItems {
-			// Find the matching block
-			for j, item := range items {
-				if item == selected {
-					if i > 0 {
-						combinedContent.WriteString("\n\n")
-					}
-					combinedContent.WriteString(blocks[j].Content)
-					break
-				}
+			// Extract the index from the unique key
+			parts := strings.SplitN(selected, "|", 2)
+			if len(parts) < 2 {
+				continue
 			}
+			idx, err := strconv.Atoi(parts[0])
+			if err != nil || idx < 0 || idx >= len(blocks) {
+				continue
+			}
+
+			if i > 0 {
+				combinedContent.WriteString("\n\n")
+			}
+			combinedContent.WriteString(blocks[idx].Content)
 		}
 	}
 

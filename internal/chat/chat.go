@@ -719,7 +719,7 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 	}
 
 	// Regex to find markdown code blocks with optional language specification
-	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
+	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9+#\\-\\.]*)\\s*?\\n(.*?)\\n?```")
 	matches := codeBlockRegex.FindAllStringSubmatch(lastEntry.Bot, -1)
 
 	if len(matches) == 0 {
@@ -1000,7 +1000,7 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (str
 		Language string
 	}
 	var selectedSnippets []ExtractedSnippet
-	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9]*)\n(.*?)\n```")
+	codeBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9+#\\-\\.]*)\\s*?\\n(.*?)\\n?```")
 
 	allSelected := ui.ContainsAllOption(selectedItems)
 
