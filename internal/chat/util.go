@@ -2,6 +2,7 @@ package chat
 
 import (
 	"math/rand"
+	"time"
 )
 
 // GenerateHashFromContent creates a random hash using characters from the content
@@ -24,8 +25,7 @@ func GenerateHashFromContentWithOffset(content string, length, offset int) strin
 		charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	}
 
-	// Use content + offset as seed for more variation
-	seed := int64(len(content) + offset)
+	seed := time.Now().UnixNano() + int64(len(content)+offset)
 	for i, char := range content {
 		if i < 100 { // Only use first 100 chars to avoid overflow
 			seed += int64(char) * int64(i+offset+1)
