@@ -160,6 +160,19 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 		defaultConfig.SlowModelPatterns = userConfig.SlowModelPatterns
 	}
 
+	if userConfig.AINameDisable {
+		defaultConfig.AINameDisable = true
+	}
+	if userConfig.AINameCharThreshold != 0 {
+		defaultConfig.AINameCharThreshold = userConfig.AINameCharThreshold
+	}
+	if userConfig.AINameCount != 0 {
+		defaultConfig.AINameCount = userConfig.AINameCount
+	}
+	if userConfig.AINamePrompt != "" {
+		defaultConfig.AINamePrompt = userConfig.AINamePrompt
+	}
+
 	// Merge platforms if provided
 	if userConfig.Platforms != nil {
 		for name, platform := range userConfig.Platforms {
@@ -228,6 +241,20 @@ func DefaultConfig() *types.Config {
 		ShowThinking:      true,
 		EnableSessionSave: false,
 		ShallowLoadDirs:   shallowDirs,
+
+		AINameCharThreshold: 500,
+		AINameCount:         8,
+		AINamePrompt: "Based on the conversation above, propose {count} short filenames that best summarize what's being saved.\n\n" +
+			"Rules for each name:\n" +
+			"- lowercase only\n" +
+			"- words separated by underscores\n" +
+			"- 1 to 4 words per name\n" +
+			"- no file extension\n" +
+			"- no punctuation, no quotes, no spaces, no commentary\n\n" +
+			"Output format: respond with EXACTLY one fenced code block tagged \"text\", containing one filename per line and nothing else. Example:\n\n" +
+			"```text\nhello_world\napi_request_handler\nparse_json\n```\n\n" +
+			"Do not include any text before or after the code block.",
+
 		Platforms: map[string]types.Platform{
 			"groq": {
 				Name:    "groq",

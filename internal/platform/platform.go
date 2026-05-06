@@ -73,6 +73,23 @@ func (m *Manager) Initialize() error {
 	return nil
 }
 
+// SendSilentChatRequest sends a non-streaming chat request and returns the
+// full response without printing anything to stdout. Use for auxiliary
+// requests (e.g. filename suggestions) where streaming output is unwanted.
+func (m *Manager) SendSilentChatRequest(messages []types.ChatMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
+	mergedMessages := m.mergeConsecutiveUserMessages(messages)
+
+	var openaiMessages []openai.ChatCompletionMessage
+	for _, msg := range mergedMessages {
+		openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	return m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+}
+
 // SendChatRequest sends a chat request to the current platform
 func (m *Manager) SendChatRequest(messages []types.ChatMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
 	var openaiMessages []openai.ChatCompletionMessage

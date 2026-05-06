@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/MehmetMHY/ch/internal/config"
+	"github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/google/uuid"
@@ -20,7 +21,8 @@ import (
 
 // Manager handles chat operations
 type Manager struct {
-	state *types.AppState
+	state           *types.AppState
+	platformManager *platform.Manager
 }
 
 // NewManager creates a new chat manager
@@ -28,6 +30,12 @@ func NewManager(state *types.AppState) *Manager {
 	return &Manager{
 		state: state,
 	}
+}
+
+// SetPlatformManager wires a platform manager so chat helpers can issue
+// auxiliary requests (e.g. AI-generated filename suggestions during !e).
+func (m *Manager) SetPlatformManager(pm *platform.Manager) {
+	m.platformManager = pm
 }
 
 // AddUserMessage adds a user message to the chat
@@ -735,8 +743,10 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 	for i, match := range matches {
 		code := match[2]
 
-		// Generate filename options and let user select
-		filenameOptions := m.generateFilenameOptions(code)
+		// Generate filename options and let user select. AI-suggested names
+		// (if any) sit at the top, followed by the deterministic hash list.
+		aiNames := m.generateAIFilenameOptions(code, terminal)
+		filenameOptions := append(aiNames, m.generateFilenameOptions(code)...)
 
 		prompt := fmt.Sprintf("file %d/%d: ", i+1, len(matches))
 		selectedFilename, err := terminal.FzfSelect(filenameOptions, prompt)
@@ -916,10 +926,12 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 		loadedFiles := m.extractLoadedFilesFromHistory()
 
 		// Generate new filename options
+		aiNames := m.generateAIFilenameOptions(editedContent, terminal)
 		newFileOptions := m.generateFilenameOptions(editedContent)
 
-		// Create unified list of new and existing files, prioritizing .txt
-		unifiedOptions := m.createUnifiedFileOptions(".txt", newFileOptions, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
+		// Create unified list of new and existing files, prioritizing .txt.
+		// AI-suggested names go on top of the unified list.
+		unifiedOptions := append(aiNames, m.createUnifiedFileOptions(".txt", newFileOptions, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)...)
 
 		selectedOption, err := terminal.FzfSelect(unifiedOptions, "save to file: ")
 		if err != nil {
@@ -1098,10 +1110,12 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (str
 		prompt := fmt.Sprintf("[%s %d] save to file: ", language, i+1)
 
 		// Generate new filename options
+		aiNames := m.generateAIFilenameOptions(snippet.Content, terminal)
 		newFileOptions := m.generatePrioritizedFilenameOptions(snippet.Content, ext)
 
-		// Create unified list of new and existing files
-		unifiedOptions := m.createUnifiedFileOptions(ext, newFileOptions, allFiles, loadedFiles, recentlyCreatedFiles)
+		// Create unified list of new and existing files. AI-suggested names
+		// stay on top regardless of the snippet's priority extension.
+		unifiedOptions := append(aiNames, m.createUnifiedFileOptions(ext, newFileOptions, allFiles, loadedFiles, recentlyCreatedFiles)...)
 
 		selectedOption, err := terminal.FzfSelect(unifiedOptions, prompt)
 		if err != nil {
@@ -1259,9 +1273,10 @@ func (m *Manager) ExportChatTurn(terminal *ui.Terminal, targetFile string) (stri
 			return "", fmt.Errorf("failed to get current directory files: %v", err)
 		}
 		loadedFiles := m.extractLoadedFilesFromHistory()
+		aiNames := m.generateAIFilenameOptions(editedContent, terminal)
 		suggestedFilenames := m.generateFilenameOptions(editedContent)
 
-		fileOptions := m.createUnifiedFileOptions(".txt", suggestedFilenames, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)
+		fileOptions := append(aiNames, m.createUnifiedFileOptions(".txt", suggestedFilenames, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)...)
 
 		// Select filename
 		selectedOption, err := terminal.FzfSelect(fileOptions, "save to file: ")
@@ -1491,6 +1506,139 @@ func (m *Manager) getLanguageExtension(language string) string {
 		return "." + ext
 	}
 	return ".txt" // Default extension
+}
+
+// generateAIFilenameOptions asks the currently-selected model to propose short,
+// snake_case filenames summarizing what's being saved. Returns nil on any failure
+// or when conversation history is below the configured character threshold; callers
+// should fall back to the deterministic hash-based options. All returned names use
+// a .txt extension.
+func (m *Manager) generateAIFilenameOptions(content string, terminal *ui.Terminal) []string {
+	if m.platformManager == nil || m.state == nil || m.state.Config == nil {
+		return nil
+	}
+	if m.state.Config.AINameDisable {
+		return nil
+	}
+
+	threshold := m.state.Config.AINameCharThreshold
+	count := m.state.Config.AINameCount
+	promptTmpl := m.state.Config.AINamePrompt
+	if threshold <= 0 || count <= 0 || strings.TrimSpace(promptTmpl) == "" {
+		return nil
+	}
+
+	// Count chars from non-system messages only.
+	historyChars := 0
+	for _, msg := range m.state.Messages {
+		if msg.Role == "system" {
+			continue
+		}
+		historyChars += len(msg.Content)
+	}
+	if historyChars < threshold {
+		return nil
+	}
+
+	prompt := strings.ReplaceAll(promptTmpl, "{count}", strconv.Itoa(count))
+
+	// Build messages: full chat history (including system prompt for context) +
+	// the content to save + the naming instructions as a final user turn.
+	requestMessages := make([]types.ChatMessage, 0, len(m.state.Messages)+1)
+	requestMessages = append(requestMessages, m.state.Messages...)
+	requestMessages = append(requestMessages, types.ChatMessage{
+		Role:    "user",
+		Content: prompt + "\n\nContent to be saved:\n" + content,
+	})
+
+	done := make(chan bool)
+	go terminal.ShowLoadingAnimation("Loading...", done)
+
+	response, err := m.platformManager.SendSilentChatRequest(
+		requestMessages,
+		m.state.Config.CurrentModel,
+		&m.state.StreamingCancel,
+		&m.state.IsStreaming,
+	)
+	done <- true
+
+	if err != nil || strings.TrimSpace(response) == "" {
+		return nil
+	}
+
+	return parseAIFilenameOutput(response, count)
+}
+
+// parseAIFilenameOutput extracts filenames from the model response. It prefers a
+// fenced code block (any language tag); if none is found, lines from the raw
+// response are tried as a fallback. Each candidate is sanitized to [a-z0-9_],
+// length-capped, deduped, and given a .txt extension. At most maxCount names
+// are returned.
+func parseAIFilenameOutput(response string, maxCount int) []string {
+	body := strings.TrimSpace(response)
+
+	// Prefer the contents of a fenced code block; fall back to the raw response.
+	if start := strings.Index(body, "```"); start >= 0 {
+		afterOpen := body[start+3:]
+		if nl := strings.Index(afterOpen, "\n"); nl >= 0 {
+			afterOpen = afterOpen[nl+1:]
+		}
+		if end := strings.Index(afterOpen, "```"); end >= 0 {
+			body = afterOpen[:end]
+		}
+	}
+
+	seen := make(map[string]bool)
+	var out []string
+	for _, line := range strings.Split(body, "\n") {
+		name := sanitizeAIFilename(line)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name+".txt")
+		if len(out) >= maxCount {
+			break
+		}
+	}
+
+	return out
+}
+
+// sanitizeAIFilename normalizes a single candidate to lowercase [a-z0-9_],
+// collapses runs of underscores, trims leading/trailing underscores, and caps
+// length at 40 chars. Returns "" when nothing usable remains.
+func sanitizeAIFilename(raw string) string {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	if s == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	b.Grow(len(s))
+	prevUnderscore := false
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			prevUnderscore = false
+		case r == '_' || r == '-' || r == ' ':
+			if !prevUnderscore && b.Len() > 0 {
+				b.WriteRune('_')
+				prevUnderscore = true
+			}
+		}
+	}
+
+	cleaned := strings.Trim(b.String(), "_")
+	if cleaned == "" {
+		return ""
+	}
+	const maxLen = 40
+	if len(cleaned) > maxLen {
+		cleaned = strings.TrimRight(cleaned[:maxLen], "_")
+	}
+	return cleaned
 }
 
 // generateFilenameOptions creates filename options with ch_<hash>.ext format

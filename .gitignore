@@ -123,3 +123,7 @@ cha/
 ch_clipboard_*.md
 *.tar.gz
 release/
+
+# Ignore all .txt files except docs/robots.txt
+*.txt
+!docs/robots.txt

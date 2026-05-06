@@ -81,6 +81,7 @@ ch "What are the key features of Go programming language?"
 - **Seamless Pipe Output**: Automatically suppresses colors and UI elements when output is piped, perfect for shell pipelines and automation
 - **Smart File Handling**: Load text files, PDFs, Word docs (DOCX/ODT/RTF), spreadsheets (XLSX/CSV), images (with OCR text extraction), and directories
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
+- **AI-Suggested Filenames**: When exporting, the current model proposes short snake_case filenames based on chat context. Configurable and fully optional, with a graceful fallback to the deterministic hash-based names.
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
 - **Session State Viewer**: Check current session details like model, platform, and token usage
 - **Token Counting**: Estimate token usage for files with model-aware tokenization
@@ -132,7 +133,7 @@ The installer automatically:
 - Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`.
 - Attempts to create a global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux).
 - If the symlink creation fails due to permissions, it will automatically install to `~/.ch/bin` and provide instructions to add it to your `PATH`.
-- Gracefully handles missing tesseract development libraries by building without OCR support. If tesseract dev headers are missing, the app will still install and work normally—image-to-text extraction will simply be disabled.
+- Gracefully handles missing tesseract development libraries by building without OCR support. If tesseract dev headers are missing, the app will still install and work normally, image-to-text extraction will simply be disabled.
 
 ## Configuration
 
@@ -238,6 +239,10 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `show_thinking` - Show/hide model thinking/reasoning tokens (default: true). When enabled, thinking content is displayed in gray before the response. Supports `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
 - `slow_model_patterns` - List of regex patterns for models that should use non-streaming mode with a loading animation (default: empty). Example: `["^o\\d+", "^gpt-5$"]`
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
+- `ai_name_disable` - Disable AI-suggested filenames in `!e` export modes (default: false). When false, the current model is asked to propose short snake_case filenames before each export filename prompt.
+- `ai_name_char_threshold` - Minimum non-system chat content (in characters) before AI-suggested filenames are generated (default: 500). Below this, the AI naming step is skipped.
+- `ai_name_count` - Number of AI-suggested filename candidates to request per export (default: 8).
+- `ai_name_prompt` - Instruction sent to the model when generating filename suggestions. Use `{count}` as a placeholder for `ai_name_count`. The default asks for output as a single fenced `text` code block.
 - Plus all other configuration options using snake_case JSON field names
 
 For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). But note that the config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
@@ -359,6 +364,30 @@ Offers three modes for exporting chat history:
 3.  **manual export**: Allows you to select specific chat entries, which are then combined into a single file for you to edit and save manually. Also benefits from the smart file-saving interface.
 
 Optional: Provide a filename (`!e output.txt`) to skip the file selection step and save directly to that file.
+
+**AI-Suggested Filenames:**
+
+When you reach a filename selection step in any `!e` export mode, Ch asks the currently selected model to propose a few short, snake*case filenames that summarize what's being saved. The model receives the full chat history plus the content being exported, so the suggestions are context-aware. AI suggestions appear at the top of the fzf list (always with a `.txt` extension), followed by the regular `ch*<hash>.<ext>` options and existing files in the directory.
+
+Behavior notes:
+
+- A spinner ("Loading...") is shown while the model responds. Pressing Ctrl+C aborts the export, matching how other spinners behave in Ch.
+- If the chat history is short (default: under 500 characters of non-system content), AI naming is skipped automatically. There isn't enough context for useful names yet.
+- If the model fails, returns nothing usable, or AI naming is disabled, Ch silently falls back to the existing hash-based filename list.
+- Output is parsed from a fenced code block tagged `text` for reliable extraction across providers, and each name is sanitized (lowercase, `[a-z0-9_]` only, deduped, capped at 40 characters).
+
+Configurable via `~/.ch/config.json`. Example showing all four keys with their defaults:
+
+````json
+{
+  "ai_name_disable": false,
+  "ai_name_char_threshold": 500,
+  "ai_name_count": 8,
+  "ai_name_prompt": "Based on the conversation above, propose {count} short filenames that best summarize what's being saved.\n\nRules for each name:\n- lowercase only\n- words separated by underscores\n- 1 to 4 words per name\n- no file extension\n- no punctuation, no quotes, no spaces, no commentary\n\nOutput format: respond with EXACTLY one fenced code block tagged \"text\", containing one filename per line and nothing else. Example:\n\n```text\nhello_world\napi_request_handler\nparse_json\n```\n\nDo not include any text before or after the code block."
+}
+````
+
+Set `ai_name_disable` to `true` to skip AI naming entirely. Use `{count}` as a placeholder in `ai_name_prompt` to substitute `ai_name_count` at request time.
 
 **URL Scraping (`!s` and `-l` with URLs):**
 

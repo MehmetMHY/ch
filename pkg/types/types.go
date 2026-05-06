@@ -115,6 +115,12 @@ type Config struct {
 	SlowModelPatterns []string            `json:"slow_model_patterns,omitempty"`
 	IsPipedOutput     bool                `json:"-"` // Runtime detection, not from config file
 	Platforms         map[string]Platform `json:"platforms,omitempty"`
+
+	// AI-generated filename suggestion settings (used by !e export flow)
+	AINameDisable       bool   `json:"ai_name_disable,omitempty"`
+	AINameCharThreshold int    `json:"ai_name_char_threshold,omitempty"`
+	AINameCount         int    `json:"ai_name_count,omitempty"`
+	AINamePrompt        string `json:"ai_name_prompt,omitempty"`
 }
 
 // ExportEntry represents a single entry in the JSON export

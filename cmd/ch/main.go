@@ -47,6 +47,7 @@ func main() {
 	terminal := ui.NewTerminal(state.Config)
 	chatManager := chat.NewManager(state)
 	platformManager := platform.NewManager(state.Config)
+	chatManager.SetPlatformManager(platformManager)
 
 	// parse command line arguments
 	var (
