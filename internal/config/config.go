@@ -169,6 +169,9 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.AINameCount != 0 {
 		defaultConfig.AINameCount = userConfig.AINameCount
 	}
+	if userConfig.AINameTimeoutSeconds != 0 {
+		defaultConfig.AINameTimeoutSeconds = userConfig.AINameTimeoutSeconds
+	}
 	if userConfig.AINamePrompt != "" {
 		defaultConfig.AINamePrompt = userConfig.AINamePrompt
 	}
@@ -242,8 +245,9 @@ func DefaultConfig() *types.Config {
 		EnableSessionSave: false,
 		ShallowLoadDirs:   shallowDirs,
 
-		AINameCharThreshold: 500,
-		AINameCount:         8,
+		AINameCharThreshold:  500,
+		AINameCount:          8,
+		AINameTimeoutSeconds: 30,
 		AINamePrompt: "Based on the conversation above, propose {count} short filenames that best summarize what's being saved.\n\n" +
 			"Rules for each name:\n" +
 			"- lowercase only\n" +

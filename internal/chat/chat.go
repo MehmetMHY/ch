@@ -1551,8 +1551,42 @@ func (m *Manager) generateAIFilenameOptions(content string, terminal *ui.Termina
 		Content: prompt + "\n\nContent to be saved:\n" + content,
 	})
 
-	done := make(chan bool)
+	// Buffered + deferred cleanup so the spinner is always torn down even if
+	// the request panics or returns unexpectedly.
+	done := make(chan bool, 1)
 	go terminal.ShowLoadingAnimation("Loading...", done)
+	defer func() {
+		select {
+		case done <- true:
+		default:
+		}
+		// Once the spinner is gone, clear the streaming flags. Keeping them set
+		// through the entire helper (see below) prevents the global SIGINT
+		// handler from racing past the brief gap between the API call returning
+		// and the spinner clearing, where it would otherwise treat Ctrl-C as
+		// "no in-flight request" and call os.Exit(0).
+		m.state.IsStreaming = false
+		m.state.StreamingCancel = nil
+	}()
+
+	// Watchdog: cancel the in-flight request if it exceeds the configured
+	// timeout. We trigger the existing StreamingCancel rather than introducing
+	// a parallel cancellation path so the SIGINT handler and timeout share the
+	// same plumbing. timeoutStop signals normal completion to the goroutine.
+	timeoutSecs := m.state.Config.AINameTimeoutSeconds
+	if timeoutSecs <= 0 {
+		timeoutSecs = 30
+	}
+	timeoutStop := make(chan struct{})
+	go func() {
+		select {
+		case <-time.After(time.Duration(timeoutSecs) * time.Second):
+			if cancel := m.state.StreamingCancel; cancel != nil {
+				cancel()
+			}
+		case <-timeoutStop:
+		}
+	}()
 
 	response, err := m.platformManager.SendSilentChatRequest(
 		requestMessages,
@@ -1560,7 +1594,14 @@ func (m *Manager) generateAIFilenameOptions(content string, terminal *ui.Termina
 		&m.state.StreamingCancel,
 		&m.state.IsStreaming,
 	)
-	done <- true
+	close(timeoutStop)
+
+	// sendNonStreamingRequest resets these on return, but the spinner is still
+	// on screen until our defer fires. Re-arm with a no-op cancel so a Ctrl-C
+	// during the cleanup window is absorbed by the streaming branch of the
+	// signal handler instead of exiting the program.
+	m.state.IsStreaming = true
+	m.state.StreamingCancel = func() {}
 
 	if err != nil || strings.TrimSpace(response) == "" {
 		return nil
