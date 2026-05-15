@@ -247,7 +247,7 @@ func DefaultConfig() *types.Config {
 
 		AINameCharThreshold:  500,
 		AINameCount:          8,
-		AINameTimeoutSeconds: 30,
+		AINameTimeoutSeconds: 5,
 		AINamePrompt: "Based on the conversation above, propose {count} short filenames that best summarize what's being saved.\n\n" +
 			"Rules for each name:\n" +
 			"- lowercase only\n" +

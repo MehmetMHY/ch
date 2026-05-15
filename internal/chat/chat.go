@@ -1574,9 +1574,6 @@ func (m *Manager) generateAIFilenameOptions(content string, terminal *ui.Termina
 	// a parallel cancellation path so the SIGINT handler and timeout share the
 	// same plumbing. timeoutStop signals normal completion to the goroutine.
 	timeoutSecs := m.state.Config.AINameTimeoutSeconds
-	if timeoutSecs <= 0 {
-		timeoutSecs = 30
-	}
 	timeoutStop := make(chan struct{})
 	go func() {
 		select {
