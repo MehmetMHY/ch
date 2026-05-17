@@ -338,7 +338,8 @@ When in interactive mode (`ch`), use these commands:
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
 - **`!a [filter]`** - search and load sessions (filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>)
-- **`!x`** - record shell session
+- **`!x`** / **`!`** - record shell session; run a command with `!x cmd`, `! cmd`, or `!cmd` (no space)
+- **`!!x`** / **`!!`** - record shell session (output not saved to history); run a command with `!!x cmd`, `!! cmd`, or `!!cmd` (no space)
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump

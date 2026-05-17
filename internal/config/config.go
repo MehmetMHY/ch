@@ -120,6 +120,9 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.ShellOption != "" {
 		defaultConfig.ShellOption = userConfig.ShellOption
 	}
+	if userConfig.ShellRecordSilent != "" {
+		defaultConfig.ShellRecordSilent = userConfig.ShellRecordSilent
+	}
 	if userConfig.MultiLine != "" {
 		defaultConfig.MultiLine = userConfig.MultiLine
 	}
@@ -236,7 +239,8 @@ func DefaultConfig() *types.Config {
 		AllModels:         "!o",
 		CodeDump:          "!d",
 		ShellRecord:       "!x",
-		ShellOption:       "!x",
+		ShellOption:       "!",
+		ShellRecordSilent: "!!x",
 		MultiLine:         "\\",
 		PreferredEditor:   "vim",
 		CurrentPlatform:   "openai",

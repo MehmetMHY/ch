@@ -103,6 +103,7 @@ type Config struct {
 	CodeDump          string              `json:"code_dump,omitempty"`
 	ShellRecord       string              `json:"shell_record,omitempty"`
 	ShellOption       string              `json:"shell_option,omitempty"`
+	ShellRecordSilent string              `json:"shell_record_silent,omitempty"`
 	MultiLine         string              `json:"multi_line,omitempty"`
 	PreferredEditor   string              `json:"preferred_editor,omitempty"`
 	CurrentPlatform   string              `json:"current_platform,omitempty"`

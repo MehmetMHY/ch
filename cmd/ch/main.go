@@ -859,20 +859,66 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 	case input == config.CodeDump:
 		return handleCodeDump(chatManager, terminal, state)
 
-	case input == config.ShellRecord:
+	case input == config.ShellRecordSilent:
+		if fromHelp {
+			fmt.Printf("\033[93m%s - record shell session (output not saved to history)\033[0m\n", config.ShellRecordSilent)
+			return true
+		}
+		return handleShellRecord(chatManager, terminal, state, false)
+
+	case strings.HasPrefix(input, config.ShellRecordSilent+" "):
+		command := strings.TrimPrefix(input, config.ShellRecordSilent+" ")
+		if fromHelp {
+			return true
+		}
+		return handleShellCommand(command, chatManager, terminal, state, false)
+
+	case input == config.ShellRecord, input == config.ShellOption:
 		if fromHelp {
 			fmt.Printf("\033[93m%s - record shell session\033[0m\n", config.ShellRecord)
 			return true
 		}
-		return handleShellRecord(chatManager, terminal, state)
+		return handleShellRecord(chatManager, terminal, state, true)
 
-	case strings.HasPrefix(input, config.ShellRecord+" "):
-		command := strings.TrimPrefix(input, config.ShellRecord+" ")
+	case strings.HasPrefix(input, config.ShellRecord+" "), strings.HasPrefix(input, config.ShellOption+" "):
+		var command string
+		if strings.HasPrefix(input, config.ShellRecord+" ") {
+			command = strings.TrimPrefix(input, config.ShellRecord+" ")
+		} else {
+			command = strings.TrimPrefix(input, config.ShellOption+" ")
+		}
 		if fromHelp {
 			fmt.Printf("\033[93m%s [command] - record shell session\033[0m\n", config.ShellRecord)
 			return true
 		}
-		return handleShellCommand(command, chatManager, terminal, state)
+		return handleShellCommand(command, chatManager, terminal, state, true)
+
+	case input == "!!":
+		if fromHelp {
+			return true
+		}
+		return handleShellRecord(chatManager, terminal, state, false)
+
+	case strings.HasPrefix(input, "!! "):
+		if fromHelp {
+			return true
+		}
+		command := strings.TrimPrefix(input, "!! ")
+		return handleShellCommand(command, chatManager, terminal, state, false)
+
+	case strings.HasPrefix(input, "!!"):
+		if fromHelp {
+			return true
+		}
+		command := strings.TrimPrefix(input, "!!")
+		return handleShellCommand(command, chatManager, terminal, state, false)
+
+	case strings.HasPrefix(input, config.ShellOption):
+		if fromHelp {
+			return true
+		}
+		command := strings.TrimPrefix(input, config.ShellOption)
+		return handleShellCommand(command, chatManager, terminal, state, true)
 
 	case strings.HasPrefix(input, config.EditorInput+" "):
 		arg := strings.TrimSpace(strings.TrimPrefix(input, config.EditorInput+" "))
@@ -1279,7 +1325,7 @@ func handleCodeDump(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 	return true
 }
 
-func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState, saveToHistory bool) bool {
 	sessionContent, err := terminal.RecordShellSession()
 	if err != nil {
 		terminal.PrintError(fmt.Sprintf("error recording shell session: %v", err))
@@ -1287,8 +1333,6 @@ func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *
 	}
 
 	if strings.TrimSpace(sessionContent) != "" {
-		// Sanitize the content slightly to make it cleaner for the model
-		// This removes the "Script started/done" lines.
 		lines := strings.Split(sessionContent, "\n")
 		var cleanedLines []string
 		for _, line := range lines {
@@ -1298,11 +1342,12 @@ func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *
 		}
 		cleanedContent := strings.Join(cleanedLines, "\n")
 
-		// Wrap the content for clarity
 		formattedContent := fmt.Sprintf("The user ran the following shell session and here is the output:\n\n---\n%s\n---", cleanedContent)
 
-		chatManager.AddUserMessage(formattedContent)
-		chatManager.AddToHistoryWithContext("Shell session loaded", "", formattedContent)
+		if saveToHistory {
+			chatManager.AddUserMessage(formattedContent)
+			chatManager.AddToHistoryWithContext("Shell session loaded", "", formattedContent)
+		}
 	} else {
 		terminal.PrintInfo("no activity recorded in shell session")
 	}
@@ -1310,7 +1355,7 @@ func handleShellRecord(chatManager *chat.Manager, terminal *ui.Terminal, state *
 	return true
 }
 
-func handleShellCommand(command string, chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+func handleShellCommand(command string, chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState, saveToHistory bool) bool {
 	if command == "" {
 		terminal.PrintError("no command specified")
 		return true
@@ -1411,8 +1456,10 @@ func handleShellCommand(command string, chatManager *chat.Manager, terminal *ui.
 	// Format the content for the chat context (uses full output)
 	formattedContent := fmt.Sprintf("The user executed the following command and here is the output:\n\n---\n%s\n---", result)
 
-	chatManager.AddUserMessage(formattedContent)
-	chatManager.AddToHistoryWithContext(fmt.Sprintf("!x %s", command), "Command executed and output added to context", formattedContent)
+	if saveToHistory {
+		chatManager.AddUserMessage(formattedContent)
+		chatManager.AddToHistoryWithContext(fmt.Sprintf("!x %s", command), "Command executed and output added to context", formattedContent)
+	}
 
 	return true
 }
