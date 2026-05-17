@@ -1542,15 +1542,40 @@ func (m *Manager) generateAIFilenameOptions(content string, terminal *ui.Termina
 
 	prompt := strings.ReplaceAll(promptTmpl, "{count}", strconv.Itoa(count))
 
-	// Build messages: full chat history (including system prompt for context) +
-	// the content to save + the naming instructions as a final user turn.
-	requestMessages := make([]types.ChatMessage, 0, len(m.state.Messages)+1)
-	requestMessages = append(requestMessages, m.state.Messages...)
-	requestMessages = append(requestMessages, types.ChatMessage{
-		Role:    "user",
-		Content: prompt + "\n\nContent to be saved:\n" + content,
-	})
+	// Limit content to avoid massive payloads for simple name generation
+	displayContent := content
+	const maxContentLen = 2000
+	if len(displayContent) > maxContentLen {
+		displayContent = displayContent[:maxContentLen] + "\n...[content truncated for naming]"
+	}
 
+	// Gather all user prompts, ignoring system and bot responses
+	var userPrompts strings.Builder
+	for _, msg := range m.state.Messages {
+		if msg.Role == "user" {
+			userPrompts.WriteString(msg.Content)
+			userPrompts.WriteString("\n---\n")
+		}
+	}
+
+	userContext := userPrompts.String()
+	if len(userContext) > maxContentLen {
+		// Keep the most recent context (end of the string)
+		userContext = "...[truncated]\n" + userContext[len(userContext)-maxContentLen:]
+	}
+
+	finalPrompt := prompt
+	if userContext != "" {
+		finalPrompt += "\n\nRecent context:\n" + userContext
+	}
+	finalPrompt += "\nContent to be saved:\n" + displayContent
+
+	requestMessages := []types.ChatMessage{
+		{
+			Role:    "user",
+			Content: finalPrompt,
+		},
+	}
 	// Buffered + deferred cleanup so the spinner is always torn down even if
 	// the request panics or returns unexpectedly.
 	done := make(chan bool, 1)
