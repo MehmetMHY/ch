@@ -906,20 +906,6 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		command := strings.TrimPrefix(input, "!! ")
 		return handleShellCommand(command, chatManager, terminal, state, false)
 
-	case strings.HasPrefix(input, "!!"):
-		if fromHelp {
-			return true
-		}
-		command := strings.TrimPrefix(input, "!!")
-		return handleShellCommand(command, chatManager, terminal, state, false)
-
-	case strings.HasPrefix(input, config.ShellOption):
-		if fromHelp {
-			return true
-		}
-		command := strings.TrimPrefix(input, config.ShellOption)
-		return handleShellCommand(command, chatManager, terminal, state, true)
-
 	case strings.HasPrefix(input, config.EditorInput+" "):
 		arg := strings.TrimSpace(strings.TrimPrefix(input, config.EditorInput+" "))
 
@@ -1224,6 +1210,20 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		chatManager.AddAssistantMessage(response)
 		chatManager.AddToHistory(fullInput, response)
 		return true
+
+	case strings.HasPrefix(input, "!!"):
+		if fromHelp {
+			return true
+		}
+		command := strings.TrimPrefix(input, "!!")
+		return handleShellCommand(command, chatManager, terminal, state, false)
+
+	case strings.HasPrefix(input, config.ShellOption):
+		if fromHelp {
+			return true
+		}
+		command := strings.TrimPrefix(input, config.ShellOption)
+		return handleShellCommand(command, chatManager, terminal, state, true)
 
 	default:
 		return false
