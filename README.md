@@ -242,7 +242,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `ai_name_disable` - Disable AI-suggested filenames in `!e` export modes (default: false). When false, the current model is asked to propose short snake_case filenames before each export filename prompt.
 - `ai_name_char_threshold` - Minimum non-system chat content (in characters) before AI-suggested filenames are generated (default: 500). Below this, the AI naming step is skipped.
 - `ai_name_count` - Number of AI-suggested filename candidates to request per export (default: 8).
-- `ai_name_timeout_seconds` - Cancel the AI naming request after this many seconds and fall back to the hash list (default: 5).
+- `ai_name_timeout_seconds` - Cancel the AI naming request after this many seconds and fall back to the hash list (default: 3).
 - `ai_name_prompt` - Instruction sent to the model when generating filename suggestions. Use `{count}` as a placeholder for `ai_name_count`. The default asks for output as a single fenced `text` code block.
 - Plus all other configuration options using snake_case JSON field names
 
@@ -375,7 +375,7 @@ Behavior notes:
 
 - A spinner ("Loading...") is shown while the model responds. Pressing Ctrl+C aborts the export, matching how other spinners behave in Ch.
 - If the chat history is short (default: under 500 characters of non-system content), AI naming is skipped automatically. There isn't enough context for useful names yet.
-- If the model takes longer than the configured timeout (default 30 seconds) to respond, the request is cancelled and Ch falls back to the hash-based list.
+- If the model takes longer than the configured timeout (default 3 seconds) to respond, the request is cancelled and Ch falls back to the hash-based list.
 - If the model fails, returns nothing usable, or AI naming is disabled, Ch silently falls back to the existing hash-based filename list.
 - Output is parsed from a fenced code block tagged `text` for reliable extraction across providers, and each name is sanitized (lowercase, `[a-z0-9_]` only, deduped, capped at 40 characters).
 
@@ -386,7 +386,7 @@ Configurable via `~/.ch/config.json`. Example showing all four keys with their d
   "ai_name_disable": false,
   "ai_name_char_threshold": 500,
   "ai_name_count": 8,
-  "ai_name_timeout_seconds": 5,
+  "ai_name_timeout_seconds": 3,
   "ai_name_prompt": "Based on the conversation above, propose {count} short filenames that best summarize what's being saved.\n\nRules for each name:\n- lowercase only\n- words separated by underscores\n- 1 to 4 words per name\n- no file extension\n- no punctuation, no quotes, no spaces, no commentary\n\nOutput format: respond with EXACTLY one fenced code block tagged \"text\", containing one filename per line and nothing else. Example:\n\n```text\nhello_world\napi_request_handler\nparse_json\n```\n\nDo not include any text before or after the code block."
 }
 ````
