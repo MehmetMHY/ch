@@ -1260,6 +1260,25 @@ func (t *Terminal) isTextFileByPath(filePath string) bool {
 		".build": true, ".cmake": true, ".mk": true, ".am": true, ".in": true,
 		".ac": true, ".m4": true, ".spec": true, ".desktop": true, ".service": true,
 		".log": true, ".tsv": true, ".properties": true, ".env": true,
+		// Subtitle files
+		".vtt": true, ".srt": true, ".ass": true, ".ssa": true, ".sbv": true,
+		// Documentation formats
+		".rst": true, ".adoc": true, ".asciidoc": true, ".org": true, ".typ": true,
+		".tex": true, ".bib": true, ".ltx": true, ".latex": true,
+		// Web framework SFCs
+		".vue": true, ".svelte": true,
+		// Infrastructure as code
+		".tf": true, ".tfvars": true, ".hcl": true, ".nix": true,
+		// JSON variants and schemas
+		".jsonl": true, ".ndjson": true, ".geojson": true, ".proto": true,
+		// Newer languages
+		".zig": true, ".nim": true, ".jl": true, ".cr": true,
+		".ml": true, ".mli": true, ".pyi": true, ".pyx": true,
+		// Package manifests
+		".gemspec": true, ".podspec": true, ".cabal": true,
+		// Template files
+		".ejs": true, ".hbs": true, ".mustache": true, ".liquid": true,
+		".twig": true, ".erb": true, ".haml": true, ".pug": true,
 	}
 
 	if supportedExtensions[ext] {
