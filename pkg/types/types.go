@@ -118,7 +118,7 @@ type Config struct {
 	Platforms         map[string]Platform `json:"platforms,omitempty"`
 
 	// AI-generated filename suggestion settings (used by !e export flow)
-	AINameDisable        bool   `json:"ai_name_disable,omitempty"`
+	AINameEnable         bool   `json:"ai_name_enable,omitempty"`
 	AINameCharThreshold  int    `json:"ai_name_char_threshold,omitempty"`
 	AINameCount          int    `json:"ai_name_count,omitempty"`
 	AINameTimeoutSeconds int    `json:"ai_name_timeout_seconds,omitempty"`

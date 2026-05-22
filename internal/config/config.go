@@ -163,8 +163,8 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 		defaultConfig.SlowModelPatterns = userConfig.SlowModelPatterns
 	}
 
-	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" {
-		defaultConfig.AINameDisable = userConfig.AINameDisable
+	if userConfig.AINameEnable {
+		defaultConfig.AINameEnable = true
 	}
 	if userConfig.AINameCharThreshold != 0 {
 		defaultConfig.AINameCharThreshold = userConfig.AINameCharThreshold
@@ -249,7 +249,7 @@ func DefaultConfig() *types.Config {
 		EnableSessionSave: false,
 		ShallowLoadDirs:   shallowDirs,
 
-		AINameDisable:        true,
+		AINameEnable:         false,
 		AINameCharThreshold:  500,
 		AINameCount:          8,
 		AINameTimeoutSeconds: 15,

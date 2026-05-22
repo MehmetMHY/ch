@@ -239,7 +239,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `show_thinking` - Show/hide model thinking/reasoning tokens (default: true). When enabled, thinking content is displayed in gray before the response. Supports `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
 - `slow_model_patterns` - List of regex patterns for models that should use non-streaming mode with a loading animation (default: empty). Example: `["^o\\d+", "^gpt-5$"]`
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
-- `ai_name_disable` - Disable AI-suggested filenames in `!e` export modes (default: true). When false, the current model is asked to propose short snake_case filenames before each export filename prompt.
+- `ai_name_enable` - Enable AI-suggested filenames in `!e` export modes (default: false). When true, the current model is asked to propose short snake_case filenames before each export filename prompt.
 - `ai_name_char_threshold` - Minimum non-system chat content (in characters) before AI-suggested filenames are generated (default: 500). Below this, the AI naming step is skipped.
 - `ai_name_count` - Number of AI-suggested filename candidates to request per export (default: 8).
 - `ai_name_timeout_seconds` - Cancel the AI naming request after this many seconds and fall back to the hash list (default: 15).
@@ -383,7 +383,7 @@ Configurable via `~/.ch/config.json`. Example showing how to enable AI naming wi
 
 ````json
 {
-  "ai_name_disable": false,
+  "ai_name_enable": true,
   "ai_name_char_threshold": 500,
   "ai_name_count": 8,
   "ai_name_timeout_seconds": 15,
@@ -391,7 +391,7 @@ Configurable via `~/.ch/config.json`. Example showing how to enable AI naming wi
 }
 ````
 
-AI-suggested filenames are disabled by default. Set `ai_name_disable` to `false` in your config to enable them. Use `{count}` as a placeholder in `ai_name_prompt` to substitute `ai_name_count` at request time.
+AI-suggested filenames are disabled by default. Set `ai_name_enable` to `true` in your config to enable them. Use `{count}` as a placeholder in `ai_name_prompt` to substitute `ai_name_count` at request time.
 
 **URL Scraping (`!s` and `-l` with URLs):**
 

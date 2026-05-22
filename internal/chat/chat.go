@@ -1517,7 +1517,7 @@ func (m *Manager) generateAIFilenameOptions(content string, terminal *ui.Termina
 	if m.platformManager == nil || m.state == nil || m.state.Config == nil {
 		return nil
 	}
-	if m.state.Config.AINameDisable {
+	if !m.state.Config.AINameEnable {
 		return nil
 	}
 
