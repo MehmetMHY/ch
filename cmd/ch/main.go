@@ -565,7 +565,7 @@ func main() {
 }
 
 func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, exportCode bool, noHistory bool) error {
-	if handleSpecialCommands(query, chatManager, platformManager, terminal, state, noHistory) {
+	if handleSpecialCommands(query, chatManager, platformManager, terminal, state, noHistory, nil) {
 		return nil
 	}
 
@@ -694,7 +694,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 			}
 		}
 
-		if handleSpecialCommands(input, chatManager, platformManager, terminal, state, noHistory) {
+		if handleSpecialCommands(input, chatManager, platformManager, terminal, state, noHistory, rl) {
 			continue
 		}
 
@@ -743,11 +743,11 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 	}
 }
 
-func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool) bool {
-	return handleSpecialCommandsInternal(input, chatManager, platformManager, terminal, state, false, noHistory)
+func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool, rl *readline.Instance) bool {
+	return handleSpecialCommandsInternal(input, chatManager, platformManager, terminal, state, false, noHistory, rl)
 }
 
-func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, fromHelp bool, noHistory bool) bool {
+func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, fromHelp bool, noHistory bool, rl *readline.Instance) bool {
 	config := state.Config
 
 	switch {
@@ -769,7 +769,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 		if selectedCommand != "" {
 			// Recursively handle the selected command
-			return handleSpecialCommandsInternal(selectedCommand, chatManager, platformManager, terminal, state, true, noHistory)
+			return handleSpecialCommandsInternal(selectedCommand, chatManager, platformManager, terminal, state, true, noHistory, rl)
 		}
 		return true
 
@@ -1014,6 +1014,15 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 		// Restore the session
 		chatManager.RestoreSessionState(session)
+
+		// Populate readline history with the loaded session's user prompts
+		if rl != nil {
+			for _, entry := range session.ChatHistory {
+				if entry.User != "" && entry.User != state.Config.SystemPrompt {
+					rl.SaveHistory(entry.User)
+				}
+			}
+		}
 
 		// Re-initialize platform client
 		err = platformManager.Initialize()
