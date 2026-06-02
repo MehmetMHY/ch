@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MehmetMHY/ch/internal/config"
@@ -447,70 +449,84 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, args []string) (*types.S
 		return nil, fmt.Errorf("no sessions found")
 	}
 
-	// Build list of all entries from all sessions
+	// Build list of all entries from all sessions (parallel reads)
 	type SessionEntry struct {
 		FilePath  string
 		Preview   string
 		Timestamp int64
 	}
-	var entries []SessionEntry
 
-	for _, sessionPath := range matches {
-		data, err := os.ReadFile(sessionPath)
-		if err != nil {
-			continue
-		}
+	type sessionResult struct {
+		entries []SessionEntry
+	}
 
-		var session types.SessionFile
-		if err := json.Unmarshal(data, &session); err != nil {
-			continue
-		}
+	results := make([]sessionResult, len(matches))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, max(1, runtime.NumCPU()/2))
 
-		// Apply time filtering
-		if minTime > 0 && session.Timestamp < minTime {
-			continue
-		}
-		if maxTime > 0 && session.Timestamp > maxTime {
-			continue
-		}
+	for idx, sessionPath := range matches {
+		wg.Add(1)
+		go func(i int, path string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		// Add entries from this session
-		for i, entry := range session.ChatHistory {
-			if i == 0 {
-				continue // Skip system prompt
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return
 			}
 
-			// Create preview lines
-			timestamp := time.Unix(entry.Time, 0).UTC().Format("2006-01-02 15:04:05 UTC")
-			userPreview := strings.ReplaceAll(entry.User, "\n", " ")
-			if len(userPreview) > 80 {
-				userPreview = userPreview[:80] + "..."
+			var session types.SessionFile
+			if err := json.Unmarshal(data, &session); err != nil {
+				return
 			}
 
-			// Add user message entry
-			if entry.User != "" {
-				preview := fmt.Sprintf("%s user: %s", timestamp, userPreview)
-				entries = append(entries, SessionEntry{
-					FilePath:  sessionPath,
-					Preview:   preview,
-					Timestamp: entry.Time,
-				})
+			if minTime > 0 && session.Timestamp < minTime {
+				return
+			}
+			if maxTime > 0 && session.Timestamp > maxTime {
+				return
 			}
 
-			// Add bot response entry
-			if entry.Bot != "" {
-				botPreview := strings.ReplaceAll(entry.Bot, "\n", " ")
-				if len(botPreview) > 80 {
-					botPreview = botPreview[:80] + "..."
+			var local []SessionEntry
+			for j, entry := range session.ChatHistory {
+				if j == 0 {
+					continue // skip system prompt
 				}
-				preview := fmt.Sprintf("%s bot: %s", timestamp, botPreview)
-				entries = append(entries, SessionEntry{
-					FilePath:  sessionPath,
-					Preview:   preview,
-					Timestamp: entry.Time,
-				})
+				timestamp := time.Unix(entry.Time, 0).UTC().Format("2006-01-02 15:04:05 UTC")
+
+				if entry.User != "" {
+					userPreview := strings.ReplaceAll(entry.User, "\n", " ")
+					if len(userPreview) > 80 {
+						userPreview = userPreview[:80] + "..."
+					}
+					local = append(local, SessionEntry{
+						FilePath:  path,
+						Preview:   fmt.Sprintf("%s user: %s", timestamp, userPreview),
+						Timestamp: entry.Time,
+					})
+				}
+
+				if entry.Bot != "" {
+					botPreview := strings.ReplaceAll(entry.Bot, "\n", " ")
+					if len(botPreview) > 80 {
+						botPreview = botPreview[:80] + "..."
+					}
+					local = append(local, SessionEntry{
+						FilePath:  path,
+						Preview:   fmt.Sprintf("%s bot: %s", timestamp, botPreview),
+						Timestamp: entry.Time,
+					})
+				}
 			}
-		}
+			results[i] = sessionResult{entries: local}
+		}(idx, sessionPath)
+	}
+	wg.Wait()
+
+	var entries []SessionEntry
+	for _, r := range results {
+		entries = append(entries, r.entries...)
 	}
 
 	if len(entries) == 0 {
