@@ -229,6 +229,47 @@ func TestMergeConfigs_EmptyUserConfig(t *testing.T) {
 	}
 }
 
+// mergeConfigs gates EnableSessionSave/ShowThinking behind the presence of an
+// identifying string field (DefaultModel/CurrentPlatform/SystemPrompt). A config
+// that only flips one of those bools, with no identifying field, is treated like
+// an empty config and the defaults are preserved. This pins that intentional gate
+// (see comment in mergeConfigs) so a regression in the condition is caught.
+func TestMergeConfigs_BoolOnlyUserConfigDoesNotOverrideGatedFlags(t *testing.T) {
+	def := &types.Config{
+		EnableSessionSave: true,
+		ShowThinking:      true,
+		Platforms:         map[string]types.Platform{},
+	}
+	// Only bool fields set, none of the identifying string fields.
+	user := &types.Config{
+		EnableSessionSave: false,
+		ShowThinking:      false,
+	}
+	merged := mergeConfigs(def, user)
+	if !merged.EnableSessionSave {
+		t.Error("EnableSessionSave should stay true: gate not triggered by bool-only config")
+	}
+	if !merged.ShowThinking {
+		t.Error("ShowThinking should stay true: gate not triggered by bool-only config")
+	}
+}
+
+// ShowSearchResults has its own escape hatch in the gate (|| userConfig.ShowSearchResults),
+// so setting it true should take effect even without an identifying string field.
+func TestMergeConfigs_ShowSearchResultsTrueSelfTriggers(t *testing.T) {
+	def := &types.Config{
+		ShowSearchResults: false,
+		Platforms:         map[string]types.Platform{},
+	}
+	user := &types.Config{
+		ShowSearchResults: true,
+	}
+	merged := mergeConfigs(def, user)
+	if !merged.ShowSearchResults {
+		t.Error("ShowSearchResults=true should self-trigger its own merge")
+	}
+}
+
 func TestMergeConfigs_ShallowLoadDirsCanBeCleared(t *testing.T) {
 	def := &types.Config{
 		ShallowLoadDirs: []string{"/", "/home/"},

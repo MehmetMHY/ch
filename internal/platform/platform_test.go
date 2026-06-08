@@ -123,10 +123,16 @@ func TestParseTimestamp(t *testing.T) {
 		{"RFC3339 string", "2023-06-12T16:54:56Z", 1686588896},
 		{"RFC3339Nano string", "2023-06-12T16:54:56.123456789Z", 1686588896},
 		{"Date-only string", "2023-06-12", 1686528000}, // midnight UTC
+		{"Scientific notation string", "1.686588896e9", 1686588896},
 		{"Invalid string", "invalid-date", 0},
+		{"Empty string", "", 0},
 		{"Negative numeric string", "-1", 0},
 		{"Negative float", float64(-1), 0},
 		{"Zero float", float64(0), 0},
+		// Just under the milliseconds threshold (1e12) stays interpreted as seconds.
+		{"Just under ms threshold stays seconds", float64(999999999999), 999999999999},
+		// Exactly at the milliseconds threshold is divided by 1e3.
+		{"At ms threshold", float64(1e12), 1e12 / 1e3},
 		{"Unsupported type bool", true, 0},
 		{"Unsupported type nil", nil, 0},
 	}
@@ -295,15 +301,16 @@ func TestExtractModelsWithTimeFromJSON(t *testing.T) {
 		if len(got) != 2 {
 			t.Fatalf("expected 2 models, got %d", len(got))
 		}
-		// model-a has created=2000
-		found := false
+		// Extraction preserves source order; assert both entries exactly.
+		byName := map[string]int64{}
 		for _, g := range got {
-			if g.name == "model-a" && g.created == 2000 {
-				found = true
-			}
+			byName[g.name] = g.created
 		}
-		if !found {
-			t.Errorf("expected model-a with created=2000 in %+v", got)
+		if c, ok := byName["model-a"]; !ok || c != 2000 {
+			t.Errorf("model-a created = %d (present=%v), want 2000", c, ok)
+		}
+		if c, ok := byName["model-b"]; !ok || c != 1000 {
+			t.Errorf("model-b created = %d (present=%v), want 1000", c, ok)
 		}
 	})
 
@@ -385,6 +392,45 @@ func TestExtractModelsWithTimeFromJSON(t *testing.T) {
 		}
 		if len(got) != 0 {
 			t.Errorf("expected 0 models, got %d", len(got))
+		}
+	})
+
+	t.Run("non-string name field is skipped", func(t *testing.T) {
+		// id is a number, not a string -> the entry must be skipped entirely.
+		raw := `{"data": [{"id": 123}, {"id": "valid"}]}`
+		var data interface{}
+		json.Unmarshal([]byte(raw), &data)
+		got, err := m.extractModelsWithTimeFromJSON(data, "data.id")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 1 || got[0].name != "valid" {
+			t.Errorf("expected only the string-id model, got %+v", got)
+		}
+	})
+
+	t.Run("created preferred over created_at, invalid timestamp -> 0", func(t *testing.T) {
+		// First field in the priority list (created) wins when valid.
+		// A model with only an unparseable timestamp must end up with created=0.
+		raw := `{"data": [
+			{"id": "m1", "created": 2000, "created_at": "2023-06-12T16:54:56Z"},
+			{"id": "m2", "created": "not-a-date"}
+		]}`
+		var data interface{}
+		json.Unmarshal([]byte(raw), &data)
+		got, err := m.extractModelsWithTimeFromJSON(data, "data.id")
+		if err != nil {
+			t.Fatal(err)
+		}
+		byName := map[string]int64{}
+		for _, g := range got {
+			byName[g.name] = g.created
+		}
+		if byName["m1"] != 2000 {
+			t.Errorf("m1 created = %d, want 2000 (created preferred over created_at)", byName["m1"])
+		}
+		if byName["m2"] != 0 {
+			t.Errorf("m2 created = %d, want 0 (unparseable timestamp)", byName["m2"])
 		}
 	})
 }

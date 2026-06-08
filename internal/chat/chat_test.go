@@ -550,6 +550,23 @@ func TestParseAIFilenameOutput(t *testing.T) {
 			maxCount: 5,
 			want:     []string{"my_file.txt", "another_file.txt"},
 		},
+		{
+			// Opening fence with no closing fence: the closing-fence search
+			// returns -1 so body is NOT trimmed and the whole raw response
+			// (including the "```text" tag line) is parsed line by line. The tag
+			// line sanitizes to "text". This pins that fallback behavior.
+			name:     "unclosed fence keeps whole response including tag line",
+			response: "```text\nfoo_bar\nbaz_qux",
+			maxCount: 5,
+			want:     []string{"text.txt", "foo_bar.txt", "baz_qux.txt"},
+		},
+		{
+			// Leading prose before the fence is ignored; only fenced content is used.
+			name:     "prose before fenced block is ignored",
+			response: "Here are some names:\n```text\nonly_this\n```",
+			maxCount: 5,
+			want:     []string{"only_this.txt"},
+		},
 	}
 
 	for _, tt := range tests {

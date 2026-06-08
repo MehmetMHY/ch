@@ -71,6 +71,55 @@ func TestBaseURLValue_UnmarshalJSON(t *testing.T) {
 	}
 }
 
+func TestBaseURLValue_UnmarshalJSONMixedTypeArrayErrors(t *testing.T) {
+	// A heterogeneous array (string + number) can't unmarshal into either
+	// string or []string, so it must surface an error rather than silently
+	// dropping the bad element.
+	var b BaseURLValue
+	if err := json.Unmarshal([]byte(`["https://api.com", 5]`), &b); err == nil {
+		t.Errorf("expected error for mixed-type array, got Single=%q Multi=%v", b.Single, b.Multi)
+	}
+}
+
+func TestBaseURLValue_EmptyArrayIsNotMulti(t *testing.T) {
+	// An empty JSON array yields a non-nil but empty Multi slice; IsMulti must
+	// report false and GetURLs must return an empty list (no phantom URLs).
+	var b BaseURLValue
+	if err := json.Unmarshal([]byte(`[]`), &b); err != nil {
+		t.Fatalf("UnmarshalJSON() error = %v", err)
+	}
+	if b.IsMulti() {
+		t.Error("IsMulti() should be false for an empty array")
+	}
+	if got := b.GetURLs(); len(got) != 0 {
+		t.Errorf("GetURLs() = %v, want empty", got)
+	}
+}
+
+func TestBaseURLValue_UnmarshalIntoStructField(t *testing.T) {
+	// Exercises the unmarshaller as it is actually used: as a field inside a
+	// larger config object, for both the string and array forms.
+	var single struct {
+		BaseURL BaseURLValue `json:"base_url"`
+	}
+	if err := json.Unmarshal([]byte(`{"base_url": "https://api.com"}`), &single); err != nil {
+		t.Fatalf("unmarshal single: %v", err)
+	}
+	if single.BaseURL.Single != "https://api.com" || single.BaseURL.IsMulti() {
+		t.Errorf("single field: got %+v", single.BaseURL)
+	}
+
+	var multi struct {
+		BaseURL BaseURLValue `json:"base_url"`
+	}
+	if err := json.Unmarshal([]byte(`{"base_url": ["https://a.com", "https://b.com"]}`), &multi); err != nil {
+		t.Fatalf("unmarshal multi: %v", err)
+	}
+	if !multi.BaseURL.IsMulti() || len(multi.BaseURL.GetURLs()) != 2 {
+		t.Errorf("multi field: got %+v", multi.BaseURL)
+	}
+}
+
 func TestBaseURLValue_UnmarshalJSONClearsPreviousMode(t *testing.T) {
 	b := BaseURLValue{Multi: []string{"https://api-1.com"}}
 	if err := json.Unmarshal([]byte(`"https://api-single.com"`), &b); err != nil {
