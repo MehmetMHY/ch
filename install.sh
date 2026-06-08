@@ -503,6 +503,36 @@ _install_ch_from_repo() {
 	print_success
 }
 
+run_tests() {
+	check_go
+	if [[ ! -f "go.mod" ]] || [[ ! -f "Makefile" ]]; then
+		error "Check option requires running from the Ch repository root"
+	fi
+	log "running unit tests..."
+	local output
+	local exit_code=0
+	output=$(go test -v ./... 2>&1) || exit_code=$?
+	local pass_count fail_count skip_count pkg_pass pkg_fail
+	pass_count=$(echo "$output" | grep -c "^--- PASS" || true)
+	fail_count=$(echo "$output" | grep -c "^--- FAIL" || true)
+	skip_count=$(echo "$output" | grep -c "^--- SKIP" || true)
+	pkg_pass=$(echo "$output" | grep -c "^ok" || true)
+	pkg_fail=$(echo "$output" | grep -cE "^FAIL	" || true)
+	if [[ $exit_code -eq 0 ]]; then
+		echo -e "status:   \033[92mPASS\033[0m"
+		echo "tests:    ${pass_count} passed, ${skip_count} skipped"
+		echo "packages: ${pkg_pass} passed"
+	else
+		echo -e "status:   \033[91mFAIL\033[0m"
+		echo "tests:    ${pass_count} passed, ${fail_count} failed, ${skip_count} skipped"
+		echo "packages: ${pkg_pass} passed, ${pkg_fail} failed"
+		echo "$output" | grep "^--- FAIL" | sed 's/^--- FAIL: /x /' | while IFS= read -r line; do
+			echo -e "\033[91m${line}\033[0m"
+		done
+	fi
+	exit $exit_code
+}
+
 build_only() {
 	log "Building Ch (local build only)..."
 	check_go
@@ -719,15 +749,13 @@ show_help() {
 	echo "Options:"
 	echo "  -s, --safe-uninstall     Uninstall Ch with confirmation prompt"
 	echo "  -u, --uninstall          Uninstall Ch from the system"
-	echo "  -b, --build              Build Ch locally (requires local repository)"
-	echo "  -r, --refresh-deps       Refresh Go dependencies before building (local only)"
-	echo "  -v, --version            Update version in Makefile (local only)"
+	echo "  -b, --build              Build Ch locally"
+	echo "  -r, --refresh-deps       Refresh Go dependencies before building"
+	echo "  -v, --version            Update version in Makefile"
+	echo "  -c, --check              Run unit tests and show a pass/fail summary"
 	echo "  -h, --help               Show this help message"
 	echo ""
 	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
-	echo ""
-	echo "Note: Build options (-b, -r, -v) only work when run locally from the repository,"
-	echo "      not through curl/wget installation."
 }
 
 main() {
@@ -765,6 +793,12 @@ main() {
 			fi
 			update_version
 			exit 0
+			;;
+		-c | --check)
+			if [[ "$is_remote_install" == true ]]; then
+				error "Check option is only available when running locally from the repository"
+			fi
+			run_tests
 			;;
 		-h | --help)
 			show_help

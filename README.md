@@ -521,6 +521,7 @@ cd ch
 ./install.sh -b     # build locally without installing
 ./install.sh -r -b  # refresh/update all dependencies and build
 ./install.sh -v     # update version in Makefile interactively
+./install.sh -c     # run unit tests with a pass/fail summary
 ./install.sh -h     # show help with all options
 
 # using Make directly
@@ -540,10 +541,10 @@ Run all tests:
 make test
 ```
 
-Verbose output with a pass/fail summary:
+Quick pass/fail summary via the install script:
 
 ```bash
-go test -v ./... 2>&1 | grep -E "PASS|FAIL|ok|---" | tee /dev/stderr | awk 'BEGIN{p=0;f=0} /--- PASS/{p++} /--- FAIL/{f++} END{print "\nTotal PASS: "p"\nTotal FAIL: "f"\nTotal Tests: "p+f}'
+./install.sh -c
 ```
 
 Per-function coverage report:
