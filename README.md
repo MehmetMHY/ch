@@ -32,6 +32,7 @@
   - [Prerequisites](#prerequisites)
   - [Build from Source](#build-from-source)
   - [Build Options](#build-options)
+  - [Testing](#testing)
 - [Contributing](#contributing)
   - [Development Setup](#development-setup)
   - [Code Standards](#code-standards)
@@ -128,7 +129,7 @@ cd ch
 
 The installer automatically:
 
-- Checks for Go 1.21+ and dependencies (fzf, yt-dlp, tesseract).
+- Checks for Go 1.26.0+ and dependencies (fzf, yt-dlp, tesseract).
 - Installs missing dependencies via system package managers (apt, brew, pkg, etc.).
 - Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`.
 - Attempts to create a global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux).
@@ -229,7 +230,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `current_platform` - Set default platform
 - `current_base_url` - Set default base URL/region for multi-region platforms like Amazon Bedrock
 - `preferred_editor` - Set preferred text editor (default: "vim")
-- `show_search_results` - Show/hide web search results (default: false)
+- `show_search_results` - Show/hide web search results (default: true)
 - `num_search_results` - Number of search results to display (default: 5)
 - `search_country` - Set the country for web searches (default: "us")
 - `search_lang` - Set the language for web searches (default: "en")
@@ -246,7 +247,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `ai_name_prompt` - Instruction sent to the model when generating filename suggestions. Use `{count}` as a placeholder for `ai_name_count`. The default asks for output as a single fenced `text` code block.
 - Plus all other configuration options using snake_case JSON field names
 
-For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). But note that the config file takes precedence over environment variables and provides a convenient way to customize Ch without setting environment variables for each session.
+For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). Environment variables take precedence over the config file for default platform and model, while `~/.ch/config.json` provides a convenient way to customize Ch without setting environment variables for each session.
 
 ### Local & Open-Source Setup
 
@@ -529,6 +530,26 @@ make test     # run tests
 make lint     # run linter
 make fmt      # format code
 make dev      # build and run in dev mode
+```
+
+### Testing
+
+Run all tests:
+
+```bash
+make test
+```
+
+Verbose output with a pass/fail summary:
+
+```bash
+go test -v ./... 2>&1 | grep -E "PASS|FAIL|ok|---" | tee /dev/stderr | awk 'BEGIN{p=0;f=0} /--- PASS/{p++} /--- FAIL/{f++} END{print "\nTotal PASS: "p"\nTotal FAIL: "f"\nTotal Tests: "p+f}'
+```
+
+Per-function coverage report:
+
+```bash
+go test -coverprofile=/tmp/cover.out ./... && go tool cover -func=/tmp/cover.out
 ```
 
 ### Version Management

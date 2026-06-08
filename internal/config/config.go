@@ -132,6 +132,9 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.CurrentPlatform != "" {
 		defaultConfig.CurrentPlatform = userConfig.CurrentPlatform
 	}
+	if userConfig.CurrentBaseURL != "" {
+		defaultConfig.CurrentBaseURL = userConfig.CurrentBaseURL
+	}
 	// Handle ShowSearchResults - only override if user config has it explicitly set
 	// We check if other config fields are set to know if this is an actual config file vs empty
 	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" || userConfig.ShowSearchResults {
