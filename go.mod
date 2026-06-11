@@ -12,7 +12,7 @@ require (
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/tealeg/xlsx/v3 v3.3.13
 	github.com/tiktoken-go/tokenizer v0.8.0
-	golang.org/x/net v0.55.0
+	golang.org/x/net v0.56.0
 )
 
 require (
