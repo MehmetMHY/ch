@@ -1,6 +1,6 @@
 # Ch
 
-<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a> <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.26.0+-blue.svg" alt="Go 1.26.0+"></a> <a href="https://goreportcard.com/report/github.com/MehmetMHY/ch"><img src="https://goreportcard.com/badge/github.com/MehmetMHY/ch" alt="Go Report Card"></a> <a href="http://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a> <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.26.0+-blue.svg" alt="Go 1.26.0+"></a> <a href="https://goreportcard.com/report/github.com/MehmetMHY/ch"><img src="https://goreportcard.com/badge/github.com/MehmetMHY/ch" alt="Go Report Card"></a>
 
 <p align="left">
   <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">
