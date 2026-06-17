@@ -8,44 +8,40 @@
   </a>
 </p>
 
-## Table of Contents
+<details>
+<summary><strong>Table of Contents</strong></summary>
 
-<ul>
-  <li><a href="#overview">Overview</a></li>
-  <li><a href="#vision">Vision</a></li>
-  <li><a href="#demo">Demo</a></li>
-  <li><a href="#quick-start">Quick Start</a></li>
-  <li><a href="#features">Features</a></li>
-  <li><a href="#installation">Installation</a></li>
-  <li><details><summary><a href="#configuration">Configuration</a></summary><ul>
-    <li><a href="#api-keys">API Keys</a></li>
-    <li><a href="#default-settings">Default Settings</a></li>
-    <li><a href="#config-file">Config File</a></li>
-    <li><a href="#local--open-source-setup">Local &amp; Open-Source Setup</a></li>
-  </ul></details></li>
-  <li><details><summary><a href="#usage">Usage</a></summary><ul>
-    <li><a href="#basic-usage">Basic Usage</a></li>
-    <li><a href="#interactive-commands">Interactive Commands</a></li>
-    <li><a href="#advanced-features">Advanced Features</a></li>
-    <li><a href="#web-content-interaction">Web Content Interaction</a></li>
-  </ul></details></li>
-  <li><a href="#platform-compatibility">Platform Compatibility</a></li>
-  <li><a href="#website">Website</a></li>
-  <li><details><summary><a href="#development">Development</a></summary><ul>
-    <li><a href="#prerequisites">Prerequisites</a></li>
-    <li><a href="#build-from-source">Build from Source</a></li>
-    <li><a href="#build-options">Build Options</a></li>
-    <li><a href="#testing">Testing</a></li>
-  </ul></details></li>
-  <li><details><summary><a href="#contributing">Contributing</a></summary><ul>
-    <li><a href="#development-setup">Development Setup</a></li>
-    <li><a href="#code-standards">Code Standards</a></li>
-  </ul></details></li>
-  <li><details><summary><a href="#uninstall">Uninstall</a></summary><ul>
-    <li><a href="#clean-temporary-files">Clean Temporary Files</a></li>
-  </ul></details></li>
-  <li><a href="#license">License</a></li>
-</ul>
+- [Overview](#overview)
+- [Vision](#vision)
+- [Demo](#demo)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Installation](#installation)
+- [Configuration](#configuration)
+  - [API Keys](#api-keys)
+  - [Default Settings](#default-settings)
+  - [Config File](#config-file)
+  - [Local & Open-Source Setup](#local--open-source-setup)
+- [Usage](#usage)
+  - [Basic Usage](#basic-usage)
+  - [Interactive Commands](#interactive-commands)
+  - [Advanced Features](#advanced-features)
+  - [Web Content Interaction](#web-content-interaction)
+- [Platform Compatibility](#platform-compatibility)
+- [Website](#website)
+- [Development](#development)
+  - [Prerequisites](#prerequisites)
+  - [Build from Source](#build-from-source)
+  - [Build Options](#build-options)
+  - [Testing](#testing)
+- [Contributing](#contributing)
+  - [Development Setup](#development-setup)
+  - [Code Standards](#code-standards)
+- [Uninstall](#uninstall)
+  - [Clean Temporary Files](#clean-temporary-files)
+- [License](#license)
+
+</details>
 
 ## Overview
 
