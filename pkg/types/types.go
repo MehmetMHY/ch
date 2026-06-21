@@ -77,45 +77,46 @@ type PlatformModels struct {
 
 // Config holds application configuration
 type Config struct {
-	OpenAIAPIKey      string              `json:"openai_api_key,omitempty"`
-	DefaultModel      string              `json:"default_model,omitempty"`
-	CurrentModel      string              `json:"current_model,omitempty"`
-	CurrentBaseURL    string              `json:"current_base_url,omitempty"`
-	SystemPrompt      string              `json:"system_prompt,omitempty"`
-	ExitKey           string              `json:"exit_key,omitempty"`
-	ModelSwitch       string              `json:"model_switch,omitempty"`
-	EditorInput       string              `json:"editor_input,omitempty"`
-	ClearHistory      string              `json:"clear_history,omitempty"`
-	HelpKey           string              `json:"help_key,omitempty"`
-	ExportChat        string              `json:"export_chat,omitempty"`
-	Backtrack         string              `json:"backtrack,omitempty"`
-	WebSearch         string              `json:"web_search,omitempty"`
-	ShowSearchResults bool                `json:"show_search_results,omitempty"`
-	NumSearchResults  int                 `json:"num_search_results,omitempty"`
-	SearchCountry     string              `json:"search_country,omitempty"`
-	SearchLang        string              `json:"search_lang,omitempty"`
-	ScrapeURL         string              `json:"scrape_url,omitempty"`
-	CopyToClipboard   string              `json:"copy_to_clipboard,omitempty"`
-	QuickCopyLatest   string              `json:"quick_copy_latest,omitempty"`
-	LoadFiles         string              `json:"load_files,omitempty"`
-	AnswerSearch      string              `json:"answer_search,omitempty"`
-	PlatformSwitch    string              `json:"platform_switch,omitempty"`
-	CodeDump          string              `json:"code_dump,omitempty"`
-	ShellRecord       string              `json:"shell_record,omitempty"`
-	ShellOption       string              `json:"shell_option,omitempty"`
-	ShellRecordSilent string              `json:"shell_record_silent,omitempty"`
-	MultiLine         string              `json:"multi_line,omitempty"`
-	PreferredEditor   string              `json:"preferred_editor,omitempty"`
-	CurrentPlatform   string              `json:"current_platform,omitempty"`
-	AllModels         string              `json:"all_models,omitempty"`
-	MuteNotifications bool                `json:"mute_notifications,omitempty"`
-	EnableSessionSave bool                `json:"enable_session_save"`
-	SaveAllSessions   bool                `json:"save_all_sessions,omitempty"`
-	ShallowLoadDirs   []string            `json:"shallow_load_dirs,omitempty"`
-	ShowThinking      bool                `json:"show_thinking"`
-	SlowModelPatterns []string            `json:"slow_model_patterns,omitempty"`
-	IsPipedOutput     bool                `json:"-"` // Runtime detection, not from config file
-	Platforms         map[string]Platform `json:"platforms,omitempty"`
+	OpenAIAPIKey       string              `json:"openai_api_key,omitempty"`
+	DefaultModel       string              `json:"default_model,omitempty"`
+	CurrentModel       string              `json:"current_model,omitempty"`
+	CurrentBaseURL     string              `json:"current_base_url,omitempty"`
+	SystemPrompt       string              `json:"system_prompt,omitempty"`
+	ExitKey            string              `json:"exit_key,omitempty"`
+	ModelSwitch        string              `json:"model_switch,omitempty"`
+	EditorInput        string              `json:"editor_input,omitempty"`
+	ClearHistory       string              `json:"clear_history,omitempty"`
+	HelpKey            string              `json:"help_key,omitempty"`
+	ExportChat         string              `json:"export_chat,omitempty"`
+	Backtrack          string              `json:"backtrack,omitempty"`
+	WebSearch          string              `json:"web_search,omitempty"`
+	ShowSearchResults  bool                `json:"show_search_results,omitempty"`
+	NumSearchResults   int                 `json:"num_search_results,omitempty"`
+	SearchCountry      string              `json:"search_country,omitempty"`
+	SearchLang         string              `json:"search_lang,omitempty"`
+	ScrapeURL          string              `json:"scrape_url,omitempty"`
+	CopyToClipboard    string              `json:"copy_to_clipboard,omitempty"`
+	QuickCopyLatest    string              `json:"quick_copy_latest,omitempty"`
+	LoadFiles          string              `json:"load_files,omitempty"`
+	AnswerSearch       string              `json:"answer_search,omitempty"`
+	PlatformSwitch     string              `json:"platform_switch,omitempty"`
+	CodeDump           string              `json:"code_dump,omitempty"`
+	ShellRecord        string              `json:"shell_record,omitempty"`
+	ShellOption        string              `json:"shell_option,omitempty"`
+	ShellRecordSilent  string              `json:"shell_record_silent,omitempty"`
+	MultiLine          string              `json:"multi_line,omitempty"`
+	PreferredEditor    string              `json:"preferred_editor,omitempty"`
+	CurrentPlatform    string              `json:"current_platform,omitempty"`
+	AllModels          string              `json:"all_models,omitempty"`
+	MuteNotifications  bool                `json:"mute_notifications,omitempty"`
+	EnableSessionSave  bool                `json:"enable_session_save"`
+	SaveAllSessions    bool                `json:"save_all_sessions,omitempty"`
+	ShallowLoadDirs    []string            `json:"shallow_load_dirs,omitempty"`
+	ShowThinking       bool                `json:"show_thinking"`
+	SlowModelPatterns  []string            `json:"slow_model_patterns,omitempty"`
+	IsPipedOutput      bool                `json:"-"` // Runtime detection, not from config file
+	Platforms          map[string]Platform `json:"platforms,omitempty"`
+	ExplicitBoolFields map[string]bool     `json:"-"`
 
 	// AI-generated filename suggestion settings (used by !e export flow)
 	AINameEnable         bool   `json:"ai_name_enable,omitempty"`

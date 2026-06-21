@@ -229,28 +229,23 @@ func TestMergeConfigs_EmptyUserConfig(t *testing.T) {
 	}
 }
 
-// mergeConfigs gates EnableSessionSave/ShowThinking behind the presence of an
-// identifying string field (DefaultModel/CurrentPlatform/SystemPrompt). A config
-// that only flips one of those bools, with no identifying field, is treated like
-// an empty config and the defaults are preserved. This pins that intentional gate
-// (see comment in mergeConfigs) so a regression in the condition is caught.
-func TestMergeConfigs_BoolOnlyUserConfigDoesNotOverrideGatedFlags(t *testing.T) {
+func TestMergeConfigs_BoolOnlyUserConfigOverridesExplicitFlags(t *testing.T) {
 	def := &types.Config{
 		EnableSessionSave: true,
 		ShowThinking:      true,
 		Platforms:         map[string]types.Platform{},
 	}
-	// Only bool fields set, none of the identifying string fields.
 	user := &types.Config{
-		EnableSessionSave: false,
-		ShowThinking:      false,
+		EnableSessionSave:  false,
+		ShowThinking:       false,
+		ExplicitBoolFields: map[string]bool{"enable_session_save": true, "show_thinking": true},
 	}
 	merged := mergeConfigs(def, user)
-	if !merged.EnableSessionSave {
-		t.Error("EnableSessionSave should stay true: gate not triggered by bool-only config")
+	if merged.EnableSessionSave {
+		t.Error("EnableSessionSave should be false when explicitly configured")
 	}
-	if !merged.ShowThinking {
-		t.Error("ShowThinking should stay true: gate not triggered by bool-only config")
+	if merged.ShowThinking {
+		t.Error("ShowThinking should be false when explicitly configured")
 	}
 }
 
@@ -339,6 +334,38 @@ func TestDefaultConfig_EnvOverrides(t *testing.T) {
 	}
 	if cfg.CurrentModel != "llama3" {
 		t.Errorf("CurrentModel: got %q, want %q", cfg.CurrentModel, "llama3")
+	}
+}
+
+func TestDefaultConfig_BoolOnlyConfigFileOverrides(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("CH_DEFAULT_PLATFORM", "")
+	t.Setenv("CH_DEFAULT_MODEL", "")
+
+	chDir := filepath.Join(tempHome, ".ch")
+	if err := os.MkdirAll(chDir, 0755); err != nil {
+		t.Fatalf("failed to create mock .ch dir: %v", err)
+	}
+
+	data := []byte(`{"enable_session_save":true,"save_all_sessions":true,"show_thinking":false,"show_search_results":false}`)
+	if err := os.WriteFile(filepath.Join(chDir, "config.json"), data, 0644); err != nil {
+		t.Fatalf("failed to write mock config.json: %v", err)
+	}
+
+	cfg := DefaultConfig()
+	if !cfg.EnableSessionSave {
+		t.Error("EnableSessionSave should be true from bool-only config")
+	}
+	if !cfg.SaveAllSessions {
+		t.Error("SaveAllSessions should be true from bool-only config")
+	}
+	if cfg.ShowThinking {
+		t.Error("ShowThinking should be false from bool-only config")
+	}
+	if cfg.ShowSearchResults {
+		t.Error("ShowSearchResults should be false from bool-only config")
 	}
 }
 

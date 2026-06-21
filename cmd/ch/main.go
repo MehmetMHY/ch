@@ -69,6 +69,7 @@ func main() {
 	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
 	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
 	flag.BoolVar(historyFlag, "hs", false, "Search and load previous sessions")
+	flag.BoolVar(exportCodeFlag, "export", false, "Export code blocks from the last response")
 
 	noHistoryFlag := flag.Bool("n", false, "Disable session saving for this run")
 	flag.Bool("no-history", false, "Disable session saving for this run")
@@ -227,8 +228,9 @@ func main() {
 		return
 	}
 
-	// handle export code flag
-	if *exportCodeFlag {
+	// handle export code flag without a prompt. With a prompt, direct-query mode
+	// below sends the request first, then exports code blocks from the response.
+	if *exportCodeFlag && len(remainingArgs) == 0 && pipedInput == "" {
 		err := handleExportCodeBlocks(chatManager, terminal)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error exporting code blocks: %v", err))
@@ -242,6 +244,69 @@ func main() {
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error counting tokens: %v", err))
 		}
+		return
+	}
+
+	// Print-only utility flags should not require the default AI platform/API key.
+	if *webSearchFlag != "" && len(remainingArgs) == 0 {
+		queries := splitByDelimiters(*webSearchFlag)
+		var allResults []string
+		for _, query := range queries {
+			results, err := terminal.WebSearch(query)
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error during web search for '%s': %v", query, err))
+				continue
+			}
+			allResults = append(allResults, results)
+		}
+		if !state.Config.ShowSearchResults {
+			fmt.Print(strings.Join(allResults, "\n\n---\n\n"))
+		}
+		return
+	}
+
+	if *scrapeURLFlag != "" && len(remainingArgs) == 0 {
+		urls := splitByDelimiters(*scrapeURLFlag)
+		var allContent []string
+		for _, url := range urls {
+			content, err := terminal.ScrapeURLs([]string{url})
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error scraping URL '%s': %v", url, err))
+				continue
+			}
+			allContent = append(allContent, content)
+		}
+		fmt.Println(strings.TrimSpace(strings.Join(allContent, "\n\n---\n\n")))
+		return
+	}
+
+	if *loadFileFlag != "" && len(remainingArgs) == 0 {
+		files := splitByDelimiters(*loadFileFlag)
+		var allContent []string
+		for _, file := range files {
+			if terminal.IsURL(file) {
+				content, err := terminal.LoadFileContent([]string{file})
+				if err != nil {
+					terminal.PrintError(fmt.Sprintf("error loading URL '%s': %v", file, err))
+					continue
+				}
+				allContent = append(allContent, content)
+				continue
+			}
+
+			if _, err := os.Stat(file); os.IsNotExist(err) {
+				terminal.PrintError(fmt.Sprintf("file does not exist: %s", file))
+				continue
+			}
+
+			content, err := terminal.LoadFileContent([]string{file})
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("error loading file '%s': %v", file, err))
+				continue
+			}
+			allContent = append(allContent, content)
+		}
+		fmt.Println(strings.TrimSpace(strings.Join(allContent, "\n\n---\n\n")))
 		return
 	}
 

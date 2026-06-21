@@ -100,6 +100,8 @@ Thumbs.db
 # Custom project files
 cha-go
 ch
+!cmd/ch/
+!cmd/ch/main_test.go
 *.jpg
 *.jpeg
 *.srt

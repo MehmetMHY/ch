@@ -138,12 +138,13 @@ The installer automatically:
 - Attempts to create a global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux).
 - If the symlink creation fails due to permissions, it will automatically install to `~/.ch/bin` and provide instructions to add it to your `PATH`.
 - Gracefully handles missing tesseract development libraries by building without OCR support. If tesseract dev headers are missing, the app will still install and work normally, image-to-text extraction will simply be disabled.
+- When run from an existing local checkout, uses the current checkout as-is and does not run `git pull` automatically.
 
 ## Configuration
 
 ### API Keys
 
-Set up API keys for your chosen platforms. `OPENAI_API_KEY` is required for core functionality, and `BRAVE_API_KEY` is required for the web search feature.
+Set up API keys for your chosen platforms. `OPENAI_API_KEY` is required for AI requests when using the default `openai` platform, and `BRAVE_API_KEY` is required for the web search feature. Print-only utility commands such as `ch -l file` and `ch -s URL` do not require an AI provider key unless you also provide a prompt to send the loaded content to a model.
 
 #### Important Note on API Keys
 
@@ -163,9 +164,9 @@ By default, Ch uses the `openai` platform. If you run `ch` without setting the `
     ```
 
 ```bash
-# required
-export OPENAI_API_KEY="your-openai-key"
-export BRAVE_API_KEY="your-brave-api-key" # for web search
+# commonly used
+export OPENAI_API_KEY="your-openai-key"    # for the default OpenAI platform
+export BRAVE_API_KEY="your-brave-api-key"  # for web search
 
 # optional
 export OPENROUTER_API_KEY="your-openrouter-key"
@@ -283,8 +284,9 @@ ch -m gpt-4o "Create a REST API in Python"
 # platform and model together
 ch -o openai|gpt-4o "Create a REST API in Python"
 
-# export code blocks to files
+# ask the model, then export code blocks from the response to files
 ch -e "Write a Python script to sort a list"
+ch --export "Write a Python script to sort a list"
 
 # load and display file content
 ch -l document.pdf
@@ -314,17 +316,19 @@ ch "list 5 fruits" | grep apple
 ch "explain golang" > output.txt
 ch -w "golang features" | head -10
 
-# session continuation - automatically saves and restores conversations
+# session continuation - requires enable_session_save=true
 ch -c                              # continue last session interactively
 ch -c "follow up question"         # continue with a new query
 ch -c /path/to/history.json        # load custom history file and continue
+
+# session history search - also requires save_all_sessions=true
 ch -a                              # fuzzy search and load a previous session
 ch -hs                             # same as -a (alias for --history)
 ch -a exact                        # exact match search for previous sessions
 ch -a 1w                           # filter sessions from the last week
 ch -a 1776500000-1776542796        # filter sessions by epoch range
 ch -a ch_session_latest.json       # load a specific session file directly
-ch --clear                         # clear all temporary files and sessions
+ch --clear                         # clear temporary files and sessions when session saving is enabled
 ```
 
 ### Interactive Commands
@@ -481,7 +485,7 @@ Some platforms like Amazon Bedrock support multiple regions. When switching to a
 # Prompts: model: (select from available models in that region)
 ```
 
-Supported AWS Bedrock regions: US East (N. Virginia, Ohio), US West (Oregon), Asia Pacific (Tokyo, Seoul, Osaka, Mumbai, Hyderabad, Singapore, Sydney), Canada (Central), Europe (Frankfurt, Ireland, London, Milan, Paris, Spain, Stockholm, Zurich), South America (São Paulo), AWS GovCloud (US-East, US-West), and FIPS endpoints.
+Supported AWS Bedrock regions: US East (N. Virginia, Ohio), US West (Oregon), Asia Pacific (Tokyo, Seoul, Osaka, Mumbai, Hyderabad, Singapore, Sydney), Canada (Central), Europe (Frankfurt, Ireland, London, Milan, Paris, Spain, Stockholm, Zurich), South America (São Paulo), and AWS GovCloud (US-East, US-West).
 
 ## Website
 
@@ -602,7 +606,7 @@ make dev
 
 ## Uninstall
 
-Use `--safe-uninstall` for a confirmation prompt before deletion (recommended). The `--uninstall` flag deletes immediately without confirmation.
+Use `--safe-uninstall` for a confirmation prompt before deletion (recommended). Both uninstall modes remove `~/.ch`, including config, history, sessions, and temporary files. The `--uninstall` flag deletes immediately without confirmation.
 
 ```bash
 # safe uninstall with confirmation prompt (recommended)

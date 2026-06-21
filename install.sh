@@ -414,6 +414,7 @@ check_api_keys() {
 	local required_keys=("OPENAI_API_KEY")
 	local optional_keys=(
 		"BRAVE_API_KEY"
+		"OPENROUTER_API_KEY"
 		"GROQ_API_KEY"
 		"DEEP_SEEK_API_KEY"
 		"ANTHROPIC_API_KEY"
@@ -421,6 +422,7 @@ check_api_keys() {
 		"TOGETHER_API_KEY"
 		"GEMINI_API_KEY"
 		"MISTRAL_API_KEY"
+		"AWS_BEDROCK_API_KEY"
 	)
 
 	for key in "${required_keys[@]}"; do
@@ -831,7 +833,6 @@ main() {
 			refresh_deps
 		fi
 
-		check_git_and_pull
 		_install_ch_from_repo
 	else
 		log "Welcome to the Ch installer!"

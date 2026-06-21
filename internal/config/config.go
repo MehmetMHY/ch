@@ -34,12 +34,34 @@ func loadConfigFromFile() (*types.Config, error) {
 		return nil, err
 	}
 
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+
 	var config types.Config
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
+	config.ExplicitBoolFields = map[string]bool{}
+	for _, key := range []string{
+		"show_search_results",
+		"mute_notifications",
+		"enable_session_save",
+		"save_all_sessions",
+		"show_thinking",
+		"ai_name_enable",
+	} {
+		if _, ok := raw[key]; ok {
+			config.ExplicitBoolFields[key] = true
+		}
+	}
 
 	return &config, nil
+}
+
+func boolFieldSet(cfg *types.Config, key string) bool {
+	return cfg.ExplicitBoolFields != nil && cfg.ExplicitBoolFields[key]
 }
 
 // mergeConfigs merges user config with default config, user config takes precedence
@@ -135,24 +157,22 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.CurrentBaseURL != "" {
 		defaultConfig.CurrentBaseURL = userConfig.CurrentBaseURL
 	}
-	// Handle ShowSearchResults - only override if user config has it explicitly set
-	// We check if other config fields are set to know if this is an actual config file vs empty
-	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" || userConfig.ShowSearchResults {
+	// Boolean fields need presence tracking so bool-only config files work while
+	// missing fields still preserve defaults.
+	if boolFieldSet(userConfig, "show_search_results") || userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" || userConfig.ShowSearchResults {
 		defaultConfig.ShowSearchResults = userConfig.ShowSearchResults
 	}
-	// Handle MuteNotifications similarly
-	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" || userConfig.MuteNotifications {
+	if boolFieldSet(userConfig, "mute_notifications") || userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" || userConfig.MuteNotifications {
 		defaultConfig.MuteNotifications = userConfig.MuteNotifications
 	}
 
-	// EnableSessionSave doesn't use omitempty, so we can safely use the userConfig value
-	// This allows users to explicitly disable it by setting it to false
-	// Only override if the config file has at least one other field set (to distinguish from empty config)
-	if userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" {
+	if boolFieldSet(userConfig, "enable_session_save") || userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" {
 		defaultConfig.EnableSessionSave = userConfig.EnableSessionSave
+	}
+	if boolFieldSet(userConfig, "show_thinking") || userConfig.DefaultModel != "" || userConfig.CurrentPlatform != "" || userConfig.SystemPrompt != "" {
 		defaultConfig.ShowThinking = userConfig.ShowThinking
 	}
-	if userConfig.SaveAllSessions {
+	if boolFieldSet(userConfig, "save_all_sessions") || userConfig.SaveAllSessions {
 		defaultConfig.SaveAllSessions = userConfig.SaveAllSessions
 	}
 
@@ -166,8 +186,8 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 		defaultConfig.SlowModelPatterns = userConfig.SlowModelPatterns
 	}
 
-	if userConfig.AINameEnable {
-		defaultConfig.AINameEnable = true
+	if boolFieldSet(userConfig, "ai_name_enable") || userConfig.AINameEnable {
+		defaultConfig.AINameEnable = userConfig.AINameEnable
 	}
 	if userConfig.AINameCharThreshold != 0 {
 		defaultConfig.AINameCharThreshold = userConfig.AINameCharThreshold
