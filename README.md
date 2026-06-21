@@ -500,6 +500,8 @@ cd docs
 
 ## Development
 
+Contributor and coding-agent guidance is available in [AGENTS.md](./AGENTS.md).
+
 ### Prerequisites
 
 - [Go 1.26.0 or higher](https://go.dev/dl/)
