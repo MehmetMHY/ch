@@ -88,7 +88,7 @@ ch "What are the key features of Go programming language?"
 - **AI-Suggested Filenames**: When exporting, the current model proposes short snake_case filenames based on chat context. Configurable and fully optional, with a graceful fallback to the deterministic hash-based names.
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
 - **Session State Viewer**: Check current session details like model, platform, and token usage
-- **Token Counting**: Estimate token usage for files with model-aware tokenization
+- **Token Counting**: Estimate token usage for files or piped stdin with model-aware tokenization
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
 - **Smart Model Sorting**: Model lists are sorted newest-first using API-provided timestamps, with alphabetical fallback for platforms that don't provide them
@@ -144,7 +144,7 @@ The installer automatically:
 
 ### API Keys
 
-Set up API keys for your chosen platforms. `OPENAI_API_KEY` is required for AI requests when using the default `openai` platform, and `BRAVE_API_KEY` is required for the web search feature. Print-only utility commands such as `ch -l file` and `ch -s URL` do not require an AI provider key unless you also provide a prompt to send the loaded content to a model.
+Set up API keys for your chosen platforms. `OPENAI_API_KEY` is required for AI requests when using the default `openai` platform, and `BRAVE_API_KEY` is required for the web search feature. Print-only utility commands such as `ch -l file`, `ch -s URL`, and `ch -t file` do not require an AI provider key unless you also provide a prompt to send the loaded content to a model.
 
 #### Important Note on API Keys
 
@@ -301,6 +301,9 @@ ch -l https://youtube.com/watch?v=example
 # count tokens in files
 ch -t ./README.md
 ch -m "gpt-4" -t ./main.go
+
+# count tokens from piped stdin (no file path needed)
+cat ./README.md | ch -t
 
 # disable session saving for this run (only works if enable_session_save is true in config)
 ch -n "What is AI?"

@@ -57,7 +57,7 @@ func main() {
 		modelFlag      = flag.String("m", "", "Specify model to use")
 		allModelsFlag  = flag.String("o", "", "Specify platform and model (format: platform|model)")
 		exportCodeFlag = flag.Bool("e", false, "Export code blocks from the last response")
-		tokenFlag      = flag.String("t", "", "Estimate token count in file")
+		tokenFlag      = flag.String("t", "", "Estimate token count in file, or piped stdin if no file is given")
 		loadFileFlag   = flag.String("l", "", "Load and display file content (supports text, PDF, DOCX, XLSX, CSV)")
 		webSearchFlag  = flag.String("w", "", "Perform a web search and print the results")
 		scrapeURLFlag  = flag.String("s", "", "Scrape a URL and print the content")
@@ -65,7 +65,7 @@ func main() {
 		clearFlag      = flag.Bool("clear", false, "Clear latest session")
 		historyFlag    = flag.Bool("a", false, "Search and load previous sessions")
 	)
-	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file")
+	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file, or piped stdin if no file is given")
 	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
 	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
 	flag.BoolVar(historyFlag, "hs", false, "Search and load previous sessions")
@@ -74,7 +74,29 @@ func main() {
 	noHistoryFlag := flag.Bool("n", false, "Disable session saving for this run")
 	flag.Bool("no-history", false, "Disable session saving for this run")
 
-	flag.Parse()
+	// Allow "-t"/"--token" to be given without a following file path, so piped
+	// stdin content can be used instead (e.g. `cat file | ch -t`). The flag
+	// package otherwise treats a trailing/bare "-t" as a missing-argument error.
+	cliArgs := append([]string(nil), os.Args[1:]...)
+	for i, arg := range cliArgs {
+		// Match every spelling Go's flag package accepts for these flags
+		// (one or two leading dashes are equivalent).
+		switch arg {
+		case "-t", "--t", "-token", "--token":
+			nextIsValue := i+1 < len(cliArgs) && !strings.HasPrefix(cliArgs[i+1], "-")
+			if !nextIsValue {
+				cliArgs[i] = arg + "="
+			}
+		}
+	}
+	flag.CommandLine.Parse(cliArgs)
+
+	tokenFlagProvided := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "t" || f.Name == "token" {
+			tokenFlagProvided = true
+		}
+	})
 
 	// Link -n and --no-history flags together
 	if flag.Lookup("no-history").Value.String() == "true" {
@@ -239,8 +261,8 @@ func main() {
 	}
 
 	// handle token counting flag
-	if *tokenFlag != "" {
-		err := handleTokenCount(*tokenFlag, *modelFlag, terminal, state)
+	if tokenFlagProvided {
+		err := handleTokenCount(*tokenFlag, *modelFlag, terminal, state, pipedInput)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error counting tokens: %v", err))
 		}
@@ -1638,16 +1660,27 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 	return nil
 }
 
-func handleTokenCount(filePath string, model string, terminal *ui.Terminal, state *types.AppState) error {
-	// Check if file exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("file does not exist: %s", filePath)
-	}
+func handleTokenCount(filePath string, model string, terminal *ui.Terminal, state *types.AppState, pipedInput string) error {
+	var content []byte
+	sourceLabel := filePath
 
-	// Read file content
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("error reading file: %v", err)
+	if filePath != "" {
+		// Check if file exists
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return fmt.Errorf("file does not exist: %s", filePath)
+		}
+
+		// Read file content
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("error reading file: %v", err)
+		}
+		content = data
+	} else if pipedInput != "" {
+		content = []byte(pipedInput)
+		sourceLabel = "stdin"
+	} else {
+		return fmt.Errorf("no file specified and no piped input available")
 	}
 
 	// Determine model for tokenization
@@ -1688,11 +1721,11 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 
 	// Print results with colors matching the project's style
 	if state.Config.IsPipedOutput {
-		fmt.Printf("%s %s\n", "file:", filePath)
+		fmt.Printf("%s %s\n", "file:", sourceLabel)
 		fmt.Printf("%s %s\n", "model:", targetModel)
 		fmt.Printf("%s %d\n", "tokens:", len(tokens))
 	} else {
-		fmt.Printf("\033[96m%s\033[0m %s\n", "file:", filePath)
+		fmt.Printf("\033[96m%s\033[0m %s\n", "file:", sourceLabel)
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", targetModel)
 		fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", len(tokens))
 	}

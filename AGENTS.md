@@ -132,7 +132,7 @@ Complete flag reference:
 | `-w query`           |                    | Web search and print results (supports comma/pipe-delimited multiple queries)                                     |
 | `-s url`             |                    | Scrape a URL and print content (supports comma/pipe-delimited multiple URLs)                                      |
 | `-e`                 | `--export`         | Export code blocks from the last response                                                                         |
-| `-t file`            | `--token file`     | Estimate token count for a file                                                                                   |
+| `-t [file]`          | `--token [file]`   | Estimate token count for a file, or for piped stdin if no file is given                                           |
 
 Important current behavior:
 
@@ -146,6 +146,8 @@ Important current behavior:
 - `-n` and `--no-history` are linked after parsing via `flag.Lookup`.
 - `-l`, `-s`, and `-w` all accept comma-separated or pipe-delimited lists to load/scrape/search multiple targets at once.
 - Piped stdin (`cat file | ch "query"`) is supported. Piped content is combined with positional arguments before being sent to the model.
+- `-t`/`--token` is a string flag, but `cmd/ch/main.go` pre-processes `os.Args` before `flag.Parse()` so a bare trailing `-t`/`--token` (no value) does not trigger Go's "flag needs an argument" error; it is rewritten to an explicit empty value (`-t=`) instead. Whether the flag was passed at all (even empty) is tracked separately via `flag.Visit`, since an empty string is also the flag's zero value.
+- `-t`/`--token` with an explicit file path always reads that file, even if stdin is also piped. With no file path, it falls back to piped stdin content (reported as `stdin` in the output); if neither is available, it errors with `no file specified and no piped input available` instead of hanging.
 
 When changing flags, update all of these together:
 
@@ -190,6 +192,7 @@ Patterns already used:
 
 - `internal/config/config_test.go` uses `t.TempDir()` plus `t.Setenv("HOME", tempHome)` and `t.Setenv("USERPROFILE", tempHome)`.
 - `cmd/ch/main_test.go` builds a temporary test binary and runs it with temp `HOME`/`USERPROFILE`, unsetting `OPENAI_API_KEY` where needed.
+- `cmd/ch/main_test.go` `runWithTempHomeStdin` runs the test binary with a given string piped in as stdin, for flags like `-t` that read from piped input (see `TestTokenCountFlag`).
 
 If a test needs a config file, write it under the test temp home:
 
