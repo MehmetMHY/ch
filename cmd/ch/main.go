@@ -707,6 +707,12 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 		fmt.Printf("\033[91mChat Is Temporary\033[0m\n")
 	}
 
+	if state.Config.EnableSessionSave && !noHistory {
+		if _, err := chatManager.PrepareSessionFilePath(); err != nil {
+			terminal.PrintError(fmt.Sprintf("error preparing session file: %v", err))
+		}
+	}
+
 	for {
 		line, err := rl.Readline()
 		if err != nil {
@@ -848,7 +854,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 	case input == config.HelpKey || input == "help":
 		selectedCommand := terminal.ShowHelpFzf()
 		if selectedCommand == ">state" {
-			err := handleShowState(chatManager, terminal, state)
+			err := handleShowState(chatManager, terminal, state, noHistory)
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("error showing state: %v", err))
 			}
@@ -1606,7 +1612,7 @@ func handleExportChatInteractive(chatManager *chat.Manager, terminal *ui.Termina
 	return nil
 }
 
-func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState) error {
+func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool) error {
 	// Get current time
 	currentDate := time.Now().Format("2006-01-02")
 	currentTime := time.Now().Format("15:04:05 MST")
@@ -1614,6 +1620,13 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 	// Get platform and model
 	platform := chatManager.GetCurrentPlatform()
 	model := chatManager.GetCurrentModel()
+	sessionFile := ""
+	if state.Config.EnableSessionSave && !noHistory {
+		if _, err := chatManager.PrepareSessionFilePath(); err != nil {
+			return err
+		}
+		sessionFile = chatManager.CurrentSessionFileName()
+	}
 
 	// Get chat history and count
 	chatHistory := chatManager.GetChatHistory()
@@ -1647,12 +1660,18 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 		fmt.Printf("%s %s\n", "date:", combinedDateTime)
 		fmt.Printf("%s %s\n", "platform:", platform)
 		fmt.Printf("%s %s\n", "model:", model)
+		if sessionFile != "" {
+			fmt.Printf("%s %s\n", "file:", sessionFile)
+		}
 		fmt.Printf("%s %d\n", "chats:", chatCount)
 		fmt.Printf("%s %d\n", "tokens:", tokenCount)
 	} else {
 		fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "date:", combinedDateTime)
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "platform:", platform)
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", model)
+		if sessionFile != "" {
+			fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "file:", sessionFile)
+		}
 		fmt.Printf("\033[96m%s\033[0m \033[92m%d\033[0m\n", "chats:", chatCount)
 		fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", tokenCount)
 	}

@@ -160,29 +160,30 @@ When changing flags, update all of these together:
 
 These are the default key bindings (configurable in `~/.ch/config.json`):
 
-| Command         | Description                                                           |
-| --------------- | --------------------------------------------------------------------- |
-| `!q`            | Exit                                                                  |
-| `!h`            | Show interactive help (fzf picker)                                    |
-| `!c`            | Clear chat history                                                    |
-| `!m [model]`    | Switch model (or fzf pick if no argument)                             |
-| `!p [platform]` | Switch platform (or fzf pick if no argument)                          |
-| `!o`            | Pick from all models across all platforms                             |
-| `!l [dir]`      | Load files from current or specified directory                        |
-| `!d`            | Generate codedump and load into context                               |
-| `!x [cmd]`      | Run a shell command and add output to context                         |
-| `!!x [cmd]`     | Run a shell command silently (output not saved to history)            |
-| `!` (prefix)    | Run a shell command and add output to context                         |
-| `!!`            | Record an interactive shell session                                   |
-| `!t [buff]`     | Open preferred editor for multi-line input                            |
-| `!e [file]`     | Export chat to a file                                                 |
-| `!b`            | Backtrack (remove last exchange)                                      |
-| `!w [query]`    | Web search (or fzf pick from history if no argument)                  |
-| `!s [url]`      | Scrape URL (or fzf pick from history if no argument)                  |
-| `!y`            | Copy a response to clipboard (fzf picker)                             |
-| `cc`            | Quick-copy the latest response to clipboard                           |
-| `!a [filter]`   | Search and restore a previous session                                 |
-| `\`             | Enter multi-line mode (trailing `\` on a line continues to next line) |
+| Command         | Description                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------- |
+| `!q`            | Exit                                                                                           |
+| `!h`            | Show interactive help (fzf picker)                                                             |
+| `>state`        | Help picker option that prints state, including session filename when session saving is active |
+| `!c`            | Clear chat history                                                                             |
+| `!m [model]`    | Switch model (or fzf pick if no argument)                                                      |
+| `!p [platform]` | Switch platform (or fzf pick if no argument)                                                   |
+| `!o`            | Pick from all models across all platforms                                                      |
+| `!l [dir]`      | Load files from current or specified directory                                                 |
+| `!d`            | Generate codedump and load into context                                                        |
+| `!x [cmd]`      | Run a shell command and add output to context                                                  |
+| `!!x [cmd]`     | Run a shell command silently (output not saved to history)                                     |
+| `!` (prefix)    | Run a shell command and add output to context                                                  |
+| `!!`            | Record an interactive shell session                                                            |
+| `!t [buff]`     | Open preferred editor for multi-line input                                                     |
+| `!e [file]`     | Export chat to a file                                                                          |
+| `!b`            | Backtrack (remove last exchange)                                                               |
+| `!w [query]`    | Web search (or fzf pick from history if no argument)                                           |
+| `!s [url]`      | Scrape URL (or fzf pick from history if no argument)                                           |
+| `!y`            | Copy a response to clipboard (fzf picker)                                                      |
+| `cc`            | Quick-copy the latest response to clipboard                                                    |
+| `!a [filter]`   | Search and restore a previous session                                                          |
+| `\`             | Enter multi-line mode (trailing `\` on a line continues to next line)                          |
 
 ## Tests
 

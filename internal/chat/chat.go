@@ -183,9 +183,9 @@ func (m *Manager) ExportLastResponse() (string, error) {
 
 // SaveSessionState saves the current session state to a file with epoch timestamp
 func (m *Manager) SaveSessionState() error {
-	tmpDir, err := config.GetTempDir()
+	fullPath, err := m.PrepareSessionFilePath()
 	if err != nil {
-		return fmt.Errorf("failed to get temp directory: %v", err)
+		return err
 	}
 
 	// Create SessionFile with current state
@@ -203,19 +203,6 @@ func (m *Manager) SaveSessionState() error {
 		return fmt.Errorf("failed to marshal session: %v", err)
 	}
 
-	var filename string
-	if m.state.Config.SaveAllSessions {
-		// Set session start time on first save, then reuse for consistent filename
-		if m.state.SessionStartTime == 0 {
-			m.state.SessionStartTime = time.Now().Unix()
-		}
-		// Use session start time for filename (stays constant within a session)
-		filename = fmt.Sprintf("ch_session_%d.json", m.state.SessionStartTime)
-	} else {
-		// Use fixed filename (timestamp is stored in the JSON content)
-		filename = "ch_session_latest.json"
-	}
-	fullPath := filepath.Join(tmpDir, filename)
 	tempFullPath := fullPath + ".tmp"
 
 	err = os.WriteFile(tempFullPath, jsonData, 0644)
@@ -230,6 +217,37 @@ func (m *Manager) SaveSessionState() error {
 	}
 
 	return nil
+}
+
+// PrepareSessionFilePath chooses the file used for saving the current session.
+func (m *Manager) PrepareSessionFilePath() (string, error) {
+	if m.state.SessionFilePath != "" {
+		return m.state.SessionFilePath, nil
+	}
+
+	tmpDir, err := config.GetTempDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get temp directory: %v", err)
+	}
+
+	filename := "ch_session_latest.json"
+	if m.state.Config.SaveAllSessions {
+		if m.state.SessionStartTime == 0 {
+			m.state.SessionStartTime = time.Now().Unix()
+		}
+		filename = fmt.Sprintf("ch_session_%d.json", m.state.SessionStartTime)
+	}
+
+	m.state.SessionFilePath = filepath.Join(tmpDir, filename)
+	return m.state.SessionFilePath, nil
+}
+
+// CurrentSessionFileName returns the display name for the current session file.
+func (m *Manager) CurrentSessionFileName() string {
+	if m.state.SessionFilePath == "" {
+		return ""
+	}
+	return filepath.Base(m.state.SessionFilePath)
 }
 
 // LoadLatestSessionState loads the session state from disk
@@ -328,6 +346,7 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 	m.state.Config.CurrentModel = session.Model
 	m.state.Config.CurrentBaseURL = session.BaseURL
 	m.state.ChatHistory = session.ChatHistory
+	m.state.SessionFilePath = session.SourceFile
 
 	// Rebuild Messages from ChatHistory
 	m.state.Messages = []types.ChatMessage{
@@ -493,28 +512,19 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, args []string) (*types.S
 				if j == 0 {
 					continue // skip system prompt
 				}
-				timestamp := time.Unix(entry.Time, 0).UTC().Format("2006-01-02 15:04:05 UTC")
 
 				if entry.User != "" {
-					userPreview := strings.ReplaceAll(entry.User, "\n", " ")
-					if len(userPreview) > 80 {
-						userPreview = userPreview[:80] + "..."
-					}
 					local = append(local, SessionEntry{
 						FilePath:  path,
-						Preview:   fmt.Sprintf("%s user: %s", timestamp, userPreview),
+						Preview:   formatSessionSearchPreview(path, entry.Time, "user", entry.User),
 						Timestamp: entry.Time,
 					})
 				}
 
 				if entry.Bot != "" {
-					botPreview := strings.ReplaceAll(entry.Bot, "\n", " ")
-					if len(botPreview) > 80 {
-						botPreview = botPreview[:80] + "..."
-					}
 					local = append(local, SessionEntry{
 						FilePath:  path,
-						Preview:   fmt.Sprintf("%s bot: %s", timestamp, botPreview),
+						Preview:   formatSessionSearchPreview(path, entry.Time, "bot", entry.Bot),
 						Timestamp: entry.Time,
 					})
 				}
@@ -597,6 +607,15 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, args []string) (*types.S
 
 	session.SourceFile = selectedFilePath
 	return &session, nil
+}
+
+func formatSessionSearchPreview(filePath string, timestamp int64, role string, content string) string {
+	preview := strings.ReplaceAll(content, "\n", " ")
+	if len(preview) > 80 {
+		preview = preview[:80] + "..."
+	}
+	timestampText := time.Unix(timestamp, 0).UTC().Format("2006-01-02 15:04:05 UTC")
+	return fmt.Sprintf("%s %s: %s", timestampText, role, preview)
 }
 
 // BacktrackHistory allows the user to select a previous message to revert to.

@@ -441,5 +441,6 @@ func InitializeAppState() *types.AppState {
 		StreamingCancel:      nil,
 		IsExecutingCommand:   false,
 		CommandCancel:        nil,
+		SessionFilePath:      "",
 	}
 }

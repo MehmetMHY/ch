@@ -251,6 +251,9 @@ func TestManager_SaveAndLoadSession_Latest(t *testing.T) {
 	if err := m.SaveSessionState(); err != nil {
 		t.Fatalf("SaveSessionState() error: %v", err)
 	}
+	if got := filepath.Base(state.SessionFilePath); got != "ch_session_latest.json" {
+		t.Errorf("expected session file ch_session_latest.json, got %q", got)
+	}
 
 	loaded, err := m.LoadLatestSessionState()
 	if err != nil {
@@ -268,6 +271,87 @@ func TestManager_SaveAndLoadSession_Latest(t *testing.T) {
 	}
 	if loaded.ChatHistory[1].User != "Hello?" || loaded.ChatHistory[1].Bot != "Hi!" {
 		t.Errorf("unexpected history entry: %+v", loaded.ChatHistory[1])
+	}
+}
+
+func TestManager_PrepareSessionFilePath_AllSessions(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	state := &types.AppState{
+		Config: &types.Config{
+			SaveAllSessions: true,
+		},
+		SessionStartTime: 1783568531,
+	}
+	m := NewManager(state)
+
+	path, err := m.PrepareSessionFilePath()
+	if err != nil {
+		t.Fatalf("PrepareSessionFilePath() error: %v", err)
+	}
+	if got := filepath.Base(path); got != "ch_session_1783568531.json" {
+		t.Errorf("expected timestamped session file, got %q", got)
+	}
+	if got := m.CurrentSessionFileName(); got != "ch_session_1783568531.json" {
+		t.Errorf("expected current session file name, got %q", got)
+	}
+
+	state.SessionStartTime = 999
+	pathAgain, err := m.PrepareSessionFilePath()
+	if err != nil {
+		t.Fatalf("PrepareSessionFilePath() second call error: %v", err)
+	}
+	if pathAgain != path {
+		t.Errorf("expected prepared path to remain stable, got %q then %q", path, pathAgain)
+	}
+}
+
+func TestManager_RestoreSessionStatePreservesSourceFile(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	sourceFile := filepath.Join(tempHome, "ch_session_123.json")
+	state := &types.AppState{
+		Config: &types.Config{
+			CurrentPlatform: "openai",
+			CurrentModel:    "gpt-4o",
+			SystemPrompt:    "S",
+			SaveAllSessions: true,
+		},
+		ChatHistory: []types.ChatHistory{{User: "S"}},
+	}
+	m := NewManager(state)
+
+	m.RestoreSessionState(&types.SessionFile{
+		Timestamp:  123,
+		Platform:   "groq",
+		Model:      "llama3",
+		SourceFile: sourceFile,
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},
+			{User: "Q", Bot: "A"},
+		},
+	})
+
+	if got := m.CurrentSessionFileName(); got != "ch_session_123.json" {
+		t.Errorf("expected restored session file name, got %q", got)
+	}
+	if err := m.SaveSessionState(); err != nil {
+		t.Fatalf("SaveSessionState() error: %v", err)
+	}
+	if _, err := os.Stat(sourceFile); err != nil {
+		t.Fatalf("expected save to preserve restored source file: %v", err)
+	}
+}
+
+func TestFormatSessionSearchPreview(t *testing.T) {
+	preview := formatSessionSearchPreview("/tmp/ch_session_1783572416.json", 1783572299, "user", "Loaded: ch_session_1783572299.json")
+
+	if !strings.HasPrefix(preview, "2026-07-09 04:44:59 UTC user: Loaded: ch_session_1783572299.json") {
+		t.Fatalf("unexpected preview: %q", preview)
 	}
 }
 

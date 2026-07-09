@@ -87,7 +87,7 @@ ch "What are the key features of Go programming language?"
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration
 - **AI-Suggested Filenames**: When exporting, the current model proposes short snake_case filenames based on chat context. Configurable and fully optional, with a graceful fallback to the deterministic hash-based names.
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
-- **Session State Viewer**: Check current session details like model, platform, and token usage
+- **Session State Viewer**: Check current session details like model, platform, session file, and token usage
 - **Token Counting**: Estimate token usage for files or piped stdin with model-aware tokenization
 - **Text Editor Integration**: Use your preferred editor for complex prompts
 - **Dynamic Switching**: Change models and platforms mid-conversation
@@ -340,6 +340,7 @@ When in interactive mode (`ch`), use these commands:
 
 - **`!q`** - exit interface
 - **`!h`** - help page
+- **`>state`** - help page option that shows current state. When session saving is active, it includes the session filename.
 - **`!c`** - clear chat history
 - **`!b`** - backtrack messages
 - **`!t [buff]`** - text editor mode

@@ -1,11 +1,16 @@
 package main
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/MehmetMHY/ch/internal/chat"
+	"github.com/MehmetMHY/ch/internal/ui"
+	"github.com/MehmetMHY/ch/pkg/types"
 )
 
 func buildTestBinary(t *testing.T) string {
@@ -70,6 +75,69 @@ func filteredEnv(env []string, overrides map[string]string, unset ...string) []s
 		result = append(result, key+"="+value)
 	}
 	return result
+}
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	original := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error: %v", err)
+	}
+	os.Stdout = writer
+
+	fn()
+
+	writer.Close()
+	os.Stdout = original
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll() error: %v", err)
+	}
+	return string(out)
+}
+
+func TestHandleShowStateSessionFileRow(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	state := &types.AppState{
+		Config: &types.Config{
+			CurrentPlatform:   "openai",
+			CurrentModel:      "gpt-5.4-mini",
+			SystemPrompt:      "S",
+			EnableSessionSave: true,
+			SaveAllSessions:   true,
+			IsPipedOutput:     true,
+		},
+		Messages: []types.ChatMessage{{Role: "system", Content: "S"}},
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},
+		},
+		SessionStartTime: 1783568531,
+	}
+	chatManager := chat.NewManager(state)
+	terminal := ui.NewTerminal(state.Config)
+
+	out := captureStdout(t, func() {
+		if err := handleShowState(chatManager, terminal, state, false); err != nil {
+			t.Fatalf("handleShowState() error: %v", err)
+		}
+	})
+	if !strings.Contains(out, "file: ch_session_1783568531.json") {
+		t.Fatalf("expected state output to include session file, got:\n%s", out)
+	}
+
+	out = captureStdout(t, func() {
+		if err := handleShowState(chatManager, terminal, state, true); err != nil {
+			t.Fatalf("handleShowState() with noHistory error: %v", err)
+		}
+	})
+	if strings.Contains(out, "file:") {
+		t.Fatalf("expected noHistory state output to hide session file, got:\n%s", out)
+	}
 }
 
 func TestCLIUtilityAndExportFlags(t *testing.T) {
