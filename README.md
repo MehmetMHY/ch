@@ -592,6 +592,7 @@ Run the checks:
 ```bash
 make security-static   # gosec ./...
 make security-secrets  # gitleaks git --no-banner --redact .
+make security-secrets-working # gitleaks dir --no-banner --redact .
 make security-vuln     # go mod verify + govulncheck ./...
 make security          # all checks
 ```
@@ -600,9 +601,27 @@ make security          # all checks
 
 ```bash
 make install-hooks
+git config --get core.hooksPath  # should print .githooks
 ```
 
-The hook runs formatting checks, unit tests, `gosec`, staged-change Gitleaks scanning, and `govulncheck` before allowing a commit.
+The hook runs formatting checks, unit tests, `gosec`, staged-change Gitleaks scanning, working-tree Gitleaks scanning, and `govulncheck` before allowing a commit.
+
+Git hooks are local Git configuration, so they are not activated just by cloning the repository. Run `make install-hooks` once in each checkout where you want commits to be blocked by the security gate.
+
+For secret testing, stage the file first and run the staged scanner:
+
+```bash
+git add --all
+make security-secrets-staged
+```
+
+If the file was already committed and the staged change is only a rename or mode change, the staged diff can be empty. Run the working-tree scanner for that case:
+
+```bash
+make security-secrets-working
+```
+
+`gitleaks git .` scans committed history, not arbitrary untracked working-tree files, so it will not catch a newly created file until it is staged or committed. `gitleaks dir .` scans the current checkout.
 
 When using `./install.sh -b` for a local repository build, the installer checks the development security tools required by `make build`: it installs `gosec` with `go install` if missing, installs Gitleaks via Homebrew on macOS when possible, and otherwise prints manual Gitleaks install guidance.
 

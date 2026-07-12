@@ -2,7 +2,7 @@
 # A professional CLI chat tool for multiple AI platforms
 
 # Declare phony (non-files)
-.PHONY: build install clean test lint fmt fmt-check vet security-static security-vuln security-secrets security-secrets-staged security install-hooks help dev run
+.PHONY: build install clean test lint fmt fmt-check vet security-static security-vuln security-secrets security-secrets-staged security-secrets-working security install-hooks help dev run
 
 # Variables
 BINARY_NAME=ch
@@ -12,7 +12,7 @@ CMD_DIR=./cmd/ch
 MAIN_FILE=$(CMD_DIR)/main.go
 
 # Build information
-VERSION?=v5.0.0
+VERSION?=v5.0.1
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)"
@@ -84,7 +84,7 @@ fmt-check:
 ## Run go vet
 vet:
 	@echo "Running go vet..."
-	$(GOVET) ./...
+	@$(GOVET) ./...
 
 ## Run gosec static security scan (requires gosec)
 security-static:
@@ -93,14 +93,14 @@ security-static:
 		echo "gosec not found. Install with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
 		exit 1; \
 	fi
-	$(GOSEC) ./...
+	@$(GOSEC) ./...
 
 ## Verify modules and run Go vulnerability checks
 security-vuln:
 	@echo "Verifying modules..."
-	$(GOMOD) verify
+	@$(GOMOD) verify
 	@echo "Running govulncheck..."
-	$(GOCMD) run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	@$(GOCMD) run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 ## Scan the repository for committed secrets (requires gitleaks)
 security-secrets:
@@ -109,7 +109,7 @@ security-secrets:
 		echo "gitleaks not found. Install with: brew install gitleaks"; \
 		exit 1; \
 	fi
-	$(GITLEAKS) git --no-banner --redact .
+	@$(GITLEAKS) git --no-banner --redact .
 
 ## Scan staged changes for secrets (requires gitleaks)
 security-secrets-staged:
@@ -118,15 +118,27 @@ security-secrets-staged:
 		echo "gitleaks not found. Install with: brew install gitleaks"; \
 		exit 1; \
 	fi
-	$(GITLEAKS) git --no-banner --redact --staged .
+	@$(GITLEAKS) git --no-banner --redact --staged .
+
+## Scan the current working tree for secrets (requires gitleaks)
+security-secrets-working:
+	@echo "Running gitleaks on working tree..."
+	@if [ -z "$(GITLEAKS)" ] || [ ! -x "$(GITLEAKS)" ]; then \
+		echo "gitleaks not found. Install with: brew install gitleaks"; \
+		exit 1; \
+	fi
+	@$(GITLEAKS) dir --no-banner --redact .
 
 ## Run all local security checks
-security: security-static security-secrets security-vuln
+security: security-static security-secrets security-secrets-working security-vuln
 
 ## Configure this checkout to use versioned local git hooks
 install-hooks:
-	git config core.hooksPath .githooks
-	@echo "Git hooks installed from .githooks/"
+	@test -f .githooks/pre-commit || { echo ".githooks/pre-commit not found"; exit 1; }
+	@chmod +x .githooks/pre-commit
+	@git config core.hooksPath .githooks
+	@echo "Git hooks installed from .githooks/ for this checkout"
+	@echo "Verify with: git config --get core.hooksPath"
 
 ## Download dependencies
 deps:
@@ -177,6 +189,7 @@ help:
 	@echo "  fmt-check   - Check formatting without modifying files"
 	@echo "  vet         - Run go vet"
 	@echo "  security    - Run gosec, gitleaks, and govulncheck"
+	@echo "  security-secrets-working - Scan current checkout for secrets"
 	@echo "  install-hooks - Enable versioned local git hooks"
 	@echo "  deps        - Download and tidy dependencies"
 	@echo "  dev         - Build and run in development mode"
@@ -184,13 +197,11 @@ help:
 	@echo "  build-all   - Build for multiple platforms"
 	@echo "  release     - Create release tarballs"
 	@echo "  help        - Show this help"
-	@echo ""
 	@echo "Example usage:"
 	@echo "  make build"
 	@echo "  make run ARGS='--help'"
 	@echo "  make run ARGS='-p groq what is AI?'"
 	@echo "  make run ARGS='-w https://example.com'"
-	@echo ""
 	@echo "Dependencies:"
 	@echo "  - fzf (brew install fzf)"
 	@echo "  - gosec (go install github.com/securego/gosec/v2/cmd/gosec@latest)"

@@ -5,4 +5,5 @@ make fmt-check
 go test -count=1 ./...
 make security-static
 make security-secrets-staged
+make security-secrets-working
 make security-vuln

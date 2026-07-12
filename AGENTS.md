@@ -63,9 +63,12 @@ Security checks:
 - `make security-static` runs the locally installed `gosec ./...` scanner.
 - `make security-secrets` runs the locally installed `gitleaks git --no-banner --redact .` scanner.
 - `make security-secrets-staged` runs `gitleaks git --no-banner --redact --staged .` for pre-commit checks.
+- `make security-secrets-working` runs `gitleaks dir --no-banner --redact .` to catch secrets already present in the current checkout, including rename-only staged changes.
 - `make security-vuln` runs `go mod verify` and `govulncheck ./...` via `go run golang.org/x/vuln/cmd/govulncheck@latest ./...`.
-- `make security` runs gosec, Gitleaks, and vulnerability checks.
-- `make install-hooks` configures this checkout to use `.githooks/pre-commit`, which runs formatting checks, unit tests, `gosec`, staged Gitleaks scanning, and `govulncheck` before commits.
+- `make security` runs gosec, committed-history Gitleaks, working-tree Gitleaks, and vulnerability checks.
+- `make install-hooks` configures this checkout to use `.githooks/pre-commit`, ensures the hook is executable, and prints a verification command. Git hooks are local config and must be installed once per clone.
+- `.githooks/pre-commit` runs formatting checks, unit tests, `gosec`, staged and working-tree Gitleaks scanning, and `govulncheck` before commits.
+- `gitleaks git .` scans committed history, not untracked working-tree files. To test a new secret before commit, stage it and run `make security-secrets-staged`. To scan the current checkout, run `make security-secrets-working`.
 
 Before committing or handing off, prefer:
 
