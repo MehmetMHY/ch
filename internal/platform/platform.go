@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -548,11 +549,13 @@ func (m *Manager) sendNonStreamingRequest(openaiMessages []openai.ChatCompletion
 	ctx, cancel := context.WithCancel(context.Background())
 	*isStreaming = true
 	*streamingCancel = cancel
+	defer func() {
+		cancel()
+		*isStreaming = false
+		*streamingCancel = nil
+	}()
 
 	resp, err := m.client.CreateChatCompletion(ctx, req)
-
-	*isStreaming = false
-	*streamingCancel = nil
 
 	if err != nil {
 		if ctx.Err() == context.Canceled {
@@ -579,17 +582,19 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 	ctx, cancel := context.WithCancel(context.Background())
 	*isStreaming = true
 	*streamingCancel = cancel
+	defer func() {
+		cancel()
+		*isStreaming = false
+		*streamingCancel = nil
+	}()
 
 	stream, err := m.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
-		*isStreaming = false
-		*streamingCancel = nil
 		return "", err
 	}
+	var response strings.Builder
 	defer func() {
-		stream.Close()
-		*isStreaming = false
-		*streamingCancel = nil
+		_ = stream.Close()
 	}()
 
 	type streamChunk struct {
@@ -602,7 +607,6 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 		} `json:"choices"`
 	}
 
-	var response strings.Builder
 	wasReasoning := false
 	lastReasoningEndsWithNewline := false
 	insideThinkTag := false
@@ -694,12 +698,19 @@ func (m *Manager) fetchPlatformModelsWithTime(platform types.Platform) ([]modelW
 	}
 
 	// Handle Google's special URL with API key in query parameter
-	url := platform.Models.URL
+	modelURL := platform.Models.URL
 	if platform.Name == "google" {
-		url = strings.Replace(url, "https://generativelanguage.googleapis.com/v1beta/models", "https://generativelanguage.googleapis.com/v1beta/models?key="+apiKey, 1)
+		modelURL = strings.Replace(modelURL, "https://generativelanguage.googleapis.com/v1beta/models", "https://generativelanguage.googleapis.com/v1beta/models?key="+apiKey, 1)
+	}
+	parsedModelURL, err := neturl.Parse(modelURL)
+	if err != nil || parsedModelURL.Host == "" {
+		return nil, fmt.Errorf("invalid model list URL for platform %s", platform.Name)
+	}
+	if platform.Name != "ollama" && parsedModelURL.Scheme != "https" {
+		return nil, fmt.Errorf("model list URL for platform %s must use https", platform.Name)
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", modelURL, nil) // #nosec G704 -- Model URLs come from built-in platform definitions and are validated above; Ollama intentionally uses localhost HTTP.
 	if err != nil {
 		return nil, err
 	}
@@ -712,7 +723,7 @@ func (m *Manager) fetchPlatformModelsWithTime(platform types.Platform) ([]modelW
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := httpClient.Do(req)
+	resp, err := httpClient.Do(req) // #nosec G704 -- Request uses the validated built-in model-list URL for the selected provider.
 	if err != nil {
 		return nil, err
 	}

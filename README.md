@@ -1,6 +1,6 @@
 # Ch
 
-<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a> <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.26.0+-blue.svg" alt="Go 1.26.0+"></a> <a href="https://goreportcard.com/report/github.com/MehmetMHY/ch"><img src="https://goreportcard.com/badge/github.com/MehmetMHY/ch" alt="Go Report Card"></a>
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a> <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.26.5+-blue.svg" alt="Go 1.26.5+"></a> <a href="https://goreportcard.com/report/github.com/MehmetMHY/ch"><img src="https://goreportcard.com/badge/github.com/MehmetMHY/ch" alt="Go Report Card"></a>
 
 <p align="left">
   <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">
@@ -34,6 +34,7 @@
   - [Build from Source](#build-from-source)
   - [Build Options](#build-options)
   - [Testing](#testing)
+  - [Security Checks](#security-checks)
 - [Contributing](#contributing)
   - [Development Setup](#development-setup)
   - [Code Standards](#code-standards)
@@ -132,7 +133,7 @@ cd ch
 
 The installer automatically:
 
-- Checks for Go 1.26.0+ and dependencies (fzf, yt-dlp, tesseract).
+- Checks for Go 1.26.5+ and dependencies (fzf, yt-dlp, tesseract).
 - Installs missing dependencies via system package managers (apt, brew, pkg, etc.).
 - Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`.
 - Attempts to create a global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux).
@@ -508,10 +509,12 @@ Contributor and coding-agent guidance is available in [AGENTS.md](./AGENTS.md).
 
 ### Prerequisites
 
-- [Go 1.26.0 or higher](https://go.dev/dl/)
+- [Go 1.26.5 or higher](https://go.dev/dl/)
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for [YouTube](https://www.youtube.com/) video scraping
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) **(optional)** for image-to-text extraction from images. The installer will warn you if it's missing.
+- [gosec](https://github.com/securego/gosec) for local security scanning (`go install github.com/securego/gosec/v2/cmd/gosec@latest`)
+- [Gitleaks](https://github.com/gitleaks/gitleaks) for secret scanning (`brew install gitleaks` on macOS)
 - `BRAVE_API_KEY` for web search (see [API Keys](#api-keys))
 - **Clipboard utils (auto-detected)**: [pbcopy](https://ss64.com/mac/pbcopy.html), [xclip](https://github.com/astrand/xclip), [xsel](https://github.com/kfish/xsel), [wl-copy](https://man.archlinux.org/man/wl-copy.1.en), [termux-clipboard-set](https://wiki.termux.com/wiki/Termux-clipboard-set)
 - [Vim](https://www.vim.org/) but [Helix IDE](https://helix-editor.com/) is recommended
@@ -543,6 +546,8 @@ make clean    # clean build artifacts
 make test     # run tests
 make lint     # run linter
 make fmt      # format code
+make security # run gosec and govulncheck
+make install-hooks # enable local pre-commit checks
 make dev      # build and run in dev mode
 ```
 
@@ -565,6 +570,41 @@ Per-function coverage report:
 ```bash
 go test -coverprofile=/tmp/cover.out ./... && go tool cover -func=/tmp/cover.out
 ```
+
+### Security Checks
+
+Local security checks use [gosec](https://github.com/securego/gosec) for source scanning, [Gitleaks](https://github.com/gitleaks/gitleaks) for secret scanning, and `govulncheck` for known Go vulnerabilities.
+
+Install gosec once:
+
+```bash
+go install github.com/securego/gosec/v2/cmd/gosec@latest
+```
+
+Install Gitleaks once:
+
+```bash
+brew install gitleaks
+```
+
+Run the checks:
+
+```bash
+make security-static   # gosec ./...
+make security-secrets  # gitleaks git --no-banner --redact .
+make security-vuln     # go mod verify + govulncheck ./...
+make security          # all checks
+```
+
+`make build` runs `security-static` before compiling. To enable the local pre-commit hook for this checkout:
+
+```bash
+make install-hooks
+```
+
+The hook runs formatting checks, unit tests, `gosec`, staged-change Gitleaks scanning, and `govulncheck` before allowing a commit.
+
+When using `./install.sh -b` for a local repository build, the installer checks the development security tools required by `make build`: it installs `gosec` with `go install` if missing, installs Gitleaks via Homebrew on macOS when possible, and otherwise prints manual Gitleaks install guidance.
 
 ### Version Management
 

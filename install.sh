@@ -83,14 +83,71 @@ safe_uninstall_ch() {
 
 check_go() {
 	if ! command -v go >/dev/null 2>&1; then
-		error "Go 1.26.0+ is required but not installed"
+		error "Go 1.26.5+ is required but not installed"
 	fi
 
 	local go_version
 	go_version=$(go version | cut -d' ' -f3 | sed 's/go//')
-	if ! go version | grep -qE "go(1\.(26|2[7-9]|[3-9][0-9])|[2-9]\.)"; then
-		error "Go 1.26.0+ is required (found $go_version)"
+	if ! go version | grep -qE "go(1\.26\.([5-9]|[1-9][0-9]+)|1\.(2[7-9]|[3-9][0-9])|[2-9]\.)"; then
+		error "Go 1.26.5+ is required (found $go_version)"
 	fi
+}
+
+go_bin_dir() {
+	local go_path
+	go_path=$(go env GOPATH 2>/dev/null || true)
+	if [[ -z "$go_path" ]]; then
+		return 1
+	fi
+	printf "%s/bin" "$go_path"
+}
+
+command_exists_with_go_bin() {
+	local cmd="$1"
+	if command -v "$cmd" >/dev/null 2>&1; then
+		return 0
+	fi
+
+	local go_bin
+	go_bin=$(go_bin_dir) || return 1
+	[[ -x "$go_bin/$cmd" ]]
+}
+
+ensure_gosec() {
+	if command_exists_with_go_bin "gosec"; then
+		return
+	fi
+
+	log "Installing gosec for local security scanning..."
+	go install github.com/securego/gosec/v2/cmd/gosec@latest || error "Failed to install gosec"
+
+	local go_bin
+	go_bin=$(go_bin_dir) || return
+	if ! command -v gosec >/dev/null 2>&1; then
+		warning "gosec was installed to $go_bin. Add this directory to PATH to run gosec directly."
+	fi
+}
+
+ensure_gitleaks() {
+	if command -v gitleaks >/dev/null 2>&1; then
+		return
+	fi
+
+	local os
+	os=$(detect_os)
+	if [[ "$os" == "macos" ]] && command -v brew >/dev/null 2>&1; then
+		log "Installing Gitleaks for secret scanning with Homebrew..."
+		brew install gitleaks || warning "Failed to install Gitleaks. Install manually with: brew install gitleaks"
+		return
+	fi
+
+	warning "Gitleaks is not installed. Pre-commit secret scanning will fail until it is installed."
+	warning "Install Gitleaks manually from https://github.com/gitleaks/gitleaks or use your package manager."
+}
+
+install_dev_security_tools() {
+	ensure_gosec
+	ensure_gitleaks
 }
 
 detect_os() {
@@ -545,6 +602,7 @@ build_only() {
 
 	log "Downloading dependencies..."
 	go mod download || error "Failed to download Go modules"
+	install_dev_security_tools
 
 	execute_build "make" ""
 
@@ -559,7 +617,7 @@ update_cli_tools() {
 	local os
 	os=$(detect_os)
 
-	local system_deps=("fzf" "yt-dlp" "tesseract")
+	local system_deps=("fzf" "yt-dlp" "tesseract" "gitleaks")
 
 	case "$os" in
 	"macos")

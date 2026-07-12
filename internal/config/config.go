@@ -20,7 +20,7 @@ func loadConfigFromFile() (*types.Config, error) {
 	configPath := filepath.Join(chDir, "config.json")
 
 	// Create ~/.ch directory if it doesn't exist
-	if err := os.MkdirAll(chDir, 0755); err != nil {
+	if err := os.MkdirAll(chDir, 0700); err != nil {
 		return nil, err
 	}
 
@@ -29,7 +29,7 @@ func loadConfigFromFile() (*types.Config, error) {
 		return &types.Config{}, nil
 	}
 
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) // #nosec G304 -- Config path is resolved under the current user's home directory.
 	if err != nil {
 		return nil, err
 	}

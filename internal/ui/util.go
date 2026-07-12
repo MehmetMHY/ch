@@ -32,7 +32,7 @@ func RunEditorWithFallback(cfg *types.Config, filePath string) error {
 			continue
 		}
 
-		cmd := exec.Command(editor, filePath)
+		cmd := exec.Command(editor, filePath) // #nosec G204 G702 -- Editor command is explicitly chosen by the user via EDITOR or config and is executed without a shell.
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 

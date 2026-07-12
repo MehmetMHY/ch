@@ -19,7 +19,7 @@ func GetTempDir() (string, error) {
 	tempDir := filepath.Join(homeDir, ".ch", "tmp")
 
 	// Create the directory if it doesn't exist
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
+	if err := os.MkdirAll(tempDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
 

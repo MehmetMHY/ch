@@ -156,7 +156,7 @@ func (m *Manager) ExportFullHistory() (string, error) {
 		return "", fmt.Errorf("failed to marshal JSON: %v", err)
 	}
 
-	err = os.WriteFile(fullPath, jsonData, 0644)
+	err = os.WriteFile(fullPath, jsonData, 0600)
 	if err != nil {
 		return "", err
 	}
@@ -187,7 +187,7 @@ func (m *Manager) ExportLastResponse() (string, error) {
 
 	fullPath := filepath.Join(currentDir, filename)
 
-	err = os.WriteFile(fullPath, []byte(lastEntry.Bot), 0644)
+	err = os.WriteFile(fullPath, []byte(lastEntry.Bot), 0600)
 	if err != nil {
 		return "", err
 	}
@@ -222,14 +222,14 @@ func (m *Manager) SaveSessionState() error {
 
 	tempFullPath := fullPath + ".tmp"
 
-	err = os.WriteFile(tempFullPath, jsonData, 0644)
+	err = os.WriteFile(tempFullPath, jsonData, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to write session file: %v", err)
 	}
 
 	err = os.Rename(tempFullPath, fullPath)
 	if err != nil {
-		os.Remove(tempFullPath)
+		_ = os.Remove(tempFullPath)
 		return fmt.Errorf("failed to rename session file: %v", err)
 	}
 
@@ -295,7 +295,7 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 				fullPath := filepath.Join(tmpDir, filename)
 
 				// Read the file to check timestamp
-				data, err := os.ReadFile(fullPath)
+				data, err := os.ReadFile(fullPath) // #nosec G304 -- Session discovery reads files from Ch's own temp session directory.
 				if err != nil {
 					continue
 				}
@@ -319,7 +319,7 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 		}
 
 		// Load the most recent session
-		data, err := os.ReadFile(latestFile)
+		data, err := os.ReadFile(latestFile) // #nosec G304 -- Latest session path is selected from Ch's own temp session directory.
 		if err != nil {
 			return nil, fmt.Errorf("failed to read session file: %v", err)
 		}
@@ -341,7 +341,7 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 			return nil, fmt.Errorf("no session file found")
 		}
 
-		data, err := os.ReadFile(fullPath)
+		data, err := os.ReadFile(fullPath) // #nosec G304 -- Latest session path is under Ch's own temp session directory.
 		if err != nil {
 			return nil, fmt.Errorf("failed to read session file: %v", err)
 		}
@@ -390,7 +390,7 @@ func (m *Manager) LoadCustomHistoryFile(filePath string) (*types.SessionFile, er
 	}
 
 	// Read the file
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) // #nosec G304 -- Loading an explicitly provided session history file is intentional CLI behavior.
 	if err != nil {
 		return nil, fmt.Errorf("failed to read history file: %v", err)
 	}
@@ -507,7 +507,7 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, args []string) (*types.S
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			data, err := os.ReadFile(path)
+			data, err := os.ReadFile(path) // #nosec G304 -- History search reads session files discovered under Ch's own temp directory.
 			if err != nil {
 				return
 			}
@@ -612,7 +612,7 @@ func (m *Manager) SearchSessions(terminal *ui.Terminal, args []string) (*types.S
 	}
 
 	// Load the selected session
-	data, err := os.ReadFile(selectedFilePath)
+	data, err := os.ReadFile(selectedFilePath) // #nosec G304 -- User-selected session file is loaded intentionally.
 	if err != nil {
 		return nil, fmt.Errorf("failed to read session file: %v", err)
 	}
@@ -714,7 +714,9 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 		return "", fmt.Errorf("error creating temp file: %v", err)
 	}
 	tmpFilePath := tmpFile.Name()
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		return "", fmt.Errorf("error closing temp file: %v", err)
+	}
 
 	defer os.Remove(tmpFilePath)
 
@@ -724,7 +726,7 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 		return "", fmt.Errorf("error running editor: %v", err)
 	}
 
-	content, err := os.ReadFile(tmpFilePath)
+	content, err := os.ReadFile(tmpFilePath) // #nosec G304 -- Temp editor file was created by this process.
 	if err != nil {
 		return "", fmt.Errorf("error reading temp file: %v", err)
 	}
@@ -816,7 +818,7 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 		fullPath := filepath.Join(currentDir, filename)
 
 		// Write code to file
-		err = os.WriteFile(fullPath, []byte(code), 0644)
+		err = os.WriteFile(fullPath, []byte(code), 0600)
 		if err != nil {
 			return filePaths, fmt.Errorf("failed to write file %s: %v", filename, err)
 		}
@@ -1007,7 +1009,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 	}
 
 	fullPath := filepath.Join(currentDir, filename)
-	err = os.WriteFile(fullPath, []byte(editedContent), 0644)
+	err = os.WriteFile(fullPath, []byte(editedContent), 0600)
 	if err != nil {
 		return "", fmt.Errorf("failed to write file: %v", err)
 	}
@@ -1133,7 +1135,7 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (str
 			combined.WriteString(snippet.Content)
 		}
 		fullPath := filepath.Join(currentDir, targetFile)
-		if err := os.WriteFile(fullPath, []byte(combined.String()), 0644); err != nil {
+		if err := os.WriteFile(fullPath, []byte(combined.String()), 0600); err != nil {
 			return "", fmt.Errorf("failed to write file %s: %v", targetFile, err)
 		}
 		m.AddRecentlyCreatedFile(fullPath)
@@ -1185,7 +1187,7 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (str
 		}
 
 		fullPath := filepath.Join(currentDir, filename)
-		err = os.WriteFile(fullPath, []byte(snippet.Content), 0644)
+		err = os.WriteFile(fullPath, []byte(snippet.Content), 0600)
 		if err != nil {
 			return "", fmt.Errorf("failed to write file %s: %v", filename, err)
 		}
@@ -1354,7 +1356,7 @@ func (m *Manager) ExportChatTurn(terminal *ui.Terminal, targetFile string) (stri
 	}
 
 	fullPath := filepath.Join(currentDir, filename)
-	if err := os.WriteFile(fullPath, []byte(editedContent), 0644); err != nil {
+	if err := os.WriteFile(fullPath, []byte(editedContent), 0600); err != nil {
 		return "", fmt.Errorf("failed to write file: %v", err)
 	}
 
@@ -1505,11 +1507,14 @@ func (m *Manager) openInEditor(content string) (string, error) {
 	// Write initial content
 	_, err = tmpFile.WriteString(content)
 	if err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFilePath)
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFilePath)
 		return "", fmt.Errorf("error writing to temp file: %v", err)
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpFilePath)
+		return "", fmt.Errorf("error closing temp file: %v", err)
+	}
 
 	defer os.Remove(tmpFilePath)
 
@@ -1520,7 +1525,7 @@ func (m *Manager) openInEditor(content string) (string, error) {
 	}
 
 	// Read edited content
-	editedContent, err := os.ReadFile(tmpFilePath)
+	editedContent, err := os.ReadFile(tmpFilePath) // #nosec G304 -- Temp editor file was created by this process.
 	if err != nil {
 		return "", fmt.Errorf("error reading edited file: %v", err)
 	}

@@ -89,7 +89,9 @@ func main() {
 			}
 		}
 	}
-	flag.CommandLine.Parse(cliArgs)
+	if err := flag.CommandLine.Parse(cliArgs); err != nil {
+		return
+	}
 
 	tokenFlagProvided := false
 	flag.Visit(func(f *flag.Flag) {
@@ -155,7 +157,7 @@ func main() {
 		}
 
 		// Recreate empty directory
-		err = os.MkdirAll(tmpDir, 0755)
+		err = os.MkdirAll(tmpDir, 0700)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error recreating temporary directory: %v", err))
 			return
@@ -240,7 +242,7 @@ func main() {
 			return
 		}
 		filename := generateUniqueCodeDumpFilename(currentDir, codedump)
-		err = os.WriteFile(filename, []byte(codedump), 0644)
+		err = os.WriteFile(filename, []byte(codedump), 0600)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error writing codedump file: %v", err))
 			return
@@ -612,7 +614,7 @@ func main() {
 				state.CommandCancel()
 			} else {
 				if state.Config.EnableSessionSave && !*noHistoryFlag {
-					chatManager.SaveSessionState()
+					_ = chatManager.SaveSessionState()
 				}
 				os.Exit(0)
 			}
@@ -647,7 +649,9 @@ func main() {
 	runInteractiveMode(chatManager, platformManager, terminal, state, *noHistoryFlag)
 
 	if state.Config.EnableSessionSave && !*noHistoryFlag {
-		chatManager.SaveSessionState()
+		if err := chatManager.SaveSessionState(); err != nil {
+			terminal.PrintError(fmt.Sprintf("failed to save session: %v", err))
+		}
 	}
 }
 
@@ -758,7 +762,7 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 				line, err := multiLineRl.Readline()
 				if err != nil {
 					if err == readline.ErrInterrupt || err == io.EOF {
-						multiLineRl.Close()
+						_ = multiLineRl.Close()
 						multiLineActive = false
 						break
 					}
@@ -779,7 +783,9 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 				}
 			}
 
-			multiLineRl.Close()
+			if err := multiLineRl.Close(); err != nil {
+				terminal.PrintError(fmt.Sprintf("error closing multi-line input: %v", err))
+			}
 
 			input = strings.Join(lines, "\n")
 			if strings.TrimSpace(input) == "" {
@@ -846,7 +852,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 	switch {
 	case input == config.ExitKey:
 		if state.Config.EnableSessionSave && !noHistory {
-			chatManager.SaveSessionState()
+			_ = chatManager.SaveSessionState()
 		}
 		os.Exit(0)
 		return true
@@ -1112,7 +1118,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		if rl != nil {
 			for _, entry := range session.ChatHistory {
 				if entry.User != "" && entry.User != state.Config.SystemPrompt {
-					rl.SaveHistory(entry.User)
+					_ = rl.SaveHistory(entry.User)
 				}
 			}
 		}
@@ -1464,7 +1470,7 @@ func handleShellCommand(command string, chatManager *chat.Manager, terminal *ui.
 	}
 
 	// Execute the command with live streaming
-	cmd := exec.Command("sh", "-c", command)
+	cmd := exec.Command("sh", "-c", command) // #nosec G204 -- Shell execution is an explicit user-triggered CLI feature.
 
 	// Create pipes for stdout and stderr
 	stdout, err := cmd.StdoutPipe()
@@ -1690,7 +1696,7 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 		}
 
 		// Read file content
-		data, err := os.ReadFile(filePath)
+		data, err := os.ReadFile(filePath) // #nosec G304 -- Token counting intentionally reads a user-provided file path.
 		if err != nil {
 			return fmt.Errorf("error reading file: %v", err)
 		}

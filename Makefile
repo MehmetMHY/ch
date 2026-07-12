@@ -2,7 +2,7 @@
 # A professional CLI chat tool for multiple AI platforms
 
 # Declare phony (non-files)
-.PHONY: build install clean test lint fmt vet help dev run
+.PHONY: build install clean test lint fmt fmt-check vet security-static security-vuln security-secrets security-secrets-staged security install-hooks help dev run
 
 # Variables
 BINARY_NAME=ch
@@ -26,12 +26,14 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOFMT=gofmt
 GOVET=$(GOCMD) vet
+GOSEC?=$(shell if command -v gosec >/dev/null 2>&1; then command -v gosec; else printf "%s/bin/gosec" "$$(go env GOPATH 2>/dev/null)"; fi)
+GITLEAKS?=$(shell command -v gitleaks 2>/dev/null)
 
 # Default target
 all: build
 
 ## Build the binary
-build:
+build: security-static
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(LDFLAGS) -o $(BINARY_PATH) $(MAIN_FILE)
@@ -69,10 +71,62 @@ fmt:
 	@echo "Formatting code..."
 	$(GOFMT) -s -w .
 
+## Check formatting without modifying files
+fmt-check:
+	@echo "Checking formatting..."
+	@files=$$($(GOFMT) -l .); \
+	if [ -n "$$files" ]; then \
+		echo "Go files need formatting:"; \
+		echo "$$files"; \
+		exit 1; \
+	fi
+
 ## Run go vet
 vet:
 	@echo "Running go vet..."
 	$(GOVET) ./...
+
+## Run gosec static security scan (requires gosec)
+security-static:
+	@echo "Running gosec..."
+	@if [ ! -x "$(GOSEC)" ]; then \
+		echo "gosec not found. Install with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
+		exit 1; \
+	fi
+	$(GOSEC) ./...
+
+## Verify modules and run Go vulnerability checks
+security-vuln:
+	@echo "Verifying modules..."
+	$(GOMOD) verify
+	@echo "Running govulncheck..."
+	$(GOCMD) run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+## Scan the repository for committed secrets (requires gitleaks)
+security-secrets:
+	@echo "Running gitleaks..."
+	@if [ -z "$(GITLEAKS)" ] || [ ! -x "$(GITLEAKS)" ]; then \
+		echo "gitleaks not found. Install with: brew install gitleaks"; \
+		exit 1; \
+	fi
+	$(GITLEAKS) git --no-banner --redact .
+
+## Scan staged changes for secrets (requires gitleaks)
+security-secrets-staged:
+	@echo "Running gitleaks on staged changes..."
+	@if [ -z "$(GITLEAKS)" ] || [ ! -x "$(GITLEAKS)" ]; then \
+		echo "gitleaks not found. Install with: brew install gitleaks"; \
+		exit 1; \
+	fi
+	$(GITLEAKS) git --no-banner --redact --staged .
+
+## Run all local security checks
+security: security-static security-secrets security-vuln
+
+## Configure this checkout to use versioned local git hooks
+install-hooks:
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed from .githooks/"
 
 ## Download dependencies
 deps:
@@ -120,7 +174,10 @@ help:
 	@echo "  test        - Run tests"
 	@echo "  lint        - Run linter (requires golangci-lint)"
 	@echo "  fmt         - Format code"
+	@echo "  fmt-check   - Check formatting without modifying files"
 	@echo "  vet         - Run go vet"
+	@echo "  security    - Run gosec, gitleaks, and govulncheck"
+	@echo "  install-hooks - Enable versioned local git hooks"
 	@echo "  deps        - Download and tidy dependencies"
 	@echo "  dev         - Build and run in development mode"
 	@echo "  run         - Build and run with ARGS"
@@ -136,3 +193,5 @@ help:
 	@echo ""
 	@echo "Dependencies:"
 	@echo "  - fzf (brew install fzf)"
+	@echo "  - gosec (go install github.com/securego/gosec/v2/cmd/gosec@latest)"
+	@echo "  - gitleaks (brew install gitleaks)"

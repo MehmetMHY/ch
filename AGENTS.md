@@ -41,24 +41,38 @@ HOME="$tmp_home" USERPROFILE="$tmp_home" env -u OPENAI_API_KEY ./bin/ch -l READM
 
 ## Build And Test
 
-Use Go 1.26.0 or newer. The module declares `go 1.26.0`.
+Use Go 1.26.5 or newer for local builds and vulnerability checks. The module declares `go 1.26.0`, but `govulncheck` reports reachable standard-library vulnerabilities when using Go 1.26.0.
 
 Common checks:
 
 ```bash
 go test ./...
 go test -count=1 ./...
+make security-static
+make security-secrets
+make security-vuln
+make security
 make build
 make test
 ```
 
-`make build` writes `./bin/ch`, which is ignored by git.
+`make build` runs `security-static` before compiling and writes `./bin/ch`, which is ignored by git.
+
+Security checks:
+
+- `make security-static` runs the locally installed `gosec ./...` scanner.
+- `make security-secrets` runs the locally installed `gitleaks git --no-banner --redact .` scanner.
+- `make security-secrets-staged` runs `gitleaks git --no-banner --redact --staged .` for pre-commit checks.
+- `make security-vuln` runs `go mod verify` and `govulncheck ./...` via `go run golang.org/x/vuln/cmd/govulncheck@latest ./...`.
+- `make security` runs gosec, Gitleaks, and vulnerability checks.
+- `make install-hooks` configures this checkout to use `.githooks/pre-commit`, which runs formatting checks, unit tests, `gosec`, staged Gitleaks scanning, and `govulncheck` before commits.
 
 Before committing or handing off, prefer:
 
 ```bash
 gofmt -w <changed-go-files>
 go test -count=1 ./...
+make security
 make build
 ```
 
@@ -219,6 +233,7 @@ Avoid tests that depend on:
 Important expectations:
 
 - Local repository installs should use the current checkout as-is and should not run `git pull` automatically.
+- Local `./install.sh -b` builds should ensure dev security tools are available because `make build` runs `gosec`; the script installs missing `gosec` via `go install` and handles Gitleaks as a local pre-commit/security dependency.
 - `--safe-uninstall` prompts first, but it still removes `~/.ch` including config/history/sessions/temp files.
 - `--uninstall` removes immediately without confirmation.
 - Optional API key status checks should stay aligned with providers documented in README and configured in `internal/config/config.go`.

@@ -52,11 +52,6 @@ func NewTerminal(config *types.Config) *Terminal {
 	}
 }
 
-// escapeShellArg escapes a string for safe shell usage by wrapping in single quotes
-func escapeShellArg(arg string) string {
-	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
-}
-
 // ContainsAllOption checks if the ">all" option was selected in a list of items
 func ContainsAllOption(items []string) bool {
 	for _, item := range items {
@@ -69,26 +64,13 @@ func ContainsAllOption(items []string) bool {
 
 // runFzfCore executes fzf and returns raw output bytes, handling common setup and error cases
 func (t *Terminal) runFzfCore(fzfArgs []string, inputText string) ([]byte, bool, error) {
-	tempDir, err := config.GetTempDir()
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to get temp directory: %w", err)
-	}
-
-	outputFile := filepath.Join(tempDir, fmt.Sprintf("fzf-output-%d", time.Now().UnixNano()))
-	defer os.Remove(outputFile)
-
-	var escapedArgs []string
-	for _, arg := range fzfArgs {
-		escapedArgs = append(escapedArgs, escapeShellArg(arg))
-	}
-
-	cmdStr := fmt.Sprintf("fzf %s > %s", strings.Join(escapedArgs, " "), escapeShellArg(outputFile))
-
-	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd := exec.Command("fzf", fzfArgs...) // #nosec G204 -- fzf arguments are constructed by this program and executed without a shell.
 	cmd.Stdin = strings.NewReader(inputText)
+	var output bytes.Buffer
+	cmd.Stdout = &output
 	cmd.Stderr = os.Stderr
 
-	err = cmd.Run()
+	err := cmd.Run()
 
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		if exitErr.ExitCode() == 130 || exitErr.ExitCode() == 1 {
@@ -99,15 +81,7 @@ func (t *Terminal) runFzfCore(fzfArgs []string, inputText string) ([]byte, bool,
 		return nil, false, fmt.Errorf("fzf execution failed: %w", err)
 	}
 
-	content, err := os.ReadFile(outputFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, true, nil // No selection made
-		}
-		return nil, false, fmt.Errorf("failed to read fzf output: %w", err)
-	}
-
-	return content, false, nil
+	return output.Bytes(), false, nil
 }
 
 // runFzfSSHSafe executes fzf in a way that works correctly over SSH connections
@@ -216,7 +190,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 
 	// Use script without specifying a command - this works on all platforms
 	// Set the SHELL environment variable to ensure script uses the correct shell
-	cmd = exec.Command("script", "-q", tempFile.Name())
+	cmd = exec.Command("script", "-q", tempFile.Name()) // #nosec G204 -- script writes to a temp file created by this process.
 	cmd.Env = append(os.Environ(), "SHELL="+shell)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -225,7 +199,7 @@ func (t *Terminal) RecordShellSession() (string, error) {
 	if err := cmd.Run(); err != nil {
 		// If -q flag doesn't work, try without it (some old versions don't support -q)
 		if _, ok := err.(*exec.ExitError); ok {
-			cmd = exec.Command("script", tempFile.Name())
+			cmd = exec.Command("script", tempFile.Name()) // #nosec G204 -- script writes to a temp file created by this process.
 			cmd.Env = append(os.Environ(), "SHELL="+shell)
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = os.Stdout
@@ -576,7 +550,7 @@ func (t *Terminal) loadTextFile(filePath string) (string, error) {
 		content, err = t.loadImage(filePath)
 	default:
 		// Handle regular text files
-		fileContent, readErr := os.ReadFile(filePath)
+		fileContent, readErr := os.ReadFile(filePath) // #nosec G304 -- Loading a user-selected text file path is core CLI behavior.
 		if readErr != nil {
 			return "", readErr
 		}
@@ -632,7 +606,7 @@ func (t *Terminal) loadDirectoryContent(dirPath string) (string, error) {
 
 // loadPDF extracts text content from PDF files
 func (t *Terminal) loadPDF(filePath string) (string, error) {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- Loading a user-selected PDF path is core CLI behavior.
 	if err != nil {
 		return "", fmt.Errorf("failed to open PDF file: %w", err)
 	}
@@ -716,7 +690,7 @@ func (t *Terminal) loadXLSX(filePath string) (string, error) {
 
 // loadCSV extracts text content from CSV files
 func (t *Terminal) loadCSV(filePath string) (string, error) {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- Loading a user-selected CSV path is core CLI behavior.
 	if err != nil {
 		return "", fmt.Errorf("failed to open CSV file: %w", err)
 	}
@@ -739,7 +713,7 @@ func (t *Terminal) loadCSV(filePath string) (string, error) {
 
 // loadImage loads and extracts metadata and basic information from image files
 func (t *Terminal) loadImage(filePath string) (string, error) {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- Loading a user-selected image path is core CLI behavior.
 	if err != nil {
 		return "", fmt.Errorf("failed to open image file: %w", err)
 	}
@@ -756,7 +730,9 @@ func (t *Terminal) loadImage(filePath string) (string, error) {
 	}
 
 	// Reset file pointer
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, 0); err != nil {
+		return "", fmt.Errorf("failed to reset image file: %w", err)
+	}
 
 	// Decode image to get basic properties
 	img, format, err := image.Decode(file)
@@ -769,7 +745,9 @@ func (t *Terminal) loadImage(filePath string) (string, error) {
 	content.WriteString(fmt.Sprintf("dimensions: %dx%d pixels\n", bounds.Dx(), bounds.Dy()))
 
 	// Reset file pointer for EXIF reading
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, 0); err != nil {
+		return "", fmt.Errorf("failed to reset image file for EXIF: %w", err)
+	}
 
 	// Try to extract EXIF metadata
 	exifData, err := exif.Decode(file)
@@ -1175,7 +1153,7 @@ func (t *Terminal) loadGitignorePatterns(rootDir string) []string {
 	patterns := []string{".git/"}
 
 	gitignorePath := filepath.Join(rootDir, ".gitignore")
-	file, err := os.Open(gitignorePath)
+	file, err := os.Open(gitignorePath) // #nosec G304 -- .gitignore is read from the user-selected codedump root.
 	if err != nil {
 		return patterns // No .gitignore file, return with default patterns
 	}
@@ -1288,7 +1266,7 @@ func (t *Terminal) isTextFileByPath(filePath string) bool {
 
 	// For files without extension or unknown extensions, check if it's a text file
 	if ext == "" {
-		content, err := os.ReadFile(filePath)
+		content, err := os.ReadFile(filePath) // #nosec G304 -- Text detection reads the user-selected file path.
 		if err != nil {
 			return false
 		}
@@ -1375,7 +1353,7 @@ func (t *Terminal) generateCodeDumpFromDir(files []string, sourceDir string) (st
 			content = fileContent
 		} else {
 			// Use regular file reading for text files
-			fileBytes, err := os.ReadFile(fullPath)
+			fileBytes, err := os.ReadFile(fullPath) // #nosec G304 -- Codedump reads files discovered under the user-selected directory.
 			if err != nil {
 				result.WriteString(fmt.Sprintf("=== FILE: %s ===\nError reading file: %v\n\n", file, err))
 				continue
@@ -1564,7 +1542,7 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	result.WriteString("--- Metadata ---\n")
 	metadataCtx, metadataCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer metadataCancel()
-	metadataCmd := exec.CommandContext(metadataCtx, "yt-dlp", "-j", urlStr)
+	metadataCmd := exec.CommandContext(metadataCtx, "yt-dlp", "-j", urlStr) // #nosec G204 -- yt-dlp is intentionally invoked with a user-provided URL as a direct argument, not through a shell.
 	metadataOutput, err := metadataCmd.Output()
 	if err != nil {
 		if metadataCtx.Err() == context.DeadlineExceeded {
@@ -1590,7 +1568,7 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	// Download subtitles with 30 second timeout
 	subtitleCtx, subtitleCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer subtitleCancel()
-	subtitleCmd := exec.CommandContext(subtitleCtx, "yt-dlp", "--quiet", "--skip-download",
+	subtitleCmd := exec.CommandContext(subtitleCtx, "yt-dlp", "--quiet", "--skip-download", // #nosec G204 -- yt-dlp is intentionally invoked with a user-provided URL as direct arguments, not through a shell.
 		"--write-auto-subs", "--sub-lang", "en", "--sub-format", "srt",
 		"-o", baseName+".%(ext)s", urlStr)
 
@@ -1606,7 +1584,7 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 			}
 			// Clean up temp files
 			for _, match := range matches {
-				os.Remove(match)
+				_ = os.Remove(match)
 			}
 		}
 	}
@@ -2334,10 +2312,12 @@ func (t *Terminal) openEditorWithContent(content string) (string, error) {
 
 	// Write content to temp file
 	if _, err := tempFile.WriteString(content); err != nil {
-		tempFile.Close()
+		_ = tempFile.Close()
 		return "", fmt.Errorf("failed to write to temp file: %w", err)
 	}
-	tempFile.Close()
+	if err := tempFile.Close(); err != nil {
+		return "", fmt.Errorf("failed to close temp file: %w", err)
+	}
 
 	// Open editor with fallback
 	if err := t.runEditorWithFallback(tempFile.Name()); err != nil {

@@ -35,7 +35,9 @@ func (t *Terminal) extractTextFromImage(filePath string) (string, error) {
 	}
 
 	// Configure OCR settings for better accuracy
-	client.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?@#$%^&*()_+-={}[]|\\:;\"'<>/~` ")
+	if err := client.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?@#$%^&*()_+-={}[]|\\:;\"'<>/~` "); err != nil {
+		return "", fmt.Errorf("failed to configure OCR: %w", err)
+	}
 
 	// Extract text
 	text, err := client.Text()
