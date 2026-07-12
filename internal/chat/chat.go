@@ -88,11 +88,28 @@ func EffectiveUserContent(entry types.ChatHistory) string {
 	return entry.User
 }
 
-// RemoveLastUserMessage removes the last user message (for interrupted requests)
+// RemoveLastUserMessage removes the last message only when it is a user message.
 func (m *Manager) RemoveLastUserMessage() {
-	if len(m.state.Messages) > 0 {
+	if len(m.state.Messages) > 0 && m.state.Messages[len(m.state.Messages)-1].Role == "user" {
 		m.state.Messages = m.state.Messages[:len(m.state.Messages)-1]
 	}
+}
+
+// RemovePendingUserMessage removes the exact pending user message added before
+// a provider request. It avoids trimming valid history if another path changed
+// the latest message while the request was in flight.
+func (m *Manager) RemovePendingUserMessage(content string) bool {
+	if len(m.state.Messages) == 0 {
+		return false
+	}
+
+	last := m.state.Messages[len(m.state.Messages)-1]
+	if last.Role != "user" || last.Content != content {
+		return false
+	}
+
+	m.state.Messages = m.state.Messages[:len(m.state.Messages)-1]
+	return true
 }
 
 // ClearHistory clears the chat history

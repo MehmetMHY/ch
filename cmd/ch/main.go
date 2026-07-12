@@ -660,8 +660,8 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 
 	response, err := platformManager.SendChatRequest(chatManager.GetMessages(), chatManager.GetCurrentModel(), &state.StreamingCancel, &state.IsStreaming)
 	if err != nil {
+		chatManager.RemovePendingUserMessage(query)
 		if err.Error() == "request was interrupted" {
-			chatManager.RemoveLastUserMessage()
 			return nil
 		}
 		return err
@@ -807,8 +807,8 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 		}
 
 		if err != nil {
+			chatManager.RemovePendingUserMessage(input)
 			if err.Error() == "request was interrupted" {
-				chatManager.RemoveLastUserMessage()
 				continue
 			}
 			terminal.PrintError(fmt.Sprintf("%v", err))
@@ -1055,8 +1055,8 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 
 		if err != nil {
+			chatManager.RemovePendingUserMessage(userInput)
 			if err.Error() == "request was interrupted" {
-				chatManager.RemoveLastUserMessage()
 				return true
 			}
 			terminal.PrintError(fmt.Sprintf("%v", err))
@@ -1292,8 +1292,8 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		}
 
 		if err != nil {
+			chatManager.RemovePendingUserMessage(fullInput)
 			if err.Error() == "request was interrupted" {
-				chatManager.RemoveLastUserMessage()
 				return true
 			}
 			terminal.PrintError(fmt.Sprintf("%v", err))
@@ -1796,8 +1796,8 @@ func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.M
 	}
 
 	if err != nil {
+		chatManager.RemovePendingUserMessage(combinedMessage)
 		if err.Error() == "request was interrupted" {
-			chatManager.RemoveLastUserMessage()
 			return nil
 		}
 		return err

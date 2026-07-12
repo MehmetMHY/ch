@@ -77,16 +77,22 @@ func TestManager_MessageAndHistoryOperations(t *testing.T) {
 		t.Errorf("unexpected assistant message: %v", state.Messages[2])
 	}
 
-	// RemoveLastUserMessage removes the very last message (regardless of role)
+	// RemoveLastUserMessage only removes a trailing user message.
 	if len(state.Messages) != 3 {
 		t.Fatalf("expected 3 messages before removal, got %d", len(state.Messages))
 	}
 	m.RemoveLastUserMessage()
-	if len(state.Messages) != 2 {
-		t.Errorf("expected 2 messages after removal, got %d", len(state.Messages))
+	if len(state.Messages) != 3 {
+		t.Errorf("expected assistant message to be preserved, got %d messages", len(state.Messages))
 	}
-	if state.Messages[1].Role != "user" || state.Messages[1].Content != "Hello assistant" {
-		t.Errorf("RemoveLastUserMessage should only pop the final message, got %v", state.Messages)
+	if state.Messages[2].Role != "assistant" || state.Messages[2].Content != "Hello user" {
+		t.Errorf("RemoveLastUserMessage should not pop a final assistant message, got %v", state.Messages)
+	}
+
+	state.Messages = state.Messages[:2]
+	m.RemoveLastUserMessage()
+	if len(state.Messages) != 1 {
+		t.Errorf("expected trailing user message to be removed, got %d messages", len(state.Messages))
 	}
 
 	// RemoveLastUserMessage on empty slice should not panic
@@ -94,6 +100,28 @@ func TestManager_MessageAndHistoryOperations(t *testing.T) {
 	m.RemoveLastUserMessage()
 	if len(state.Messages) != 0 {
 		t.Errorf("expected 0 messages, got %d", len(state.Messages))
+	}
+
+	state.Messages = []types.ChatMessage{
+		{Role: "system", Content: cfg.SystemPrompt},
+		{Role: "user", Content: "old prompt"},
+		{Role: "assistant", Content: "old response"},
+		{Role: "user", Content: "pending prompt"},
+	}
+	if removed := m.RemovePendingUserMessage("different prompt"); removed {
+		t.Fatalf("RemovePendingUserMessage removed a non-matching prompt")
+	}
+	if len(state.Messages) != 4 {
+		t.Fatalf("expected non-matching pending prompt to be preserved, got %v", state.Messages)
+	}
+	if removed := m.RemovePendingUserMessage("pending prompt"); !removed {
+		t.Fatalf("RemovePendingUserMessage did not remove matching pending prompt")
+	}
+	if len(state.Messages) != 3 {
+		t.Fatalf("expected only matching pending prompt removed, got %v", state.Messages)
+	}
+	if state.Messages[2].Role != "assistant" || state.Messages[2].Content != "old response" {
+		t.Fatalf("expected prior assistant history to be preserved, got %v", state.Messages)
 	}
 
 	// Restore and test AddToHistory

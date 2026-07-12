@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/MehmetMHY/ch/internal/chat"
+	chconfig "github.com/MehmetMHY/ch/internal/config"
+	"github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
 )
@@ -137,6 +142,78 @@ func TestHandleShowStateSessionFileRow(t *testing.T) {
 	})
 	if strings.Contains(out, "file:") {
 		t.Fatalf("expected noHistory state output to hide session file, got:\n%s", out)
+	}
+}
+
+func TestProcessDirectQueryRemovesPendingMessageOnProviderError(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	type requestMessage struct {
+		Role    string      `json:"role"`
+		Content interface{} `json:"content"`
+	}
+	var requestMessages [][]requestMessage
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			Messages []requestMessage `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+		requestMessages = append(requestMessages, payload.Messages)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"bad request","type":"invalid_request_error"}}`))
+	}))
+	defer server.Close()
+
+	cfg := chconfig.DefaultConfig()
+	cfg.CurrentPlatform = "ollama"
+	cfg.CurrentModel = "test-model"
+	cfg.SystemPrompt = "system prompt"
+	cfg.SlowModelPatterns = []string{".*"}
+	cfg.IsPipedOutput = true
+	cfg.Platforms["ollama"] = types.Platform{
+		Name:    "ollama",
+		BaseURL: types.BaseURLValue{Single: server.URL + "/v1"},
+	}
+	state := &types.AppState{
+		Config:      cfg,
+		Messages:    []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory: []types.ChatHistory{{User: cfg.SystemPrompt}},
+	}
+	chatManager := chat.NewManager(state)
+	platformManager := platform.NewManager(cfg)
+	if err := platformManager.Initialize(); err != nil {
+		t.Fatalf("Initialize() error: %v", err)
+	}
+	terminal := ui.NewTerminal(cfg)
+
+	if err := processDirectQuery("first prompt", chatManager, platformManager, terminal, state, false, false); err == nil {
+		t.Fatalf("expected first provider error")
+	}
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected failed prompt to be removed, got %v", state.Messages)
+	}
+
+	if err := processDirectQuery("second prompt", chatManager, platformManager, terminal, state, false, false); err == nil {
+		t.Fatalf("expected second provider error")
+	}
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected second failed prompt to be removed, got %v", state.Messages)
+	}
+	if len(requestMessages) != 2 {
+		t.Fatalf("expected 2 provider requests, got %d", len(requestMessages))
+	}
+
+	secondRequest := requestMessages[1]
+	if len(secondRequest) != 2 {
+		t.Fatalf("expected second request to contain system and current user only, got %v", secondRequest)
+	}
+	if secondRequest[1].Role != "user" || secondRequest[1].Content != "second prompt" {
+		t.Fatalf("expected second request to exclude failed first prompt, got %v", secondRequest)
 	}
 }
 
