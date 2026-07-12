@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Ch is a lightweight open-source AI CLI for the terminal. Works with OpenAI, Anthropic, Gemini, Groq, OpenRouter, Bedrock, Ollama, and more."
+      content="Ch is a lightweight open-source AI CLI for the terminal. Works with OpenAI, Anthropic, Gemini, Groq, OpenRouter, Bedrock, Ollama, Together, Mistral, DeepSeek, xAI, and more."
     />
     <link rel="canonical" href="https://mehmetmhy.github.io/ch/" />
     <meta name="theme-color" content="#ffffff" />
@@ -19,7 +19,7 @@
     <meta property="og:title" content="Ch: Lightweight AI CLI Tool" />
     <meta
       property="og:description"
-      content="Lightweight open-source AI CLI for the terminal. Works with OpenAI, Anthropic, Gemini, Groq, OpenRouter, Bedrock, Ollama, and more."
+      content="Lightweight open-source AI CLI for the terminal. Works with OpenAI, Anthropic, Gemini, Groq, OpenRouter, Bedrock, Ollama, Together, Mistral, DeepSeek, xAI, and more."
     />
     <meta
       property="og:image"
@@ -35,7 +35,7 @@
     <meta name="twitter:title" content="Ch: Lightweight AI CLI Tool" />
     <meta
       name="twitter:description"
-      content="Lightweight open-source AI CLI for the terminal. Works with OpenAI, Anthropic, Gemini, Groq, OpenRouter, Bedrock, Ollama, and more."
+      content="Lightweight open-source AI CLI for the terminal. Works with OpenAI, Anthropic, Gemini, Groq, OpenRouter, Bedrock, Ollama, Together, Mistral, DeepSeek, xAI, and more."
     />
     <meta
       name="twitter:image"
@@ -79,7 +79,7 @@
         "@type": "SoftwareApplication",
         "name": "Ch",
         "alternateName": "Ch CLI",
-        "description": "Ch is a lightweight open-source AI CLI for the terminal, providing direct access to OpenAI, Anthropic, Gemini, Groq, OpenRouter, Bedrock, Ollama, and other providers with minimal overhead and explicit user control.",
+        "description": "Ch is a lightweight open-source AI CLI for the terminal, providing direct access to OpenAI, Anthropic, Gemini, Groq, OpenRouter, Bedrock, Ollama, Together, Mistral, DeepSeek, xAI, and other providers with minimal overhead and explicit user control.",
         "url": "https://mehmetmhy.github.io/ch/",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS, Linux",
@@ -179,9 +179,12 @@
             Connect to <a href="https://openai.com/" class="quiet">OpenAI</a>,
             <a href="https://anthropic.com/" class="quiet">Anthropic</a>,
             <a href="https://ai.google.dev/" class="quiet">Gemini</a>,
-            <a href="https://groq.com/" class="quiet">Groq</a>, and
-            <a href="https://openrouter.ai/" class="quiet">OpenRouter</a> with
-            seamless mid-chat switching.
+            <a href="https://groq.com/" class="quiet">Groq</a>,
+            <a href="https://openrouter.ai/" class="quiet">OpenRouter</a>,
+            <a href="https://mistral.ai/" class="quiet">Mistral</a>,
+            <a href="https://www.together.ai/" class="quiet">Together</a>,
+            DeepSeek, xAI, Amazon Bedrock, and Ollama with seamless mid-chat
+            switching.
           </div>
         </div>
         <div class="feature">
@@ -224,8 +227,8 @@
         <div class="feature">
           <div class="feature-title">Robust Session Management</div>
           <div class="feature-desc">
-            Automatically persist sessions, backtrack through history, and
-            search previous chats instantly using
+            Optionally persist sessions, backtrack through history, and search
+            previous chats instantly using
             <a href="https://github.com/junegunn/fzf" class="quiet">fzf</a
             >-powered fuzzy matching.
           </div>
@@ -257,6 +260,15 @@
             AI-suggested filenames during exports based on chat context, track
             token usage with model-aware counting, and copy responses to your
             cross-platform clipboard.
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-title">Security-Conscious Defaults</div>
+          <div class="feature-desc">
+            Uses private local file permissions, validates provider model-list
+            URLs, cancels long-running provider requests explicitly, and ships
+            contributor gates for static analysis, secret scanning, and Go
+            vulnerability checks.
           </div>
         </div>
       </div>
