@@ -20,6 +20,7 @@ Primary entry points:
 - `internal/ui/ocr_nocgo.go` - OCR stub for non-CGO builds (e.g., Android).
 - `pkg/types/types.go` - shared config/state/platform types.
 - `install.sh` - install/build/test/version maintenance script.
+- `fresh.sh` - self-contained script that tests the real `curl | bash` installer on a clean Ubuntu image via Docker (embedded Dockerfile, no build context).
 - `docs/` - static website files (HTML, CSS, JS, assets).
 - `README.md` - user-facing feature and usage documentation.
 
@@ -30,7 +31,7 @@ Primary entry points:
 - Never run `ch --clear`, uninstall commands, or installer uninstall paths against the real home directory.
 - Do not run commands that require real API keys unless explicitly asked. Prefer tests that unset provider keys and use temp homes.
 - The CLI can call paid third-party APIs. Avoid live provider calls in tests.
-- The installer may install system packages. Do not run install flows casually; inspect or test targeted helper behavior instead.
+- The installer may install system packages. Do not run install flows casually against the host; inspect or test targeted helper behavior instead. To exercise the full `curl | bash` installer end-to-end safely, run `./fresh.sh`, which runs it inside a throwaway Docker container rather than touching the host or the real `~/.ch`. It requires Docker and network access and always fetches the installer from `main`.
 
 Safe CLI test pattern:
 
@@ -243,6 +244,7 @@ Important expectations:
 - Local repository installs should use the current checkout as-is and should not run `git pull` automatically.
 - Local `./install.sh -b` builds should ensure dev security tools are available because `make build` runs `gosec`; the script installs missing `gosec` via `go install` and handles Gitleaks as a local pre-commit/security dependency.
 - `./install.sh --dev-setup` (`-d`) installs the full dev security toolchain (`gosec`, `gitleaks`, `govulncheck`) and activates the git hooks. It is local-repo only and guarded against remote/piped installs like `-b`, `-c`, `-r`, and `-v`. `install_dev_security_tools` now also installs `govulncheck` via `ensure_govulncheck`.
+- `./fresh.sh` builds a minimal Ubuntu + Go image (Dockerfile embedded in the script) and runs the real `curl | bash` install from README `main` inside a throwaway container, then reports PASS/FAIL. Use it to verify installer changes end-to-end without touching the host. `ensure_govulncheck` is non-fatal on failure since govulncheck is not needed to build and `make security-vuln` falls back to `go run`.
 - `--safe-uninstall` prompts first, but it still removes `~/.ch` including config/history/sessions/temp files.
 - `--uninstall` removes immediately without confirmation.
 - Optional API key status checks should stay aligned with providers documented in README and configured in `internal/config/config.go`.
