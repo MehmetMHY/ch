@@ -221,8 +221,14 @@ p {
   margin: 10px 0;
   border: 1px solid var(--border-color);
   overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   position: relative;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.install-command::-webkit-scrollbar {
+  display: none;
 }
 
 .install-command pre {
