@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # Self-contained test of the real `curl | bash` installer from the README.
 #
 # Builds a minimal fresh-machine image (Ubuntu + Go only, everything else left
@@ -7,6 +8,7 @@
 # embedded below so this is the only file you need.
 #
 #   ./fresh.sh
+
 set -uo pipefail
 
 IMAGE_NAME="ch-install-test"
