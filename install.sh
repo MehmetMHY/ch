@@ -145,9 +145,42 @@ ensure_gitleaks() {
 	warning "Install Gitleaks manually from https://github.com/gitleaks/gitleaks or use your package manager."
 }
 
+ensure_govulncheck() {
+	if command_exists_with_go_bin "govulncheck"; then
+		return
+	fi
+
+	log "Installing govulncheck for vulnerability scanning..."
+	go install golang.org/x/vuln/cmd/govulncheck@latest || error "Failed to install govulncheck"
+
+	local go_bin
+	go_bin=$(go_bin_dir) || return
+	if ! command -v govulncheck >/dev/null 2>&1; then
+		warning "govulncheck was installed to $go_bin. Add this directory to PATH to run govulncheck directly."
+	fi
+}
+
 install_dev_security_tools() {
 	ensure_gosec
 	ensure_gitleaks
+	ensure_govulncheck
+}
+
+dev_setup() {
+	log "Setting up local development environment..."
+	check_go
+	if [[ ! -f "go.mod" ]] || [[ ! -f "Makefile" ]]; then
+		error "Dev setup requires running from the Ch repository root"
+	fi
+
+	install_dev_security_tools
+
+	log "Activating local git hooks..."
+	make install-hooks || error "Failed to install git hooks"
+
+	echo
+	echo -e "\033[92m✓ Dev setup complete!\033[0m"
+	echo -e "Pre-commit and pre-push checks are now active for this checkout."
 }
 
 detect_os() {
@@ -813,6 +846,7 @@ show_help() {
 	echo "  -r, --refresh-deps       Refresh Go dependencies before building"
 	echo "  -v, --version            Update version in Makefile"
 	echo "  -c, --check              Run unit tests and show a pass/fail summary"
+	echo "  -d, --dev-setup          Install dev tools (gosec, gitleaks, govulncheck) and activate git hooks"
 	echo "  -h, --help               Show this help message"
 	echo ""
 	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
@@ -859,6 +893,13 @@ main() {
 				error "Check option is only available when running locally from the repository"
 			fi
 			run_tests
+			;;
+		-d | --dev-setup)
+			if [[ "$is_remote_install" == true ]]; then
+				error "Dev setup option is only available when running locally from the repository"
+			fi
+			dev_setup
+			exit 0
 			;;
 		-h | --help)
 			show_help

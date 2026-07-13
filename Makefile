@@ -28,6 +28,7 @@ GOFMT=gofmt
 GOVET=$(GOCMD) vet
 GOSEC?=$(shell if command -v gosec >/dev/null 2>&1; then command -v gosec; else printf "%s/bin/gosec" "$$(go env GOPATH 2>/dev/null)"; fi)
 GITLEAKS?=$(shell command -v gitleaks 2>/dev/null)
+GOVULNCHECK?=$(shell if command -v govulncheck >/dev/null 2>&1; then command -v govulncheck; else printf "%s/bin/govulncheck" "$$(go env GOPATH 2>/dev/null)"; fi)
 
 # Default target
 all: build
@@ -100,7 +101,11 @@ security-vuln:
 	@echo "Verifying modules..."
 	@$(GOMOD) verify
 	@echo "Running govulncheck..."
-	@$(GOCMD) run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	@if [ -x "$(GOVULNCHECK)" ]; then \
+		$(GOVULNCHECK) ./...; \
+	else \
+		$(GOCMD) run golang.org/x/vuln/cmd/govulncheck@latest ./...; \
+	fi
 
 ## Scan the repository for committed secrets (requires gitleaks)
 security-secrets:
@@ -135,7 +140,7 @@ security: security-static security-secrets security-secrets-working security-vul
 ## Configure this checkout to use versioned local git hooks
 install-hooks:
 	@test -f .githooks/pre-commit || { echo ".githooks/pre-commit not found"; exit 1; }
-	@chmod +x .githooks/pre-commit
+	@chmod +x .githooks/pre-commit .githooks/pre-push
 	@git config core.hooksPath .githooks
 	@echo "Git hooks installed from .githooks/ for this checkout"
 	@echo "Verify with: git config --get core.hooksPath"

@@ -64,10 +64,12 @@ Security checks:
 - `make security-secrets` runs the locally installed `gitleaks git --no-banner --redact .` scanner.
 - `make security-secrets-staged` runs `gitleaks git --no-banner --redact --staged .` for pre-commit checks.
 - `make security-secrets-working` runs `gitleaks dir --no-banner --redact .` to catch secrets already present in the current checkout, including rename-only staged changes.
-- `make security-vuln` runs `go mod verify` and `govulncheck ./...` via `go run golang.org/x/vuln/cmd/govulncheck@latest ./...`.
+- `make security-vuln` runs `go mod verify` and govulncheck. It prefers a locally installed `govulncheck` binary (faster, no network resolution) and falls back to `go run golang.org/x/vuln/cmd/govulncheck@latest ./...` when the binary is not present.
 - `make security` runs gosec, committed-history Gitleaks, working-tree Gitleaks, and vulnerability checks.
-- `make install-hooks` configures this checkout to use `.githooks/pre-commit`, ensures the hook is executable, and prints a verification command. Git hooks are local config and must be installed once per clone.
-- `.githooks/pre-commit` runs formatting checks, unit tests, `gosec`, staged and working-tree Gitleaks scanning, and `govulncheck` before commits.
+- `make install-hooks` configures this checkout to use `.githooks/` (both `pre-commit` and `pre-push`), ensures the hooks are executable, and prints a verification command. Git hooks are local config and must be installed once per clone.
+- `.githooks/pre-commit` runs formatting checks, unit tests, `gosec`, and staged and working-tree Gitleaks scanning before commits.
+- `.githooks/pre-push` runs `make security-vuln` (govulncheck) before pushing. Vulnerability scanning is the slowest local check and its findings do not change between local commits, so it runs on push instead of on every commit to keep commits fast.
+- `./install.sh --dev-setup` (or `-d`) is the one-shot maintainer setup: it installs the dev security tools (`gosec`, `gitleaks`, `govulncheck`) and activates the git hooks via `make install-hooks`. Local-repo only.
 - `gitleaks git .` scans committed history, not untracked working-tree files. To test a new secret before commit, stage it and run `make security-secrets-staged`. To scan the current checkout, run `make security-secrets-working`.
 
 Before committing or handing off, prefer:
@@ -209,7 +211,7 @@ Prefer unit tests that avoid network and real user state.
 Patterns already used:
 
 - `internal/config/config_test.go` uses `t.TempDir()` plus `t.Setenv("HOME", tempHome)` and `t.Setenv("USERPROFILE", tempHome)`.
-- `cmd/ch/main_test.go` builds a temporary test binary and runs it with temp `HOME`/`USERPROFILE`, unsetting `OPENAI_API_KEY` where needed.
+- `cmd/ch/main_test.go` builds the `ch` binary once in `TestMain` (with `CGO_ENABLED=0`, since the exec-based flag tests never touch the OCR path) and shares it via the package-level `testBinPath`. Tests run it with temp `HOME`/`USERPROFILE`, unsetting `OPENAI_API_KEY` where needed. Do not reintroduce per-test `go build` calls; reuse `testBinPath`.
 - `cmd/ch/main_test.go` `runWithTempHomeStdin` runs the test binary with a given string piped in as stdin, for flags like `-t` that read from piped input (see `TestTokenCountFlag`).
 
 If a test needs a config file, write it under the test temp home:
@@ -237,6 +239,7 @@ Important expectations:
 
 - Local repository installs should use the current checkout as-is and should not run `git pull` automatically.
 - Local `./install.sh -b` builds should ensure dev security tools are available because `make build` runs `gosec`; the script installs missing `gosec` via `go install` and handles Gitleaks as a local pre-commit/security dependency.
+- `./install.sh --dev-setup` (`-d`) installs the full dev security toolchain (`gosec`, `gitleaks`, `govulncheck`) and activates the git hooks. It is local-repo only and guarded against remote/piped installs like `-b`, `-c`, `-r`, and `-v`. `install_dev_security_tools` now also installs `govulncheck` via `ensure_govulncheck`.
 - `--safe-uninstall` prompts first, but it still removes `~/.ch` including config/history/sessions/temp files.
 - `--uninstall` removes immediately without confirmation.
 - Optional API key status checks should stay aligned with providers documented in README and configured in `internal/config/config.go`.

@@ -538,6 +538,7 @@ cd ch
 ./install.sh -r -b  # refresh/update all dependencies and build
 ./install.sh -v     # update version in Makefile interactively
 ./install.sh -c     # run unit tests with a pass/fail summary
+./install.sh -d     # dev setup: install security tools and activate git hooks
 ./install.sh -h     # show help with all options
 
 # using Make directly
@@ -547,7 +548,7 @@ make test     # run tests
 make lint     # run linter
 make fmt      # format code
 make security # run gosec and govulncheck
-make install-hooks # enable local pre-commit checks
+make install-hooks # enable local pre-commit and pre-push checks
 make dev      # build and run in dev mode
 ```
 
@@ -597,16 +598,21 @@ make security-vuln     # go mod verify + govulncheck ./...
 make security          # all checks
 ```
 
-`make build` runs `security-static` before compiling. To enable the local pre-commit hook for this checkout:
+`make build` runs `security-static` before compiling. To set up local development in one step (install `gosec`, `gitleaks`, and `govulncheck`, then activate the git hooks):
 
 ```bash
-make install-hooks
+./install.sh --dev-setup
 git config --get core.hooksPath  # should print .githooks
 ```
 
-The hook runs formatting checks, unit tests, `gosec`, staged-change Gitleaks scanning, working-tree Gitleaks scanning, and `govulncheck` before allowing a commit.
+If you only want to activate the hooks (and already have the tools installed), you can run `make install-hooks` directly instead.
 
-Git hooks are local Git configuration, so they are not activated just by cloning the repository. Run `make install-hooks` once in each checkout where you want commits to be blocked by the security gate.
+The checks are split across two hooks to keep commits fast:
+
+- **pre-commit** runs formatting checks, unit tests, `gosec`, staged-change Gitleaks scanning, and working-tree Gitleaks scanning before allowing a commit.
+- **pre-push** runs `govulncheck` (`make security-vuln`) before allowing a push. Vulnerability scanning is the slowest local check and rarely changes between commits, so it runs on push rather than on every commit.
+
+Git hooks are local Git configuration, so they are not activated just by cloning the repository. Run `./install.sh --dev-setup` (or `make install-hooks`) once in each checkout where you want commits to be blocked by the security gate.
 
 For secret testing, stage the file first and run the staged scanner:
 
@@ -657,6 +663,9 @@ cd ch
 
 # refresh dependencies and build
 ./install.sh -r -b
+
+# install security tools and activate the pre-commit/pre-push hooks
+./install.sh --dev-setup
 
 make dev
 ```

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,16 +19,33 @@ import (
 	"github.com/MehmetMHY/ch/pkg/types"
 )
 
-func buildTestBinary(t *testing.T) string {
-	t.Helper()
-	binPath := filepath.Join(t.TempDir(), "ch-test")
-	cmd := exec.Command("go", "build", "-o", binPath, ".")
-	cmd.Env = os.Environ()
-	out, err := cmd.CombinedOutput()
+// testBinPath is the path to the ch binary compiled once for the whole test
+// package. Building it a single time in TestMain avoids the multi-second cost
+// of rebuilding it for every exec-based test.
+var testBinPath string
+
+func TestMain(m *testing.M) {
+	tmpDir, err := os.MkdirTemp("", "ch-test-bin")
 	if err != nil {
-		t.Fatalf("go build failed: %v\n%s", err, out)
+		fmt.Fprintf(os.Stderr, "failed to create temp dir for test binary: %v\n", err)
+		os.Exit(1)
 	}
-	return binPath
+
+	binPath := filepath.Join(tmpDir, "ch-test")
+	cmd := exec.Command("go", "build", "-o", binPath, ".")
+	// These CLI tests exercise flag flow only (-l, -e, -t) and never touch the
+	// OCR path, so build without CGO to keep the one-time compile fast.
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "go build failed: %v\n%s", err, out)
+		os.RemoveAll(tmpDir)
+		os.Exit(1)
+	}
+	testBinPath = binPath
+
+	code := m.Run()
+	os.RemoveAll(tmpDir)
+	os.Exit(code)
 }
 
 func runWithTempHome(t *testing.T, binPath string, args ...string) string {
@@ -218,7 +236,7 @@ func TestProcessDirectQueryRemovesPendingMessageOnProviderError(t *testing.T) {
 }
 
 func TestCLIUtilityAndExportFlags(t *testing.T) {
-	binPath := buildTestBinary(t)
+	binPath := testBinPath
 
 	loadFile := filepath.Join(t.TempDir(), "input.txt")
 	if err := os.WriteFile(loadFile, []byte("hello from load utility"), 0644); err != nil {
@@ -248,7 +266,7 @@ func TestCLIUtilityAndExportFlags(t *testing.T) {
 }
 
 func TestTokenCountFlag(t *testing.T) {
-	binPath := buildTestBinary(t)
+	binPath := testBinPath
 
 	tokenFile := filepath.Join(t.TempDir(), "tokens.txt")
 	if err := os.WriteFile(tokenFile, []byte("hello from token fixture"), 0644); err != nil {

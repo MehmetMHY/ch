@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+# Vulnerability scanning is the slowest local check (~3s) and its findings do
+# not change between local commits, so it runs here on push instead of on every
+# commit. This keeps commits fast while still gating code before it leaves the
+# machine. Uses a pinned govulncheck binary when installed (see make security-vuln).
+make security-vuln
