@@ -2,7 +2,7 @@
 # A professional CLI chat tool for multiple AI platforms
 
 # Declare phony (non-files)
-.PHONY: build install clean test lint fmt fmt-check vet security-static security-vuln security-secrets security-secrets-staged security-secrets-working security install-hooks help dev run
+.PHONY: build install clean test lint fmt fmt-check vet security-static security-vuln security-secrets security-secrets-staged security-secrets-working security verify install-hooks help dev run
 
 # Variables
 BINARY_NAME=ch
@@ -12,7 +12,7 @@ CMD_DIR=./cmd/ch
 MAIN_FILE=$(CMD_DIR)/main.go
 
 # Build information
-VERSION?=v5.0.1
+VERSION?=v5.0.2
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)"
@@ -137,6 +137,17 @@ security-secrets-working:
 ## Run all local security checks
 security: security-static security-secrets security-secrets-working security-vuln
 
+## Run the full verification gate (formatting, vet, tests, security).
+## Portable and provider-agnostic: any CI, self-hosted runner, server-side
+## hook, or manual pre-merge check can run this single command.
+verify:
+	@$(MAKE) fmt-check
+	@$(MAKE) vet
+	@echo "Running tests..."
+	@$(GOTEST) -count=1 ./...
+	@$(MAKE) security
+	@echo "All verification checks passed"
+
 ## Configure this checkout to use versioned local git hooks
 install-hooks:
 	@test -f .githooks/pre-commit || { echo ".githooks/pre-commit not found"; exit 1; }
@@ -195,6 +206,7 @@ help:
 	@echo "  vet         - Run go vet"
 	@echo "  security    - Run gosec, gitleaks, and govulncheck"
 	@echo "  security-secrets-working - Scan current checkout for secrets"
+	@echo "  verify      - Run the full gate: fmt, vet, tests, security (portable/CI)"
 	@echo "  install-hooks - Enable versioned local git hooks"
 	@echo "  deps        - Download and tidy dependencies"
 	@echo "  dev         - Build and run in development mode"

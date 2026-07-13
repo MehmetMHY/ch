@@ -548,6 +548,7 @@ make test     # run tests
 make lint     # run linter
 make fmt      # format code
 make security # run gosec and govulncheck
+make verify   # full gate: fmt, vet, tests, security (portable, CI-agnostic)
 make install-hooks # enable local pre-commit and pre-push checks
 make dev      # build and run in dev mode
 ```
@@ -596,7 +597,10 @@ make security-secrets  # gitleaks git --no-banner --redact .
 make security-secrets-working # gitleaks dir --no-banner --redact .
 make security-vuln     # go mod verify + govulncheck ./...
 make security          # all checks
+make verify            # full gate: fmt-check, vet, tests, and security
 ```
+
+`make verify` bundles the entire quality gate into one portable command. It is intentionally provider-agnostic: any executor (a self-hosted runner, a server-side git hook, or a manual pre-merge check) can run `make verify` without tying the project to a specific CI vendor.
 
 `make build` runs `security-static` before compiling. To set up local development in one step (install `gosec`, `gitleaks`, and `govulncheck`, then activate the git hooks):
 

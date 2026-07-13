@@ -52,11 +52,14 @@ make security-static
 make security-secrets
 make security-vuln
 make security
+make verify
 make build
 make test
 ```
 
 `make build` runs `security-static` before compiling and writes `./bin/ch`, which is ignored by git.
+
+`make verify` runs the full portable gate (`fmt-check`, `vet`, `go test -count=1 ./...`, then `make security`). It is provider-agnostic by design: any CI, self-hosted runner, server-side git hook, or manual pre-merge check can run this one command, so the quality gate is never tied to a specific CI vendor.
 
 Security checks:
 
