@@ -151,7 +151,13 @@ ensure_govulncheck() {
 	fi
 
 	log "Installing govulncheck for vulnerability scanning..."
-	go install golang.org/x/vuln/cmd/govulncheck@latest || error "Failed to install govulncheck"
+	# Non-fatal: govulncheck is not needed to build, and make security-vuln
+	# falls back to `go run ...@latest` when the binary is absent. Do not abort
+	# a build or dev setup just because this optional tool could not install.
+	if ! go install golang.org/x/vuln/cmd/govulncheck@latest; then
+		warning "Failed to install govulncheck. The pre-push hook will fall back to 'go run govulncheck@latest'."
+		return
+	fi
 
 	local go_bin
 	go_bin=$(go_bin_dir) || return
