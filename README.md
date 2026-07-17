@@ -467,7 +467,7 @@ Ch supports multiple AI platforms with seamless switching:
 | DeepSeek       | DeepSeek-Chat, etc.         | `DEEP_SEEK_API_KEY`   | 1                 |
 | Anthropic      | Claude-3.5, etc.            | `ANTHROPIC_API_KEY`   | 1                 |
 | xAI            | Grok models                 | `XAI_API_KEY`         | 1                 |
-| Together       | Llama3, Mixtral, etc.       | `TOGETHER_API_KEY`    | 1                 |
+| Together       | Serverless chat models      | `TOGETHER_API_KEY`    | 1                 |
 | Google         | Gemini models               | `GEMINI_API_KEY`      | 1                 |
 | Mistral        | Mistral-tiny, small, etc.   | `MISTRAL_API_KEY`     | 1                 |
 | Amazon Bedrock | Claude, Llama, Mistral, etc | `AWS_BEDROCK_API_KEY` | 22                |

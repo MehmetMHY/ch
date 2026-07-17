@@ -740,7 +740,88 @@ func (m *Manager) fetchPlatformModelsWithTime(platform types.Platform) ([]modelW
 		return nil, err
 	}
 
-	return m.extractModelsWithTimeFromJSON(jsonData, platform.Models.JSONPath)
+	return m.extractPlatformModelsWithTimeFromJSON(jsonData, platform)
+}
+
+func (m *Manager) extractPlatformModelsWithTimeFromJSON(data interface{}, platform types.Platform) ([]modelWithTime, error) {
+	if platform.Name == "together" {
+		return m.extractTogetherServerlessChatModelsWithTime(data)
+	}
+
+	return m.extractModelsWithTimeFromJSON(data, platform.Models.JSONPath)
+}
+
+func (m *Manager) extractTogetherServerlessChatModelsWithTime(data interface{}) ([]modelWithTime, error) {
+	dataArray, ok := data.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("expected Together model list array")
+	}
+
+	timestampFields := []string{"created", "created_at", "modified_at"}
+	var models []modelWithTime
+
+	for _, item := range dataArray {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok || !isTogetherServerlessChatModel(itemMap) {
+			continue
+		}
+
+		name, ok := itemMap["id"].(string)
+		if !ok {
+			continue
+		}
+
+		var created int64
+		for _, field := range timestampFields {
+			if val, exists := itemMap[field]; exists {
+				if ts := parseTimestamp(val); ts > 0 {
+					created = ts
+					break
+				}
+			}
+		}
+
+		models = append(models, modelWithTime{name: name, created: created})
+	}
+
+	return models, nil
+}
+
+func isTogetherServerlessChatModel(model map[string]interface{}) bool {
+	modelType, ok := model["type"].(string)
+	if !ok || modelType != "chat" {
+		return false
+	}
+
+	pricing, ok := model["pricing"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	return numericJSONField(pricing, "hourly") == 0 && (numericJSONField(pricing, "input") > 0 || numericJSONField(pricing, "output") > 0)
+}
+
+func numericJSONField(data map[string]interface{}, key string) float64 {
+	value, ok := data[key]
+	if !ok {
+		return 0
+	}
+
+	switch v := value.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case json.Number:
+		parsed, _ := v.Float64()
+		return parsed
+	default:
+		return 0
+	}
 }
 
 // extractModelsWithTimeFromJSON extracts model names and their creation timestamps from JSON.

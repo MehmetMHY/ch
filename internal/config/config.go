@@ -344,10 +344,10 @@ func DefaultConfig() *types.Config {
 			},
 			"together": {
 				Name:    "together",
-				BaseURL: types.BaseURLValue{Single: "https://api.together.xyz/v1"},
+				BaseURL: types.BaseURLValue{Single: "https://api.together.ai/v1"},
 				EnvName: "TOGETHER_API_KEY",
 				Models: types.PlatformModels{
-					URL:      "https://api.together.xyz/v1/models",
+					URL:      "https://api.together.ai/v1/models?dedicated=false",
 					JSONPath: "id",
 				},
 			},

@@ -434,3 +434,29 @@ func TestExtractModelsWithTimeFromJSON(t *testing.T) {
 		}
 	})
 }
+
+func TestExtractPlatformModelsWithTimeFromJSONFiltersTogetherServerlessChatModels(t *testing.T) {
+	m := NewManager(&types.Config{})
+	raw := `[
+		{"id": "serverless-chat", "type": "chat", "created": 3000, "pricing": {"hourly": 0, "input": 0.3, "output": 0.3}},
+		{"id": "dedicated-only", "type": "chat", "created": 2000, "pricing": {"hourly": 1.5, "input": 0, "output": 0}},
+		{"id": "image-model", "type": "image", "created": 1000, "pricing": {"hourly": 0, "input": 0.1, "output": 0.1}},
+		{"id": "no-token-pricing", "type": "chat", "created": 500, "pricing": {"hourly": 0, "input": 0, "output": 0}}
+	]`
+	var data interface{}
+	if err := json.Unmarshal([]byte(raw), &data); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := m.extractPlatformModelsWithTimeFromJSON(data, types.Platform{Name: "together"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(got) != 1 {
+		t.Fatalf("expected 1 Together serverless chat model, got %+v", got)
+	}
+	if got[0].name != "serverless-chat" || got[0].created != 3000 {
+		t.Fatalf("unexpected model: %+v", got[0])
+	}
+}
