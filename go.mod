@@ -11,13 +11,13 @@ require (
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/tealeg/xlsx/v3 v3.3.13
-	github.com/tiktoken-go/tokenizer v0.8.0
+	github.com/tiktoken-go/tokenizer v0.8.1
 	golang.org/x/net v0.57.0
 )
 
 require (
 	github.com/EndFirstCorp/peekingReader v0.0.0-20171012052444-257fb6f1a1a6 // indirect
-	github.com/dlclark/regexp2/v2 v2.5.0 // indirect
+	github.com/dlclark/regexp2/v2 v2.5.1 // indirect
 	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
 	github.com/google/btree v1.1.3 // indirect

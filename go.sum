@@ -7,8 +7,8 @@ github.com/chzyer/readline v1.5.1/go.mod h1:Eh+b79XXUwfKfcPLepksvw2tcLE/Ct21YObk
 github.com/chzyer/test v1.0.0 h1:p3BQDXSxOhOG0P9z6/hGnII4LGiEPOYBhs8asl/fC04=
 github.com/chzyer/test v1.0.0/go.mod h1:2JlltgoNkt4TW/z9V/IzDdFaMTM2JPIi26O1pF38GC8=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
-github.com/dlclark/regexp2/v2 v2.5.0 h1:liNiWIPCvCh5HBcYfsjd+P16AG79fwd6T1Toy2gOtEA=
-github.com/dlclark/regexp2/v2 v2.5.0/go.mod h1:avUrQvPaLz2DrFNHJF0taWAFFX2C1GMSSoeiqFjcBmU=
+github.com/dlclark/regexp2/v2 v2.5.1 h1:E5Ug7Dh264W1ymdySmiHNcDG7fmsR307APCE5R07a20=
+github.com/dlclark/regexp2/v2 v2.5.1/go.mod h1:avUrQvPaLz2DrFNHJF0taWAFFX2C1GMSSoeiqFjcBmU=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/gabriel-vasile/mimetype v1.1.1/go.mod h1:6CDPel/o/3/s4+bp6kIbsWATq8pmgOisOPG40CJa6To=
@@ -54,8 +54,8 @@ github.com/shabbyrobe/xmlwriter v0.0.0-20251128030032-2fcb52763289 h1:ZvRi1p3w5L
 github.com/shabbyrobe/xmlwriter v0.0.0-20251128030032-2fcb52763289/go.mod h1:tKYSeHyJGYz7eoZMlzrRDQSfdYPYt0UduMr8b97Mmaw=
 github.com/tealeg/xlsx/v3 v3.3.13 h1:Zk1Stj11MGRnOYI1st6av/Z2lIXp/jFZomrSWSeJLmY=
 github.com/tealeg/xlsx/v3 v3.3.13/go.mod h1:KV4FTFtvGy0TBlOivJLZu/YNZk6e0Qtk7eOSglWksuA=
-github.com/tiktoken-go/tokenizer v0.8.0 h1:drHWno2Zx3eAm/hk/LmvBKXPpSImB7BRyh/ru4+3Q7Y=
-github.com/tiktoken-go/tokenizer v0.8.0/go.mod h1:pTmPz4r14MV3JkUGAmAcdLdYhSxN68MCjrP+EoxBdx0=
+github.com/tiktoken-go/tokenizer v0.8.1 h1:4obDoB6/dhdBt9xMweX4nww5cjdOq/nYF4ecwPq2+mg=
+github.com/tiktoken-go/tokenizer v0.8.1/go.mod h1:eLA0t6nGvn9mDc7gt90qt7pMat+gE9ViqwQ6l9B+tA4=
 golang.org/x/net v0.57.0 h1:K5+3DljvIuDG9/Jv9rvyMywYNFCQ9RSUY6OOTTkT+tE=
 golang.org/x/net v0.57.0/go.mod h1:KpXc8iv+r3XplLAG/f7Jsf9RPszJzdR0f58q9vGOuEU=
 golang.org/x/sys v0.0.0-20220310020820-b874c991c1a5/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
