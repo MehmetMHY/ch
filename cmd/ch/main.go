@@ -64,11 +64,13 @@ func main() {
 		continueFlag   = flag.Bool("c", false, "Continue from latest session")
 		clearFlag      = flag.Bool("clear", false, "Clear latest session")
 		historyFlag    = flag.Bool("a", false, "Search and load previous sessions")
+		fetchFlag      = flag.Bool("f", false, "Fetch a session into interactive mode (file name, path, or fzf pick)")
 	)
 	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file, or piped stdin if no file is given")
 	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
 	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
 	flag.BoolVar(historyFlag, "hs", false, "Search and load previous sessions")
+	flag.BoolVar(fetchFlag, "fetch", false, "Fetch a session into interactive mode (file name, path, or fzf pick)")
 	flag.BoolVar(exportCodeFlag, "export", false, "Export code blocks from the last response")
 
 	noHistoryFlag := flag.Bool("n", false, "Disable session saving for this run")
@@ -382,8 +384,89 @@ func main() {
 		finalModel = *modelFlag
 	}
 
-	// Handle continue flag BEFORE platform initialization
+	// Handle -f / --fetch flag: load a session by name/path or via fzf, then
+	// fall through to interactive mode (or direct query if a prompt follows).
 	sessionRestored := false
+	if *fetchFlag {
+		var session *types.SessionFile
+		var err error
+
+		if len(remainingArgs) > 0 {
+			// File-load branch requires session saving to be enabled.
+			if !state.Config.EnableSessionSave {
+				terminal.PrintError("session save feature is disabled in config")
+				return
+			}
+
+			sessionArg := remainingArgs[0]
+			var resolvedPath string
+
+			if strings.Contains(sessionArg, string(filepath.Separator)) {
+				// Has slashes: treat as a literal path.
+				resolvedPath = sessionArg
+			} else {
+				// Bare name: resolve against the temp session directory.
+				tmpDir, dirErr := config.GetTempDir()
+				if dirErr != nil {
+					terminal.PrintError(fmt.Sprintf("failed to get temp directory: %v", dirErr))
+					return
+				}
+				resolvedPath = filepath.Join(tmpDir, sessionArg)
+			}
+
+			if _, statErr := os.Stat(resolvedPath); statErr != nil {
+				terminal.PrintError(fmt.Sprintf("session file not found: %s", sessionArg))
+				return
+			}
+
+			session, err = chatManager.LoadCustomHistoryFile(resolvedPath)
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("%v", err))
+				return
+			}
+
+			// Consume the file argument so the rest can act as a prompt.
+			remainingArgs = remainingArgs[1:]
+		} else {
+			// No argument: fzf pick across saved sessions.
+			if !state.Config.SaveAllSessions {
+				terminal.PrintError("session search requires save_all_sessions to be enabled in config")
+				return
+			}
+
+			session, err = chatManager.SearchSessions(terminal, nil)
+			if err != nil {
+				terminal.PrintError(fmt.Sprintf("%v", err))
+				return
+			}
+		}
+
+		chatManager.RestoreSessionState(session)
+		chatManager.ForkSessionOnNextSave()
+		sessionRestored = true
+
+		// Override the final platform and model with session values.
+		finalPlatform = session.Platform
+		finalModel = session.Model
+
+		// Print session restoration message in red.
+		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
+
+		// Print the entire conversation history.
+		for _, entry := range session.ChatHistory {
+			if entry.User == state.Config.SystemPrompt {
+				continue // Skip system prompt
+			}
+			if entry.User != "" {
+				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+			}
+			if entry.Bot != "" {
+				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
+			}
+		}
+	}
+
+	// Handle continue flag BEFORE platform initialization
 	if *continueFlag {
 		// Check if session save is enabled in config
 		if !state.Config.EnableSessionSave {

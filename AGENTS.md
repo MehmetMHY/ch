@@ -146,7 +146,8 @@ Complete flag reference:
 | `-c`                 | `--continue`       | Continue from the latest session (or a specific session file if a valid path is given as the first remaining arg) |
 | `--clear`            |                    | Clear all temp files (requires `enable_session_save=true`)                                                        |
 | `-a`                 | `-hs`, `--history` | Search and load previous sessions (requires `save_all_sessions=true`)                                             |
-| `-n`                 | `--no-history`     | Disable session saving for this run                                                                               |
+| `-f [file]`          | `--fetch`          | Fetch a session into interactive mode by bare name, path, or fzf pick (no arg)                                    |
+| `-n`                 | `--no-history`     | Disable session saving for this run                                                                              |
 | `-d dir`             |                    | Generate a codedump file for the given directory (required non-empty argument)                                    |
 | `-p [platform]`      |                    | Switch platform (leave empty for interactive fzf selection)                                                       |
 | `-m model`           |                    | Specify model to use                                                                                              |
@@ -166,6 +167,7 @@ Important current behavior:
 - `-d` is a string flag and requires a non-empty directory path argument to trigger; do not document it as optional unless the parser is changed.
 - `-c` requires `enable_session_save=true`. If the first remaining arg is a valid file path, it loads that file as the session instead of the latest.
 - `-a`, `-hs`, and `--history` require `save_all_sessions=true`.
+- `-f`/`--fetch` loads a session and falls through to interactive mode (or direct query if a prompt follows). With a bare name (no slashes) it resolves against `~/.ch/tmp/`; with a path containing slashes it treats it as a literal path. The file-load branch requires `enable_session_save=true`; the no-arg fzf branch requires `save_all_sessions=true`. If the file does not exist, it errors with `session file not found: <arg>`. Every `-f` load calls `ForkSessionOnNextSave` so the original session file is preserved when `save_all_sessions=true` and the session changes.
 - `-n` and `--no-history` are linked after parsing via `flag.Lookup`.
 - `-l`, `-s`, and `-w` all accept comma-separated or pipe-delimited lists to load/scrape/search multiple targets at once.
 - Piped stdin (`cat file | ch "query"`) is supported. Piped content is combined with positional arguments before being sent to the model.

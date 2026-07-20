@@ -334,6 +334,12 @@ ch -a 1w                           # filter sessions from the last week
 ch -a 1776500000-1776542796        # filter sessions by epoch range
 ch -a ch_session_latest.json       # load a specific session file directly
 ch --clear                         # clear temporary files and sessions when session saving is enabled
+
+# fetch a session into interactive mode
+ch -f ch_session_1783572299.json   # load session by bare name (resolved from ~/.ch/tmp/)
+ch -f /path/to/session.json        # load session by full path
+ch -f                              # fzf pick from saved sessions (requires save_all_sessions=true)
+ch -f session.json "query"         # load session then send a single query
 ```
 
 ### Interactive Commands

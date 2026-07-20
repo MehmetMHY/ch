@@ -299,3 +299,240 @@ func TestTokenCountFlag(t *testing.T) {
 		t.Fatalf("-t with a missing file should fail with a clear error, got:\n%s", out)
 	}
 }
+
+// writeChConfig writes a minimal config.json under the given home directory.
+func writeChConfig(t *testing.T, home string, config map[string]interface{}) {
+	t.Helper()
+	chDir := filepath.Join(home, ".ch")
+	if err := os.MkdirAll(chDir, 0700); err != nil {
+		t.Fatalf("failed to create .ch dir: %v", err)
+	}
+	data, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("failed to marshal config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(chDir, "config.json"), data, 0600); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+}
+
+// writeSessionFile writes a session JSON file under ~/.ch/tmp/ in the given home.
+func writeSessionFile(t *testing.T, home string, filename string, session types.SessionFile) {
+	t.Helper()
+	tmpDir := filepath.Join(home, ".ch", "tmp")
+	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+		t.Fatalf("failed to create tmp dir: %v", err)
+	}
+	data, err := json.Marshal(session)
+	if err != nil {
+		t.Fatalf("failed to marshal session: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, filename), data, 0600); err != nil {
+		t.Fatalf("failed to write session file: %v", err)
+	}
+}
+
+// runWithPreparedHome runs the ch binary with a pre-configured temp home,
+// allowing files (config, sessions) to be written before execution.
+func runWithPreparedHome(t *testing.T, binPath string, home string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(binPath, args...)
+	cmd.Env = filteredEnv(os.Environ(), map[string]string{
+		"HOME":                home,
+		"USERPROFILE":         home,
+		"CH_DEFAULT_PLATFORM": "openai",
+		"CH_DEFAULT_MODEL":    "gpt-5.4-mini",
+	}, "OPENAI_API_KEY")
+	out, _ := cmd.CombinedOutput()
+	return string(out)
+}
+
+func TestFetchFlagBareName(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	writeChConfig(t, home, map[string]interface{}{
+		"enable_session_save": true,
+	})
+
+	session := types.SessionFile{
+		Timestamp: 1783572299,
+		Platform:  "openai",
+		Model:     "gpt-5.4-mini",
+		ChatHistory: []types.ChatHistory{
+			{User: "hello from saved session"},
+			{User: "what is 2+2", Bot: "4"},
+		},
+	}
+	writeSessionFile(t, home, "ch_session_1783572299.json", session)
+
+	out := runWithPreparedHome(t, binPath, home, "-f", "ch_session_1783572299.json")
+
+	if !strings.Contains(out, "hello from saved session") {
+		t.Fatalf("-f with bare name should print session history, got:\n%s", out)
+	}
+	if !strings.Contains(out, "what is 2+2") {
+		t.Fatalf("-f with bare name should print user message, got:\n%s", out)
+	}
+	if !strings.Contains(out, "4") {
+		t.Fatalf("-f with bare name should print bot response, got:\n%s", out)
+	}
+	if !strings.Contains(out, "ch_session_1783572299.json") {
+		t.Fatalf("-f should print session filename, got:\n%s", out)
+	}
+	if !strings.Contains(out, "OPENAI_API_KEY") {
+		t.Fatalf("-f should fall through to platform init, got:\n%s", out)
+	}
+}
+
+func TestFetchFlagFullPath(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	writeChConfig(t, home, map[string]interface{}{
+		"enable_session_save": true,
+	})
+
+	session := types.SessionFile{
+		Timestamp: 1783572299,
+		Platform:  "openai",
+		Model:     "gpt-5.4-mini",
+		ChatHistory: []types.ChatHistory{
+			{User: "full path session content"},
+		},
+	}
+	fullPath := filepath.Join(home, ".ch", "tmp", "ch_session_1783572299.json")
+	writeSessionFile(t, home, "ch_session_1783572299.json", session)
+
+	out := runWithPreparedHome(t, binPath, home, "-f", fullPath)
+
+	if !strings.Contains(out, "full path session content") {
+		t.Fatalf("-f with full path should print session history, got:\n%s", out)
+	}
+	if !strings.Contains(out, "OPENAI_API_KEY") {
+		t.Fatalf("-f should fall through to platform init, got:\n%s", out)
+	}
+}
+
+func TestFetchFlagFileNotFound(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	writeChConfig(t, home, map[string]interface{}{
+		"enable_session_save": true,
+	})
+
+	out := runWithPreparedHome(t, binPath, home, "-f", "ch_session_nonexistent.json")
+
+	if !strings.Contains(out, "session file not found: ch_session_nonexistent.json") {
+		t.Fatalf("-f with missing file should error clearly, got:\n%s", out)
+	}
+}
+
+func TestFetchFlagLiteralPathNotFound(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	writeChConfig(t, home, map[string]interface{}{
+		"enable_session_save": true,
+	})
+
+	missingPath := filepath.Join(home, "missing", "session.json")
+
+	out := runWithPreparedHome(t, binPath, home, "-f", missingPath)
+
+	if !strings.Contains(out, "session file not found") {
+		t.Fatalf("-f with missing literal path should error clearly, got:\n%s", out)
+	}
+}
+
+func TestFetchFlagRequiresEnableSessionSave(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	// Config without enable_session_save (defaults to false).
+	writeChConfig(t, home, map[string]interface{}{
+		"default_model": "gpt-5.4-mini",
+	})
+
+	session := types.SessionFile{
+		Timestamp: 1783572299,
+		Platform:  "openai",
+		Model:     "gpt-5.4-mini",
+		ChatHistory: []types.ChatHistory{
+			{User: "should not load"},
+		},
+	}
+	writeSessionFile(t, home, "ch_session_1783572299.json", session)
+
+	out := runWithPreparedHome(t, binPath, home, "-f", "ch_session_1783572299.json")
+
+	if !strings.Contains(out, "session save feature is disabled in config") {
+		t.Fatalf("-f with file arg should require enable_session_save, got:\n%s", out)
+	}
+	if strings.Contains(out, "should not load") {
+		t.Fatalf("-f should not load session when feature is disabled, got:\n%s", out)
+	}
+}
+
+func TestFetchFlagNoArgRequiresSaveAllSessions(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	// enable_session_save=true but save_all_sessions=false.
+	writeChConfig(t, home, map[string]interface{}{
+		"enable_session_save": true,
+	})
+
+	out := runWithPreparedHome(t, binPath, home, "-f")
+
+	if !strings.Contains(out, "session search requires save_all_sessions to be enabled in config") {
+		t.Fatalf("-f with no arg should require save_all_sessions, got:\n%s", out)
+	}
+}
+
+func TestFetchFlagNoArgNoSessions(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	writeChConfig(t, home, map[string]interface{}{
+		"enable_session_save": true,
+		"save_all_sessions":   true,
+	})
+
+	out := runWithPreparedHome(t, binPath, home, "-f")
+
+	if !strings.Contains(out, "no sessions found") {
+		t.Fatalf("-f with no sessions should report no sessions found, got:\n%s", out)
+	}
+}
+
+func TestFetchFlagFollowUpPrompt(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	writeChConfig(t, home, map[string]interface{}{
+		"enable_session_save": true,
+	})
+
+	session := types.SessionFile{
+		Timestamp: 1783572299,
+		Platform:  "openai",
+		Model:     "gpt-5.4-mini",
+		ChatHistory: []types.ChatHistory{
+			{User: "prior exchange"},
+		},
+	}
+	writeSessionFile(t, home, "ch_session_1783572299.json", session)
+
+	out := runWithPreparedHome(t, binPath, home, "-f", "ch_session_1783572299.json", "follow up query")
+
+	if !strings.Contains(out, "prior exchange") {
+		t.Fatalf("-f with prompt should still print loaded session history, got:\n%s", out)
+	}
+	// Should reach platform init (and fail without API key) rather than
+	// entering interactive mode.
+	if !strings.Contains(out, "OPENAI_API_KEY") {
+		t.Fatalf("-f with prompt should fall through to direct query / platform init, got:\n%s", out)
+	}
+}
