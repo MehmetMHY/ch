@@ -23,8 +23,10 @@ import (
 
 // Manager handles chat operations
 type Manager struct {
-	state           *types.AppState
-	platformManager *platform.Manager
+	state               *types.AppState
+	platformManager     *platform.Manager
+	forkSessionOnSave   bool
+	forkSessionBaseline string
 }
 
 // NewManager creates a new chat manager
@@ -200,6 +202,17 @@ func (m *Manager) ExportLastResponse() (string, error) {
 
 // SaveSessionState saves the current session state to a file with epoch timestamp
 func (m *Manager) SaveSessionState() error {
+	if m.forkSessionOnSave && m.state.Config.SaveAllSessions {
+		if m.sessionSaveFingerprint() == m.forkSessionBaseline {
+			return nil
+		}
+
+		m.state.SessionFilePath = ""
+		m.state.SessionStartTime = 0
+		m.forkSessionOnSave = false
+		m.forkSessionBaseline = ""
+	}
+
 	fullPath, err := m.PrepareSessionFilePath()
 	if err != nil {
 		return err
@@ -252,11 +265,47 @@ func (m *Manager) PrepareSessionFilePath() (string, error) {
 		if m.state.SessionStartTime == 0 {
 			m.state.SessionStartTime = time.Now().Unix()
 		}
-		filename = fmt.Sprintf("ch_session_%d.json", m.state.SessionStartTime)
+
+		for {
+			filename = fmt.Sprintf("ch_session_%d.json", m.state.SessionStartTime)
+			fullPath := filepath.Join(tmpDir, filename)
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				m.state.SessionFilePath = fullPath
+				return m.state.SessionFilePath, nil
+			} else if err != nil {
+				return "", fmt.Errorf("failed to check session file: %v", err)
+			}
+			m.state.SessionStartTime++
+		}
 	}
 
 	m.state.SessionFilePath = filepath.Join(tmpDir, filename)
 	return m.state.SessionFilePath, nil
+}
+
+// ForkSessionOnNextSave makes a restored history continue into a new
+// timestamped session after it changes, preserving the loaded source file.
+func (m *Manager) ForkSessionOnNextSave() {
+	if !m.state.Config.SaveAllSessions {
+		return
+	}
+	m.forkSessionOnSave = true
+	m.forkSessionBaseline = m.sessionSaveFingerprint()
+}
+
+func (m *Manager) sessionSaveFingerprint() string {
+	session := types.SessionFile{
+		Platform:    m.state.Config.CurrentPlatform,
+		Model:       m.state.Config.CurrentModel,
+		BaseURL:     m.state.Config.CurrentBaseURL,
+		ChatHistory: m.state.ChatHistory,
+	}
+
+	data, err := json.Marshal(session)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 // CurrentSessionFileName returns the display name for the current session file.

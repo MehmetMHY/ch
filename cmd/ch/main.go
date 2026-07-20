@@ -1113,6 +1113,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 		// Restore the session
 		chatManager.RestoreSessionState(session)
+		chatManager.ForkSessionOnNextSave()
 
 		// Populate readline history with the loaded session's user prompts
 		if rl != nil {

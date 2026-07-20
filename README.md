@@ -96,7 +96,7 @@ ch "What are the key features of Go programming language?"
 - **Smart Model Sorting**: Model lists are sorted newest-first using API-provided timestamps, with alphabetical fallback for platforms that don't provide them
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Session Continuation**: Automatically save and restore sessions to continue conversations later
-- **Session History Search**: Search and load any previous session from history with fuzzy or exact matching. Supports time-based filters (1d, 1w, 1m, 1y), epoch ranges, and direct session file loading.
+- **Session History Search**: Search and load any previous session from history with fuzzy or exact matching. Supports time-based filters (1d, 1w, 1m, 1y), epoch ranges, and direct session file loading. In interactive mode with `save_all_sessions=true`, continuing a loaded session forks it into a new timestamped session file so the original history remains unchanged.
 - **Code Dump**: Package entire directories for AI analysis (text and document files only)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
@@ -351,7 +351,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!o`** - select from all models
 - **`!p`** - switch platforms
 - **`!l [dir]`** - load files/dirs
-- **`!a [filter]`** - search and load sessions (filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>)
+- **`!a [filter]`** - search and load sessions (filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>). With `save_all_sessions=true`, new messages after `!a` are saved to a new forked session file instead of overwriting the loaded one.
 - **`!x`** / **`!`** - record shell session; run a command with `!x cmd`, `! cmd`, or `!cmd` (no space)
 - **`!!x`** / **`!!`** - record shell session (output not saved to history); run a command with `!!x cmd`, `!! cmd`, or `!!cmd` (no space)
 - **`!s [url]`** - scrape URL(s) or from history

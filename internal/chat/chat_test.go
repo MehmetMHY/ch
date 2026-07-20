@@ -375,6 +375,163 @@ func TestManager_RestoreSessionStatePreservesSourceFile(t *testing.T) {
 	}
 }
 
+func TestManager_ForkSessionOnNextSaveSkipsUnchangedSession(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	tmpDir := filepath.Join(tempHome, ".ch", "tmp")
+	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+		t.Fatalf("could not create temp dir: %v", err)
+	}
+
+	sourceFile := filepath.Join(tmpDir, "ch_session_123.json")
+	session := types.SessionFile{
+		Timestamp: 123,
+		Platform:  "groq",
+		Model:     "llama3",
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},
+			{User: "Q", Bot: "A"},
+		},
+	}
+	sourceData, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		t.Fatalf("could not marshal source session: %v", err)
+	}
+	if err := os.WriteFile(sourceFile, sourceData, 0600); err != nil {
+		t.Fatalf("could not write source session: %v", err)
+	}
+	session.SourceFile = sourceFile
+
+	state := &types.AppState{
+		Config: &types.Config{
+			CurrentPlatform: "openai",
+			CurrentModel:    "gpt-4o",
+			SystemPrompt:    "S",
+			SaveAllSessions: true,
+		},
+	}
+	m := NewManager(state)
+	m.RestoreSessionState(&session)
+	m.ForkSessionOnNextSave()
+
+	if err := m.SaveSessionState(); err != nil {
+		t.Fatalf("SaveSessionState() error: %v", err)
+	}
+
+	matches, err := filepath.Glob(filepath.Join(tmpDir, "ch_session_*.json"))
+	if err != nil {
+		t.Fatalf("Glob() error: %v", err)
+	}
+	if len(matches) != 1 || matches[0] != sourceFile {
+		t.Fatalf("expected only original session file, got %v", matches)
+	}
+}
+
+func TestManager_ForkSessionOnNextSaveCreatesNewFileAfterChange(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	tmpDir := filepath.Join(tempHome, ".ch", "tmp")
+	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+		t.Fatalf("could not create temp dir: %v", err)
+	}
+
+	sourceFile := filepath.Join(tmpDir, "ch_session_123.json")
+	session := types.SessionFile{
+		Timestamp: 123,
+		Platform:  "groq",
+		Model:     "llama3",
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},
+			{User: "Q", Bot: "A"},
+		},
+	}
+	sourceData, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		t.Fatalf("could not marshal source session: %v", err)
+	}
+	if err := os.WriteFile(sourceFile, sourceData, 0600); err != nil {
+		t.Fatalf("could not write source session: %v", err)
+	}
+	session.SourceFile = sourceFile
+
+	state := &types.AppState{
+		Config: &types.Config{
+			CurrentPlatform: "openai",
+			CurrentModel:    "gpt-4o",
+			SystemPrompt:    "S",
+			SaveAllSessions: true,
+		},
+	}
+	m := NewManager(state)
+	m.RestoreSessionState(&session)
+	m.ForkSessionOnNextSave()
+	m.AddToHistory("Q2", "A2")
+
+	if err := m.SaveSessionState(); err != nil {
+		t.Fatalf("SaveSessionState() error: %v", err)
+	}
+
+	if state.SessionFilePath == sourceFile {
+		t.Fatalf("expected forked session path, got original %q", sourceFile)
+	}
+	if filepath.Base(state.SessionFilePath) == "ch_session_123.json" {
+		t.Fatalf("expected forked session filename, got %q", state.SessionFilePath)
+	}
+
+	gotSourceData, err := os.ReadFile(sourceFile)
+	if err != nil {
+		t.Fatalf("could not read source session: %v", err)
+	}
+	if string(gotSourceData) != string(sourceData) {
+		t.Fatalf("expected original session file to remain unchanged")
+	}
+
+	newData, err := os.ReadFile(state.SessionFilePath)
+	if err != nil {
+		t.Fatalf("could not read forked session: %v", err)
+	}
+	var forked types.SessionFile
+	if err := json.Unmarshal(newData, &forked); err != nil {
+		t.Fatalf("could not parse forked session: %v", err)
+	}
+	last := forked.ChatHistory[len(forked.ChatHistory)-1]
+	if last.User != "Q2" || last.Bot != "A2" {
+		t.Fatalf("expected forked session to include new exchange, got %+v", last)
+	}
+}
+
+func TestManager_PrepareSessionFilePath_AllSessionsSkipsExistingTimestamp(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	tmpDir := filepath.Join(tempHome, ".ch", "tmp")
+	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+		t.Fatalf("could not create temp dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "ch_session_1783568531.json"), []byte("{}"), 0600); err != nil {
+		t.Fatalf("could not write existing session: %v", err)
+	}
+
+	state := &types.AppState{
+		Config:           &types.Config{SaveAllSessions: true},
+		SessionStartTime: 1783568531,
+	}
+	m := NewManager(state)
+
+	path, err := m.PrepareSessionFilePath()
+	if err != nil {
+		t.Fatalf("PrepareSessionFilePath() error: %v", err)
+	}
+	if got := filepath.Base(path); got != "ch_session_1783568532.json" {
+		t.Errorf("expected next available timestamped session file, got %q", got)
+	}
+}
+
 func TestFormatSessionSearchPreview(t *testing.T) {
 	preview := formatSessionSearchPreview("/tmp/ch_session_1783572416.json", 1783572299, "user", "Loaded: ch_session_1783572299.json")
 
