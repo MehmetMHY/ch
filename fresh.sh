@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 
-# Self-contained test of the real `curl | bash` installer from the README.
-#
-# Builds a minimal fresh-machine image (Ubuntu + Go only, everything else left
-# for install.sh to install itself), runs the real install command from the
-# README inside a throwaway container, and reports pass/fail. The Dockerfile is
-# embedded below so this is the only file you need.
-#
-#   ./fresh.sh
+# This script is a self-contained integration test for Ch's curl-based install method. It builds a minimal Ubuntu Docker image with a basic setup, installs Ch using curl, and then verifies that Ch was installed correctly. This ensures that the curl-based install method continues to work as Ch evolves over time.
 
 set -uo pipefail
 
@@ -15,12 +8,6 @@ IMAGE_NAME="ch-install-test"
 GO_VERSION="1.26.5"
 INSTALL_URL="https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh"
 
-# Minimal fresh-machine Dockerfile, streamed to `docker build -` via stdin.
-# Only Go 1.26.5+, git, and curl are pre-installed (what install.sh assumes
-# already exists). fzf, yt-dlp, tesseract, the ch binary, and the
-# /usr/local/bin symlink are all installed by install.sh at runtime, exactly
-# as they would be for a real user. No build context is needed since the
-# Dockerfile copies nothing from the host.
 echo "==> Building fresh-machine test image..."
 if ! docker build -t "$IMAGE_NAME" - <<DOCKERFILE; then
 FROM ubuntu:24.04
