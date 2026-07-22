@@ -336,7 +336,15 @@ func writeSessionFile(t *testing.T, home string, filename string, session types.
 // allowing files (config, sessions) to be written before execution.
 func runWithPreparedHome(t *testing.T, binPath string, home string, args ...string) string {
 	t.Helper()
+	return runWithPreparedHomeDir(t, binPath, home, "", args...)
+}
+
+func runWithPreparedHomeDir(t *testing.T, binPath string, home string, dir string, args ...string) string {
+	t.Helper()
 	cmd := exec.Command(binPath, args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	cmd.Env = filteredEnv(os.Environ(), map[string]string{
 		"HOME":                home,
 		"USERPROFILE":         home,
@@ -408,6 +416,44 @@ func TestFetchFlagFullPath(t *testing.T) {
 
 	if !strings.Contains(out, "full path session content") {
 		t.Fatalf("-f with full path should print session history, got:\n%s", out)
+	}
+	if !strings.Contains(out, "OPENAI_API_KEY") {
+		t.Fatalf("-f should fall through to platform init, got:\n%s", out)
+	}
+}
+
+func TestFetchFlagBareNameFromCurrentDirectory(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+	workDir := t.TempDir()
+
+	writeChConfig(t, home, map[string]interface{}{
+		"enable_session_save": true,
+	})
+
+	session := types.SessionFile{
+		Timestamp: 1784674737,
+		Platform:  "openai",
+		Model:     "gpt-5.4-mini",
+		ChatHistory: []types.ChatHistory{
+			{User: "current directory session content"},
+		},
+	}
+	data, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal session: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workDir, "index_ch_dump_1784674737_5.json"), data, 0600); err != nil {
+		t.Fatalf("failed to write current directory session file: %v", err)
+	}
+
+	out := runWithPreparedHomeDir(t, binPath, home, workDir, "-f", "index_ch_dump_1784674737_5.json")
+
+	if !strings.Contains(out, "current directory session content") {
+		t.Fatalf("-f with bare current-directory file should print session history, got:\n%s", out)
+	}
+	if !strings.Contains(out, "index_ch_dump_1784674737_5.json") {
+		t.Fatalf("-f should print current-directory session filename, got:\n%s", out)
 	}
 	if !strings.Contains(out, "OPENAI_API_KEY") {
 		t.Fatalf("-f should fall through to platform init, got:\n%s", out)

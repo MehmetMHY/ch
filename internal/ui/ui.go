@@ -126,7 +126,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %-18s %s\n", "-c, --continue", "continue from latest session")
 	fmt.Printf("  %-18s %s\n", "--clear", "clear all tmp files")
 	fmt.Printf("  %-18s %s\n", "-a, -hs, --history", "search sessions (supports filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>)")
-	fmt.Printf("  %-18s %s\n", "-f, --fetch [file]", "fetch session into interactive mode (bare name, path, or fzf pick)")
+	fmt.Printf("  %-18s %s\n", "-f, --fetch [file]", "fetch session into interactive mode (cwd file, temp name, path, or fzf pick)")
 	fmt.Printf("  %-18s %s\n", "-n, --no-history", "disable session saving for this run")
 	fmt.Printf("  %-18s %s\n", "-d dir", "generate codedump")
 	fmt.Printf("  %-18s %s\n", "-p [platform]", "switch platform")

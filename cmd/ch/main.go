@@ -405,13 +405,18 @@ func main() {
 				// Has slashes: treat as a literal path.
 				resolvedPath = sessionArg
 			} else {
-				// Bare name: resolve against the temp session directory.
-				tmpDir, dirErr := config.GetTempDir()
-				if dirErr != nil {
-					terminal.PrintError(fmt.Sprintf("failed to get temp directory: %v", dirErr))
-					return
+				// Bare name: prefer a file in the current directory, then fall
+				// back to the temp session directory for saved-session names.
+				if _, statErr := os.Stat(sessionArg); statErr == nil {
+					resolvedPath = sessionArg
+				} else {
+					tmpDir, dirErr := config.GetTempDir()
+					if dirErr != nil {
+						terminal.PrintError(fmt.Sprintf("failed to get temp directory: %v", dirErr))
+						return
+					}
+					resolvedPath = filepath.Join(tmpDir, sessionArg)
 				}
-				resolvedPath = filepath.Join(tmpDir, sessionArg)
 			}
 
 			if _, statErr := os.Stat(resolvedPath); statErr != nil {
