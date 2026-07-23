@@ -1743,11 +1743,10 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 		return fmt.Errorf("error getting tokenizer: %v", err)
 	}
 
-	tokens, _, err := enc.Encode(totalContent)
+	tokenCount, err := enc.Count(totalContent)
 	if err != nil {
-		return fmt.Errorf("error encoding text: %v", err)
+		return fmt.Errorf("error counting tokens: %v", err)
 	}
-	tokenCount := len(tokens)
 
 	// Print the state
 	combinedDateTime := currentDate + " " + currentTime
@@ -1775,7 +1774,7 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 }
 
 func handleTokenCount(filePath string, model string, terminal *ui.Terminal, state *types.AppState, pipedInput string) error {
-	var content []byte
+	var content string
 	sourceLabel := filePath
 
 	if filePath != "" {
@@ -1789,9 +1788,9 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 		if err != nil {
 			return fmt.Errorf("error reading file: %v", err)
 		}
-		content = data
+		content = string(data)
 	} else if pipedInput != "" {
-		content = []byte(pipedInput)
+		content = pipedInput
 		sourceLabel = "stdin"
 	} else {
 		return fmt.Errorf("no file specified and no piped input available")
@@ -1827,21 +1826,21 @@ func handleTokenCount(filePath string, model string, terminal *ui.Terminal, stat
 		return fmt.Errorf("error getting tokenizer: %v", err)
 	}
 
-	// Encode and count tokens
-	tokens, _, err := enc.Encode(string(content))
+	// Count tokens without materializing the token slice
+	tokenCount, err := enc.Count(content)
 	if err != nil {
-		return fmt.Errorf("error encoding text: %v", err)
+		return fmt.Errorf("error counting tokens: %v", err)
 	}
 
 	// Print results with colors matching the project's style
 	if state.Config.IsPipedOutput {
 		fmt.Printf("%s %s\n", "file:", sourceLabel)
 		fmt.Printf("%s %s\n", "model:", targetModel)
-		fmt.Printf("%s %d\n", "tokens:", len(tokens))
+		fmt.Printf("%s %d\n", "tokens:", tokenCount)
 	} else {
 		fmt.Printf("\033[96m%s\033[0m %s\n", "file:", sourceLabel)
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", targetModel)
-		fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", len(tokens))
+		fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", tokenCount)
 	}
 
 	return nil

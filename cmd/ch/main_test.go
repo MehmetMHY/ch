@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -265,6 +266,25 @@ func TestCLIUtilityAndExportFlags(t *testing.T) {
 	}
 }
 
+// extractTokenCount parses the "tokens: <n>" line from `-t` output and
+// returns the numeric count. It works for both the colored and piped forms.
+func extractTokenCount(out string) int {
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		idx := strings.Index(line, "tokens:")
+		if idx < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(line[idx+len("tokens:"):])
+		n, err := strconv.Atoi(rest)
+		if err != nil {
+			return -1
+		}
+		return n
+	}
+	return -1
+}
+
 func TestTokenCountFlag(t *testing.T) {
 	binPath := testBinPath
 
@@ -280,6 +300,9 @@ func TestTokenCountFlag(t *testing.T) {
 	if !strings.Contains(out, tokenFile) {
 		t.Fatalf("-t with a file path should report that file as the source, got:\n%s", out)
 	}
+	if n := extractTokenCount(out); n != 4 {
+		t.Fatalf("-t file token count for known fixture: expected 4, got %d (out=%q)", n, out)
+	}
 
 	out = runWithTempHomeStdin(t, binPath, "hello from piped stdin", "-t")
 	if !strings.Contains(out, "tokens:") {
@@ -287,6 +310,9 @@ func TestTokenCountFlag(t *testing.T) {
 	}
 	if !strings.Contains(out, "stdin") {
 		t.Fatalf("-t with piped stdin and no file should report stdin as the source, got:\n%s", out)
+	}
+	if n := extractTokenCount(out); n != 5 {
+		t.Fatalf("-t stdin token count for known input: expected 5, got %d (out=%q)", n, out)
 	}
 
 	out = runWithTempHome(t, binPath, "-t")
