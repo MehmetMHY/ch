@@ -503,12 +503,16 @@ Supported AWS Bedrock regions: US East (N. Virginia, Ohio), US West (Oregon), As
 
 The project website is hosted on **[GitHub Pages](https://docs.github.com/en/pages)** at: https://mehmetmhy.github.io/ch/
 
-The website source is located in the [`docs/`](./docs/) directory. To run the website locally, run the following commands:
+The website source is located in the [`docs/`](./docs/) directory. To run the website locally, you need Python 3 installed. Run the server with either of the following commands:
 
 ```bash
 cd docs
-./run.sh
+./run.py
+# or
+python3 run.py
 ```
+
+The server starts on port `8000` by default. If that port is taken, it automatically tries the next available port up to `8099`. Press `Ctrl+C` or `Ctrl+D` to stop the server.
 
 ## Development
 

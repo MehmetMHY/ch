@@ -22,6 +22,7 @@ Primary entry points:
 - `install.sh` - install/build/test/version maintenance script.
 - `fresh.sh` - self-contained script that tests the real `curl | bash` installer on a clean Ubuntu image via Docker (embedded Dockerfile, no build context).
 - `docs/` - static website files (HTML, CSS, JS, assets).
+- `docs/run.py` - local static website server with browser launch and Ctrl+C/Ctrl+D cleanup handling.
 - `README.md` - user-facing feature and usage documentation.
 
 ## Safety Rules
