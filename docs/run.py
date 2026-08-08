@@ -5,6 +5,7 @@ from pathlib import Path
 import webbrowser
 import threading
 import functools
+import argparse
 import signal
 import sys
 import os
@@ -99,6 +100,18 @@ def make_server(handler):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        prog="run.py",
+        description="Local dev server for the E&F Group Inc. website.",
+    )
+    parser.add_argument(
+        "-n",
+        "--no-open",
+        action="store_true",
+        help="do not open the browser automatically on start",
+    )
+    args = parser.parse_args()
+
     site_dir = Path(__file__).resolve().parent
     handler = functools.partial(LocalPreviewHandler, directory=str(site_dir))
 
@@ -124,7 +137,8 @@ def main():
     print(f"Starting HTTP server on {url}")
     print("Press Ctrl+C or Ctrl+D to stop the server")
     print(f"Serving {site_dir} at {url}")
-    webbrowser.open(url)
+    if not args.no_open:
+        webbrowser.open(url)
 
     try:
         while True:

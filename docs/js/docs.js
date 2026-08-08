@@ -64,7 +64,7 @@ function fetchWithTimeout(url, timeout = DOCS_TIMEOUT_MS) {
 
 function showDocsLoading() {
   document.getElementById("docs-content").innerHTML =
-    '<p style="text-align: center; color: var(--secondary-text);">Loading documentation...</p>';
+    '<p style="text-align: left; color: var(--secondary-text);">Loading documentation...</p>';
 }
 
 function showDocsError(isTimeout = false, isRetrying = false) {
