@@ -1581,7 +1581,7 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 		if len(matches) > 0 {
 			srtContent, readErr := os.ReadFile(matches[0])
 			if readErr == nil {
-				result.WriteString(string(srtContent))
+				result.WriteString(compactSRT(string(srtContent)))
 			}
 			// Clean up temp files
 			for _, match := range matches {

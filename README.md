@@ -417,7 +417,7 @@ AI-suggested filenames are disabled by default. Set `ai_name_enable` to `true` i
 
 - Supports regular web pages and YouTube videos
 - Extracts clean text content from web pages using a built-in parser
-- YouTube videos include metadata and subtitle extraction via yt-dlp
+- YouTube videos include metadata and subtitle extraction via yt-dlp. Subtitles are compacted (cue numbers, milliseconds, and blank lines stripped; `>>` speaker markers preserved) to reduce token usage without losing transcript content.
 - Multiple URL support: `!s https://site1.com https://site2.com`
 - Interactive URL selection: When called without arguments (`!s`), scans chat history for all URLs, removes duplicates, and presents them via fzf for multi-selection with tab key
 - Integrated with file loading: `ch -l https://example.com`
@@ -448,7 +448,7 @@ The `-s` and `-w` flags in the terminal CLI are used for web content interaction
 - Function: Scrapes content from the specified URL.
 - Supports scraping normal web pages and YouTube videos.
 - For normal web pages, it fetches and extracts clean text content from the HTML.
-- For YouTube URLs, it uses `yt-dlp` to extract metadata and subtitles.
+- For YouTube URLs, it uses `yt-dlp` to extract metadata and subtitles. Subtitles are compacted to reduce token usage (cue numbers, milliseconds, and blank lines removed; `>>` speaker markers preserved).
 - The scraped content is printed directly to the terminal.
 
 #### `-w` flag (Web Search)
