@@ -16,6 +16,7 @@ Primary entry points:
 - `internal/chat/util.go` - chat utility helpers (hashing, content manipulation).
 - `internal/ui/ui.go` - terminal helpers, file loading, scraping, web search, clipboard, fzf flows.
 - `internal/ui/util.go` - editor launch helper with fallback.
+- `internal/ui/youtube.go` - SRT subtitle compaction for YouTube scrapes (strips cue numbers, milliseconds, blank lines; preserves `>>` speaker markers).
 - `internal/ui/ocr_cgo.go` - Tesseract OCR image-to-text extraction (CGO builds only).
 - `internal/ui/ocr_nocgo.go` - OCR stub for non-CGO builds (e.g., Android).
 - `pkg/types/types.go` - shared config/state/platform types.
@@ -253,6 +254,99 @@ Important expectations:
 - Optional API key status checks should stay aligned with providers documented in README and configured in `internal/config/config.go`.
 - Be cautious changing dependency installation logic because it invokes package managers and may require sudo.
 
+## Website Assets
+
+`docs/assets/logo.png` is the source of truth. Every other image in `docs/assets/` is derived from it. Do not hand-edit the derived files; change `logo.png` and regenerate.
+
+Derived files:
+
+| File                         | Size        | Derivation                 |
+| ---------------------------- | ----------- | -------------------------- |
+| `favicon-16x16.png`          | 16x16       | full-bleed resize          |
+| `favicon-32x32.png`          | 32x32       | full-bleed resize          |
+| `favicon.ico`                | 16/32/48/64 | full-bleed, multi-size ICO |
+| `apple-touch-icon.png`       | 180x180     | full-bleed resize          |
+| `android-chrome-192x192.png` | 192x192     | full-bleed resize          |
+| `android-chrome-512x512.png` | 512x512     | full-bleed resize          |
+| `thumbnail.png`              | 1220x650    | OG/social card, see below  |
+
+Properties of the mark that the pipeline depends on:
+
+- Strokes are near-black (`#101010`), the interior is opaque near-white (`#FEFEFE`), and only the outer rounded corners are transparent.
+- The interior being opaque (not transparent) is why the mark stays legible on dark grounds without a backing plate.
+
+Icon rules:
+
+- Icons are straight full-bleed resizes. Do not pad, inset, or add a background plate. The transparent corners are intentional and match the previous icon set.
+- The `android-chrome` icons are declared `"purpose": "maskable"` in `docs/site.webmanifest` while being full-bleed, so a launcher may crop the outer edge. This matches the prior icons and is deliberate.
+
+`thumbnail.png` (the `og:image` / `twitter:image` card):
+
+- Ground `#FAF8F4` (warm off-white), ink `#121212`, mark 330px centered on 1220x650.
+- The mark's white interior is remapped to the ground color so only the ink shows. Do this by lerping the mark's own black-to-white luminance ramp onto ink-to-ground, which keeps the antialiased edges clean. A flat color replacement leaves a halo.
+- The ground sits just off pure white on purpose. A pure `#FFFFFF` card has no edge against white chat backgrounds (X, Slack light mode, iMessage) and reads as a floating logo rather than a card.
+
+Regeneration recipe (requires Pillow):
+
+```python
+from PIL import Image
+
+src = Image.open("docs/assets/logo.png").convert("RGBA")
+A = "docs/assets/"
+
+# icons: full-bleed resizes
+for size, name in [
+    (16, "favicon-16x16.png"),
+    (32, "favicon-32x32.png"),
+    (180, "apple-touch-icon.png"),
+    (192, "android-chrome-192x192.png"),
+    (512, "android-chrome-512x512.png"),
+]:
+    img = src.resize((size, size), Image.LANCZOS)
+    img.quantize(colors=128, method=Image.FASTOCTREE).save(A + name, optimize=True)
+
+src.resize((256, 256), Image.LANCZOS).save(
+    A + "favicon.ico", format="ICO", sizes=[(s, s) for s in (16, 32, 48, 64)]
+)
+
+# thumbnail: mark fill remapped to the ground so only the ink shows
+THUMB, MARK = (1220, 650), 330
+BG, INK = (0xFA, 0xF8, 0xF4), (0x12, 0x12, 0x12)
+logo = src.resize((MARK, MARK), Image.LANCZOS)
+lum, alpha = logo.convert("L"), logo.getchannel("A")
+mark = Image.merge(
+    "RGB",
+    [lum.point(lambda v, i=i: round(INK[i] + (BG[i] - INK[i]) * v / 255)) for i in range(3)],
+).convert("RGBA")
+mark.putalpha(alpha)
+card = Image.new("RGBA", THUMB, BG + (255,))
+card.alpha_composite(mark, ((THUMB[0] - MARK) // 2, (THUMB[1] - MARK) // 2))
+card.convert("RGB").save(A + "thumbnail.png", optimize=True)
+```
+
+Gotchas:
+
+- Do not palette-quantize `thumbnail.png`. Quantizing pulls the ground off exact `#FAF8F4` (it lands on `#F9F7F3`). Save it as RGB. The icons quantize fine because they are effectively two tones.
+- Inverting a card to explore colors also inverts the ink and leaves a color cast (an earlier pass produced a `#FDFAFE` ground with a magenta tint). Always rebuild from `logo.png` rather than transforming a previous card.
+- `docs/index.html` declares `og:image:width` 1200 and `og:image:height` 630, but `thumbnail.png` is 1220x650. If you resize the card, update those tags, and vice versa.
+- `og:image`, `twitter:image`, `og:url`, and `canonical` are absolute deployed URLs because link-preview crawlers have no page context to resolve relative paths against. `docs/run.py` rewrites them to the local origin when serving HTML, so local previews use local assets. See "Local Preview Server" below.
+- Nothing in `docs/index.html` references `logo.png` directly, so its file size does not affect page load. It exists as the master art.
+
+## Local Preview Server
+
+`docs/run.py` serves `docs/` on the first free port in 8000-8099 and opens a browser. Stop it with Ctrl+C or Ctrl+D.
+
+It rewrites the deployed origin to the local origin in HTML responses only:
+
+- `site_origin` reads the page's own `<link rel="canonical">` href and uses it as the deployed origin. There is no hardcoded production URL in `run.py`, so changing the domain in `docs/index.html` needs no matching change here.
+- `localize` no-ops when there is no canonical tag, when the canonical href is relative, or when the origin already matches the local one. Non-HTML responses are never touched.
+- `LocalPreviewHandler.send_head` returns the rewritten bytes with a corrected `Content-Length`, so GET and HEAD both stay consistent.
+- Every response gets `Cache-Control: no-store`, which stops browsers from serving stale favicons after the icon set is regenerated.
+
+Why this exists: without the rewrite, a link-preview crawler pointed at localhost reads `og:image` and fetches the deployed image instead of the local one, so asset changes appear to have no effect. Crawlers do not run JavaScript, so the swap has to happen server-side.
+
+When editing `run.py`, keep the rewrite HTML-only and keep `Content-Length` in sync with the rewritten body.
+
 ## Documentation Expectations
 
 README claims should match code behavior exactly. Check especially:
@@ -296,7 +390,7 @@ After completing any non-trivial task, check whether AGENTS.md still reflects re
 
 - The user says something like "good job", "well done", "looks good", "ship it", or any similar sign-off that signals the work is done.
 - A git commit is made.
-- Any of the following change: flags, config fields, platforms, env vars, interactive commands, file structure, or test patterns.
+- Any of the following change: flags, config fields, platforms, env vars, interactive commands, file structure, test patterns, or website assets.
 
 Do not wait to be asked. Treat AGENTS.md as a living document and keep it current as part of finishing a task.
 
