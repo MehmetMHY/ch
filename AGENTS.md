@@ -272,7 +272,7 @@ Derived files:
 
 Properties of the mark that the pipeline depends on:
 
-- Strokes are near-black (`#101010`), the interior is opaque near-white (`#FEFEFE`), and only the outer rounded corners are transparent.
+- Strokes are pure black (`#000000`), the interior is opaque near-white (`#FEFEFE`), and only the outer rounded corners are transparent.
 - The interior being opaque (not transparent) is why the mark stays legible on dark grounds without a backing plate.
 
 Icon rules:
