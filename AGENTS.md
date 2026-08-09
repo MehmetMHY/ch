@@ -260,20 +260,42 @@ Important expectations:
 
 Derived files:
 
-| File                         | Size        | Derivation                 |
-| ---------------------------- | ----------- | -------------------------- |
-| `favicon-16x16.png`          | 16x16       | full-bleed resize          |
-| `favicon-32x32.png`          | 32x32       | full-bleed resize          |
-| `favicon.ico`                | 16/32/48/64 | full-bleed, multi-size ICO |
-| `apple-touch-icon.png`       | 180x180     | full-bleed resize          |
-| `android-chrome-192x192.png` | 192x192     | full-bleed resize          |
-| `android-chrome-512x512.png` | 512x512     | full-bleed resize          |
-| `thumbnail.png`              | 1220x650    | OG/social card, see below  |
+| File                         | Size        | Derivation                                      |
+| ---------------------------- | ----------- | ----------------------------------------------- |
+| `favicon-light.png`          | 32x32       | full-bleed resize, light theme                  |
+| `favicon-light-16x16.png`    | 16x16       | full-bleed resize, light theme                  |
+| `favicon-light.ico`          | 16/32/48/64 | full-bleed, multi-size ICO, light               |
+| `favicon-dark.png`           | 32x32       | pre-inverted full-bleed resize, dark theme      |
+| `favicon-dark-16x16.png`     | 16x16       | pre-inverted full-bleed resize, dark theme      |
+| `favicon-dark.ico`           | 16/32/48/64 | pre-inverted, multi-size ICO, dark              |
+| `favicon-16x16.png`          | 16x16       | full-bleed resize (legacy, unsuffixed)          |
+| `favicon-32x32.png`          | 32x32       | full-bleed resize (legacy, unsuffixed)          |
+| `favicon.ico`                | 16/32/48/64 | full-bleed, multi-size ICO (legacy, unsuffixed) |
+| `apple-touch-icon.png`       | 180x180     | full-bleed resize                               |
+| `android-chrome-192x192.png` | 192x192     | full-bleed resize                               |
+| `android-chrome-512x512.png` | 512x512     | full-bleed resize                               |
+| `thumbnail.png`              | 1220x650    | OG/social card, see below                       |
 
 Properties of the mark that the pipeline depends on:
 
 - Strokes are pure black (`#000000`), the interior is opaque near-white (`#FEFEFE`), and only the outer rounded corners are transparent.
 - The interior being opaque (not transparent) is why the mark stays legible on dark grounds without a backing plate.
+
+Favicon dark-mode behavior:
+
+- The site's dark mode is a JS-driven toggle (`docs/js/main.js` `applyTheme`), not the OS `prefers-color-scheme`. The favicon therefore follows the site theme via JS, not a CSS media query.
+- Favicons are PNG/ICO, not SVG. Chrome reliably updates PNG/ICO favicons on a simple `href` swap but is flaky with SVG favicon updates, so PNG/ICO is used for the theme swap. Do not switch back to SVG for the theme swap; Chrome does not reliably re-render SVG favicons on `href` change.
+- `docs/assets/favicon-light.png` / `favicon-light-16x16.png` / `favicon-light.ico` are the light tab favicons (black strokes on near-white interior, transparent corners).
+- `docs/assets/favicon-dark.png` / `favicon-dark-16x16.png` / `favicon-dark.ico` are the dark tab favicons: same marks but pre-inverted (white strokes on near-black interior, transparent corners). Pixels are inverted at generation time; there is no CSS `filter` dependency.
+- `docs/index.html` defines `window.setFaviconTheme(theme)` in the head, which swaps the `href` of the `id="favicon"`, `id="favicon-small"`, and `id="shortcut-icon"` links to `assets/favicon-${theme}.png?v=4` etc. A tiny head IIFE calls it with the saved/initial theme before `DOMContentLoaded` so dark-mode page loads do not show the light favicon for a noticeable delay. Keep this early path in sync with `initializeTheme`.
+- `docs/js/main.js` `applyTheme` calls `window.setFaviconTheme(theme)` on every toggle.
+- The hrefs include a static `?v=4` query because Chrome caches favicons in a separate favicon database and may ignore ordinary cache clears. Bump `?v=4` to `?v=5` (and update both the head script and `main.js`) if you ever need to force clients past a stale favicon.
+- `docs/site.webmanifest` lists only the maskable `android-chrome` PNG icons (the manifest is for installable/PWA context and does not swap with the theme; the light mark is fine there).
+
+When updating the logo or any favicon source asset:
+
+- Every favicon-derived asset comes in a light/dark pair. If you change `docs/assets/logo.png`, regenerate the full set including both the `favicon-light.*` and `favicon-dark.*` (pre-inverted) variants. The regeneration recipe below handles this; do not regenerate only one theme or the tab favicon will desync between light and dark mode.
+- The `favicon-dark.*` variants are derived by inverting RGB and preserving alpha at generation time, not at runtime. If the logo's stroke or interior colors change, verify the inverted output still reads correctly on a dark tab bar (dark interior should be near-black, strokes near-white, corners still transparent).
 
 Icon rules:
 
@@ -308,6 +330,34 @@ for size, name in [
 src.resize((256, 256), Image.LANCZOS).save(
     A + "favicon.ico", format="ICO", sizes=[(s, s) for s in (16, 32, 48, 64)]
 )
+
+# favicon-light.* + favicon-dark.*: PNG/ICO favicons swapped by JS.
+# The light variants are full-bleed resizes as-is; the dark variants are
+# pre-inverted (RGB inverted, alpha preserved) so dark mode renders correctly
+# without relying on a CSS filter. PNG/ICO is used instead of SVG because
+# Chrome reliably updates PNG/ICO favicons on href swap but is flaky with SVG.
+def _invert(img):
+    r, g, b, a = img.split()
+    return Image.merge("RGBA", [p.point(lambda v: 255 - v) for p in (r, g, b)] + [a])
+
+for size, suffix in [(32, ""), (16, "-16x16")]:
+    light = src.resize((size, size), Image.LANCZOS)
+    light.quantize(colors=128, method=Image.FASTOCTREE).save(
+        A + f"favicon-light{suffix}.png", optimize=True
+    )
+    _invert(light).quantize(colors=128, method=Image.FASTOCTREE).save(
+        A + f"favicon-dark{suffix}.png", optimize=True
+    )
+
+for theme in ("light", "dark"):
+    base = src.resize((64, 64), Image.LANCZOS)
+    if theme == "dark":
+        base = _invert(base)
+    base.save(
+        A + f"favicon-{theme}.ico",
+        format="ICO",
+        sizes=[(s, s) for s in (16, 32, 48, 64)],
+    )
 
 # thumbnail: mark fill remapped to the ground so only the ink shows
 THUMB, MARK = (1220, 650), 330

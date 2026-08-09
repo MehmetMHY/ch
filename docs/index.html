@@ -44,24 +44,55 @@
     <meta name="twitter:image:alt" content="Ch: Lightweight AI CLI Tool" />
 
     <link
+      id="favicon"
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="assets/favicon-light.png?v=4"
+    />
+    <link
+      id="favicon-small"
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="assets/favicon-light-16x16.png?v=4"
+    />
+    <link
       rel="apple-touch-icon"
       sizes="180x180"
       href="assets/apple-touch-icon.png"
     />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="assets/favicon-32x32.png"
-    />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="16x16"
-      href="assets/favicon-16x16.png"
-    />
     <link rel="manifest" href="site.webmanifest" />
-    <link rel="shortcut icon" href="assets/favicon.ico" />
+    <link
+      id="shortcut-icon"
+      rel="shortcut icon"
+      href="assets/favicon-light.ico?v=4"
+    />
+    <script>
+      window.setFaviconTheme = (theme) => {
+        const favicon = document.getElementById("favicon");
+        const faviconSmall = document.getElementById("favicon-small");
+        const shortcutIcon = document.getElementById("shortcut-icon");
+        if (favicon) favicon.href = `assets/favicon-${theme}.png?v=4`;
+        if (faviconSmall)
+          faviconSmall.href = `assets/favicon-${theme}-16x16.png?v=4`;
+        if (shortcutIcon) shortcutIcon.href = `assets/favicon-${theme}.ico?v=4`;
+      };
+
+      (() => {
+        try {
+          const savedTheme = localStorage.getItem("theme") || "light";
+          const prefersDark = window.matchMedia(
+            "(prefers-color-scheme: dark)",
+          ).matches;
+          const theme =
+            savedTheme !== "light" && (savedTheme === "dark" || prefersDark)
+              ? "dark"
+              : "light";
+          window.setFaviconTheme(theme);
+        } catch (_) {}
+      })();
+    </script>
     <link
       rel="preload"
       as="image"

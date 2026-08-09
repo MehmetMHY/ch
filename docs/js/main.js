@@ -25,6 +25,7 @@ export function applyTheme(theme) {
     button.textContent = "dark";
   }
   localStorage.setItem("theme", theme);
+  window.setFaviconTheme(theme);
 }
 
 export function toggleTheme() {
