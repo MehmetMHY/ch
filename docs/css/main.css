@@ -21,6 +21,15 @@ body.dark-mode {
   --terminal-bg: #2a2a2a;
 }
 
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   font-family: var(--font-ui);
   font-size: 18px;
@@ -385,6 +394,9 @@ body.dark-mode .feature {
   .links-container a,
   .theme-toggle {
     margin: 0 4px;
+  }
+  .nav-secondary {
+    display: none;
   }
   .install-command code {
     font-size: 14px;

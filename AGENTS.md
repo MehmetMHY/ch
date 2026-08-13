@@ -288,7 +288,7 @@ Favicon dark-mode behavior:
 - `docs/assets/favicon-light.png` / `favicon-light-16x16.png` / `favicon-light.ico` are the light tab favicons (black strokes on near-white interior, transparent corners).
 - `docs/assets/favicon-dark.png` / `favicon-dark-16x16.png` / `favicon-dark.ico` are the dark tab favicons: same marks but pre-inverted (white strokes on near-black interior, transparent corners). Pixels are inverted at generation time; there is no CSS `filter` dependency.
 - `docs/index.html` defines `window.setFaviconTheme(theme)` in the head, which swaps the `href` of the `id="favicon"`, `id="favicon-small"`, and `id="shortcut-icon"` links to `assets/favicon-${theme}.png?v=4` etc. A tiny head IIFE calls it with the saved/initial theme before `DOMContentLoaded` so dark-mode page loads do not show the light favicon for a noticeable delay. Keep this early path in sync with `initializeTheme`.
-- `docs/js/main.js` `applyTheme` calls `window.setFaviconTheme(theme)` on every toggle.
+- `docs/js/main.js` `applyTheme` calls `window.setFaviconTheme(theme)` on every toggle. The toggle button's text is the static label `theme` in both states (not `dark`/`light`), so the centered nav row width does not shift when the label would otherwise change length.
 - The hrefs include a static `?v=4` query because Chrome caches favicons in a separate favicon database and may ignore ordinary cache clears. Bump `?v=4` to `?v=5` (and update both the head script and `main.js`) if you ever need to force clients past a stale favicon.
 - `docs/site.webmanifest` lists only the maskable `android-chrome` PNG icons (the manifest is for installable/PWA context and does not swap with the theme; the light mark is fine there).
 
@@ -385,6 +385,16 @@ Gotchas:
 ## Local Preview Server
 
 `docs/run.py` serves `docs/` on the first free port in 8000-8099 and opens a browser. Stop it with Ctrl+C or Ctrl+D.
+
+Site UI behavior:
+
+- The main vertical scrollbar is hidden in `docs/css/main.css` via `html { scrollbar-width: none }` and `html::-webkit-scrollbar { display: none }`. Scrolling still works via keyboard, trackpad, and mouse wheel; only the visible gutter is removed.
+- The nav row (`docs/index.html` `.links-container`) is `text-align: center`. On screens `<=768px`, the secondary links `vision`, `install`, and `features` (plus their adjacent `|` separators) are hidden via the `.nav-secondary` class so the row stays on one line and does not wrap. The remaining links `demo`, `docs`, `github`, and the `theme` toggle stay visible. Do not remove the `.nav-secondary` class from these links/`span`s or the mobile nav will wrap again.
+
+Rendered README notes:
+
+- `docs/js/docs.js` wraps markdown tables in `.docs-table-wrap` after Marked renders the README. Keep horizontal table scrolling on the wrapper, not the `table`, so the table layout stays intact and does not leave an empty full-width bordered area.
+- Rendered README code-block copy buttons are vertically centered by `docs/css/docs.css` using absolute positioning within `#docs-content pre`.
 
 It rewrites the deployed origin to the local origin in HTML responses only:
 
