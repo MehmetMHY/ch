@@ -103,8 +103,9 @@ body.dark-mode #docs-content .hljs-number {
 
 .docs-copy-btn {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
   background-color: var(--bg-color);
   color: var(--secondary-text);
   border: 1px solid var(--border-color);
@@ -122,28 +123,32 @@ body.dark-mode #docs-content .hljs-number {
   border-color: var(--text-color);
 }
 
-#docs-content table {
-  border-collapse: collapse;
-  width: 100%;
+.docs-table-wrap {
   margin: 32px 0;
   display: block;
   overflow-x: auto;
   max-width: 100%;
-  border-radius: 0;
   border: 1px solid var(--border-color);
 }
 
-#docs-content table::-webkit-scrollbar {
+.docs-table-wrap::-webkit-scrollbar {
   height: 8px;
 }
 
-#docs-content table::-webkit-scrollbar-track {
+.docs-table-wrap::-webkit-scrollbar-track {
   background: var(--terminal-bg);
 }
 
-#docs-content table::-webkit-scrollbar-thumb {
+.docs-table-wrap::-webkit-scrollbar-thumb {
   background: #ccc;
   border-radius: 0;
+}
+
+#docs-content table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: max-content;
+  margin: 0;
 }
 
 #docs-content th,

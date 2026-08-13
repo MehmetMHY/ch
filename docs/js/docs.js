@@ -24,6 +24,17 @@ function addDocsCopyButtons() {
   });
 }
 
+function wrapDocsTables() {
+  document.querySelectorAll("#docs-content table").forEach((table) => {
+    if (table.parentElement?.classList.contains("docs-table-wrap")) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "docs-table-wrap";
+    table.parentNode.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
+  });
+}
+
 function slugify(text) {
   return text
     .toLowerCase()
@@ -152,6 +163,7 @@ export function loadDocs(isRetry = false) {
         marked.parse(markdown);
       addHeadingIds();
       addDocsCopyButtons();
+      wrapDocsTables();
       fixDocsRelativeLinks();
       document
         .querySelectorAll("#docs-content pre code")

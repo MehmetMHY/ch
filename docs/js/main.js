@@ -19,10 +19,10 @@ export function applyTheme(theme) {
 
   if (theme === "dark") {
     document.body.classList.add("dark-mode");
-    button.textContent = "light";
+    button.textContent = "theme";
   } else {
     document.body.classList.remove("dark-mode");
-    button.textContent = "dark";
+    button.textContent = "theme";
   }
   localStorage.setItem("theme", theme);
   window.setFaviconTheme(theme);
