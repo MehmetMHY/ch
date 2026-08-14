@@ -388,13 +388,14 @@ Gotchas:
 
 Site UI behavior:
 
-- The main vertical scrollbar is hidden in `docs/css/main.css` via `html { scrollbar-width: none }` and `html::-webkit-scrollbar { display: none }`. Scrolling still works via keyboard, trackpad, and mouse wheel; only the visible gutter is removed.
+- The main vertical scrollbar is hidden in `docs/css/main.css` via `html { scrollbar-width: none }` and `html::-webkit-scrollbar { display: none }`. Horizontal page scrolling is disabled at the root (`html` and `body` use `overflow-x: hidden`); wide rendered content must scroll inside its own code/table container instead of widening the page. Scrolling still works via keyboard, trackpad, and mouse wheel; only visible page scroll gutters are removed. Do not remove the root `overflow-x: hidden` or the page will horizontally scroll again on mobile when the rendered README contains wide tables, long links, or large images.
 - The nav row (`docs/index.html` `.links-container`) is `text-align: center`. On screens `<=768px`, the secondary links `vision`, `install`, and `features` (plus their adjacent `|` separators) are hidden via the `.nav-secondary` class so the row stays on one line and does not wrap. The remaining links `demo`, `docs`, `github`, and the `theme` toggle stay visible. Do not remove the `.nav-secondary` class from these links/`span`s or the mobile nav will wrap again.
 
 Rendered README notes:
 
 - `docs/js/docs.js` wraps markdown tables in `.docs-table-wrap` after Marked renders the README. Keep horizontal table scrolling on the wrapper, not the `table`, so the table layout stays intact and does not leave an empty full-width bordered area.
 - Rendered README code-block copy buttons are vertically centered by `docs/css/docs.css` using absolute positioning within `#docs-content pre`.
+- Rendered README images, videos, long links, code blocks, and table wrappers are constrained in `docs/css/docs.css` so mobile screens do not get page-level horizontal scrolling. When adding new rendered-content styling, keep wide elements inside their own `overflow-x: auto` container with `max-width: 100%` / `box-sizing: border-box`; do not let them expand the page width.
 
 It rewrites the deployed origin to the local origin in HTML responses only:
 

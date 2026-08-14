@@ -13,6 +13,17 @@
   margin-top: 30px;
   display: block;
   line-height: 1.7;
+  max-width: 100%;
+}
+
+#docs-content img,
+#docs-content video {
+  max-width: 100%;
+  height: auto;
+}
+
+#docs-content a {
+  overflow-wrap: anywhere;
 }
 
 #docs-content h1,
@@ -32,6 +43,8 @@
   border-radius: 0;
   border: 1px solid var(--border-color);
   overflow-x: auto;
+  max-width: 100%;
+  box-sizing: border-box;
   margin: 24px 0;
   position: relative;
   white-space: pre;
@@ -99,6 +112,7 @@ body.dark-mode #docs-content .hljs-number {
   padding: 0;
   white-space: pre;
   display: block;
+  min-width: max-content;
 }
 
 .docs-copy-btn {
@@ -127,7 +141,9 @@ body.dark-mode #docs-content .hljs-number {
   margin: 32px 0;
   display: block;
   overflow-x: auto;
+  width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--border-color);
 }
 
