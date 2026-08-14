@@ -75,6 +75,7 @@ Security checks:
 - `make install-hooks` configures this checkout to use `.githooks/` (both `pre-commit` and `pre-push`), ensures the hooks are executable, and prints a verification command. Git hooks are local config and must be installed once per clone.
 - `.githooks/pre-commit` runs formatting checks, unit tests, `gosec`, and staged and working-tree Gitleaks scanning before commits.
 - `.githooks/pre-push` runs `make security-vuln` (govulncheck) before pushing. Vulnerability scanning is the slowest local check and its findings do not change between local commits, so it runs on push instead of on every commit to keep commits fast.
+- If `pre-push` fails on stdlib vulnerabilities (not your code or dependencies), it usually means the installed Go toolchain is behind a patch release (e.g. `go1.26.5` has known vulns fixed in `go1.26.6`). Upgrade Go from https://go.dev/dl/ when a newer patch is available. As a last resort, `git push --no-verify` bypasses the hook, but avoid using it as a routine workflow since it skips the security gate.
 - `./install.sh --dev-setup` (or `-d`) is the one-shot maintainer setup: it installs the dev security tools (`gosec`, `gitleaks`, `govulncheck`) and activates the git hooks via `make install-hooks`. Local-repo only.
 - `gitleaks git .` scans committed history, not untracked working-tree files. To test a new secret before commit, stage it and run `make security-secrets-staged`. To scan the current checkout, run `make security-secrets-working`.
 
