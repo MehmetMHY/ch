@@ -96,77 +96,24 @@ func (t *Terminal) runFzfSSHSafe(fzfArgs []string, inputText string) (string, er
 	return strings.TrimSpace(string(content)), nil
 }
 
-// runFzfSSHSafeWithQuery executes fzf with --print-query in a SSH-safe way
-func (t *Terminal) runFzfSSHSafeWithQuery(fzfArgs []string, inputText string) ([]string, error) {
-	content, cancelled, err := t.runFzfCore(fzfArgs, inputText)
-	if err != nil {
-		return nil, err
-	}
-	if cancelled || len(content) == 0 {
-		return []string{}, nil
-	}
-	return strings.Split(strings.TrimRight(string(content), "\n"), "\n"), nil
-}
-
-// runFzfCoreWithQuery runs fzf with --print-query and, unlike runFzfCore,
-// preserves the buffered query output when fzf exits with code 1 (no match).
-// With --print-query, a typed query that matches nothing still prints the
-// query to stdout before exiting 1, so the caller can use it as a custom
-// name. Exit code 130 is treated as cancellation.
-func (t *Terminal) runFzfCoreWithQuery(fzfArgs []string, inputText string) ([]byte, bool, error) {
-	cmd := exec.Command("fzf", fzfArgs...) // #nosec G204 -- fzf arguments are constructed by this program and executed without a shell.
-	cmd.Stdin = strings.NewReader(inputText)
-	var output bytes.Buffer
-	cmd.Stdout = &output
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
-
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		switch exitErr.ExitCode() {
-		case 130:
-			return nil, true, nil // User cancelled (Ctrl-C/Esc)
-		case 1:
-			// No match. With --print-query the typed query is in output, so
-			// do not treat this as cancellation; return the buffer for parsing.
-			return output.Bytes(), false, nil
-		default:
-			return nil, false, fmt.Errorf("fzf failed: %w", err)
-		}
-	} else if err != nil {
-		return nil, false, fmt.Errorf("fzf execution failed: %w", err)
-	}
-
-	return output.Bytes(), false, nil
-}
-
-// FzfSelectWithCustom runs an fzf picker that supports both selecting an
-// existing item and typing a custom name that matches nothing. It uses
-// --print-query. It returns the selected item (if any) and, when nothing was
-// selected but the user typed a query and pressed Enter, that query as
-// customQuery. cancellation returns both empty.
-func (t *Terminal) FzfSelectWithCustom(items []string, prompt string) (selection, customQuery string, err error) {
-	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--print-query"}
+// FzfSelectWithCustom runs an fzf picker for export/codedump filename
+// selection. The caller prepends a ">custom" sentinel to the item list;
+// selecting it signals "prompt for a new name on stdin" (handled by the
+// caller). Pressing Enter selects/overwrites the highlighted list item.
+// A query that matches nothing cancels (fzf exit 1), so new filenames are
+// entered only through the >custom sentinel. Cancellation returns ("", nil).
+func (t *Terminal) FzfSelectWithCustom(items []string, prompt string) (selection string, err error) {
+	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt}
 	inputText := strings.Join(items, "\n")
 
-	content, cancelled, err := t.runFzfCoreWithQuery(fzfArgs, inputText)
+	content, cancelled, err := t.runFzfCore(fzfArgs, inputText)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	if cancelled || len(content) == 0 {
-		return "", "", nil
+		return "", nil
 	}
-
-	lines := strings.Split(strings.TrimRight(string(content), "\n"), "\n")
-	// With --print-query, line 0 is the query and line 1 (if present) is the
-	// selected item.
-	if len(lines) >= 2 && lines[1] != "" {
-		return lines[1], "", nil
-	}
-	if len(lines) >= 1 && lines[0] != "" {
-		return "", lines[0], nil
-	}
-	return "", "", nil
+	return strings.TrimSpace(string(content)), nil
 }
 
 // IsTerminal checks if the input is from a terminal

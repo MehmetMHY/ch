@@ -1027,7 +1027,7 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 		aiNames := m.generateAIFilenameOptions(editedContent, terminal)
 		newFileOptions := m.generateFilenameOptions(editedContent)
 
-		selected, serr := m.selectExportFilename(terminal, aiNames, newFileOptions, ".txt", "save to file: ")
+		selected, serr := m.selectExportFilename(terminal, aiNames, newFileOptions, ".txt", "save to file (>custom=new): ")
 		if serr != nil {
 			return "", serr
 		}
@@ -1185,7 +1185,7 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (str
 		if language == "" || ext == ".txt" {
 			language = "?"
 		}
-		prompt := fmt.Sprintf("[%s %d] save to file: ", language, i+1)
+		prompt := fmt.Sprintf("[%s %d] save to file (>custom=new): ", language, i+1)
 
 		// Generate AI-suggested names and deterministic hash-based options.
 		aiNames := m.generateAIFilenameOptions(snippet.Content, terminal)
@@ -1341,7 +1341,7 @@ func (m *Manager) ExportChatTurn(terminal *ui.Terminal, targetFile string) (stri
 		aiNames := m.generateAIFilenameOptions(editedContent, terminal)
 		suggestedFilenames := m.generateFilenameOptions(editedContent)
 
-		selected, serr := m.selectExportFilename(terminal, aiNames, suggestedFilenames, ".txt", "save to file: ")
+		selected, serr := m.selectExportFilename(terminal, aiNames, suggestedFilenames, ".txt", "save to file (>custom=new): ")
 		if serr != nil {
 			return "", serr
 		}
@@ -1474,12 +1474,12 @@ func (m *Manager) createUnifiedFileOptions(priorityExt string, suggestedFilename
 	return options
 }
 
-// selectExportFilename presents a unified filename picker supporting both
-// selecting an existing/suggested name and entering a custom name. The
-// ">custom" sentinel sits at the top of the list; selecting it prompts for a
-// name on stdin. Typing a name that matches nothing and pressing Enter also
-// creates a file with that name (type-to-create). An existing file selected
-// from the list is returned as-is so the caller overwrites it.
+// selectExportFilename presents a unified filename picker. The ">custom"
+// sentinel sits at the top of the list; selecting it prompts for a name on
+// stdin. Pressing Enter selects/overwrites the highlighted list item (an
+// existing file marked with "[w]" or a suggested new file). A query that
+// matches nothing cancels the export, so new filenames are entered only
+// through the >custom sentinel.
 //
 // aiNames are AI-suggested names (already on top of the unified list). The
 // ">custom" sentinel is prepended above them. priorityExt is the extension
@@ -1496,26 +1496,17 @@ func (m *Manager) selectExportFilename(terminal *ui.Terminal, aiNames, suggested
 	// ">custom" goes first, then AI-suggested names, then the unified list.
 	options := append([]string{">custom"}, append(aiNames, unified...)...)
 
-	selection, customQuery, err := terminal.FzfSelectWithCustom(options, prompt)
+	selection, err := terminal.FzfSelectWithCustom(options, prompt)
 	if err != nil {
 		return "", fmt.Errorf("file selection failed: %v", err)
 	}
-	if selection == "" && customQuery == "" {
+	if selection == "" {
 		return "", fmt.Errorf("export cancelled")
 	}
 
 	// Selecting the >custom sentinel prompts for a name on stdin.
 	if selection == ">custom" {
 		return m.promptCustomFilename(terminal)
-	}
-
-	// A typed query with no match becomes a custom filename.
-	if selection == "" && customQuery != "" {
-		name, serr := SanitizeCustomFilename(customQuery)
-		if serr != nil {
-			return "", fmt.Errorf("invalid filename: %v", serr)
-		}
-		return name, nil
 	}
 
 	// An item from the list was selected (suggested new file or existing file
@@ -1560,8 +1551,8 @@ func (m *Manager) promptCustomFilename(terminal *ui.Terminal) (string, error) {
 
 // SelectExportFilename is the public entry to the filename picker used by the
 // export flows. It is also used by the -b/--build codedump flow so codedump
-// can reuse the same ">custom" + type-to-create + existing-file overwrite
-// picker. aiNames may be nil when no AI-suggested names apply (e.g. codedump).
+// can reuse the same ">custom" + existing-file overwrite picker. aiNames may
+// be nil when no AI-suggested names apply (e.g. codedump).
 func (m *Manager) SelectExportFilename(terminal *ui.Terminal, aiNames, suggestedFilenames []string, priorityExt, prompt string) (string, error) {
 	return m.selectExportFilename(terminal, aiNames, suggestedFilenames, priorityExt, prompt)
 }

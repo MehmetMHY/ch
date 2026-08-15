@@ -12,9 +12,9 @@ Primary entry points:
 - `internal/config/config.go` - default config, config file loading, environment overrides.
 - `internal/config/util.go` - config utility helpers (temp dir, shallow load dir checks).
 - `internal/platform/platform.go` - provider client initialization, model listing, streaming/non-streaming requests.
-- `internal/chat/chat.go` - chat history, sessions, export logic (including `selectExportFilename` and `SelectExportFilename` for the unified `>custom` + type-to-create filename picker), backtracking.
+- `internal/chat/chat.go` - chat history, sessions, export logic (including `selectExportFilename` and `SelectExportFilename` for the `>custom` filename picker), backtracking.
 - `internal/chat/util.go` - chat utility helpers (hashing, content manipulation, `SanitizeCustomFilename`).
-- `internal/ui/ui.go` - terminal helpers, file loading, scraping, web search, clipboard, fzf flows (including `FzfSelectWithCustom` and `runFzfCoreWithQuery` for the `--print-query` type-to-create path; `PrintInlinePrompt` for inline colored prompts).
+- `internal/ui/ui.go` - terminal helpers, file loading, scraping, web search, clipboard, fzf flows (including `FzfSelectWithCustom` for the `>custom` filename picker; `PrintInlinePrompt` for inline colored prompts).
 - `internal/ui/util.go` - editor launch helper with fallback.
 - `internal/ui/youtube.go` - SRT subtitle compaction for YouTube scrapes (strips cue numbers, milliseconds, blank lines; preserves `>>` speaker markers).
 - `internal/ui/ocr_cgo.go` - Tesseract OCR image-to-text extraction (CGO builds only).
@@ -169,10 +169,10 @@ Important current behavior:
 - `-l`, `-s`, and `-w` with an additional prompt should initialize the selected provider and send loaded context plus prompt to the model.
 - `-e` and `--export` with a prompt send the prompt first, then export code blocks from the response.
 - `-e` and `--export` without a prompt export code blocks from existing chat history.
-- Every export filename picker (turn, block, manual, and `-e`/`--export` code blocks) supports custom naming: a `>custom` sentinel at the top of the fzf list prompts for a name on stdin, and typing a name that matches nothing then pressing Enter (type-to-create) uses it directly. A typed name that fuzzy-matches an existing file overwrites it. Custom names are sanitized by stripping `/` only; no extension is auto-appended. `ExportCodeBlocks` now also shows existing directory files (with `[w]` overwrite markers) for consistency with the other export modes.
+- Every export filename picker (turn, block, manual, and `-e`/`--export` code blocks) supports custom naming via a `>custom` sentinel at the top of the fzf list; selecting it prompts for a name on stdin. Pressing Enter selects/overwrites the highlighted list item (existing directory files are shown with `[w]` overwrite markers). A query that matches nothing cancels the export, so new filenames are entered only through `>custom` (the old type-to-create path was removed because fzf's fuzzy match almost always matched something, making it impossible to reliably create a new name). Custom names are sanitized by stripping `/` only; no extension is auto-appended. `ExportCodeBlocks` also shows existing directory files (with `[w]` overwrite markers) for consistency with the other export modes.
 - `!e [file]` in interactive mode strips surrounding `"` and `'` quotes from the filename and runs it through `SanitizeCustomFilename` so `!e "hi.txt"` saves as `hi.txt` (not `"hi.txt"` with literal quotes).
 - `-d`/`--dump` is a string flag and requires a non-empty directory path argument to trigger; do not document it as optional unless the parser is changed.
-- `-b`/`--build` is a string flag taking a directory; an optional positional arg after the dir is the output filename. With no name it opens the fzf filename picker (`>custom` + type-to-create, same as `!e`); with a name it saves directly. The name is sanitized (path separators stripped, empty rejected).
+- `-b`/`--build` is a string flag taking a directory; an optional positional arg after the dir is the output filename. With no name it opens the fzf filename picker (`>custom` for a new name, same as `!e`); with a name it saves directly. The name is sanitized (path separators stripped, empty rejected).
 - `-y`/`--yes` skips all interactive fzf in codedump: the exclude-picker (include all files) and, for `-b` without a name, the filename picker (auto-names like `-d`). Must precede positional args because Go's flag package stops parsing flags at the first non-flag argument.
 - `-c` requires `enable_session_save=true`. If the first remaining arg is a valid file path, it loads that file as the session instead of the latest.
 - `-a`, `-hs`, and `--history` require `save_all_sessions=true`.

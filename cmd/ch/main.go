@@ -309,10 +309,10 @@ func main() {
 			// -y skips all fzf, so auto-name like -d does.
 			filename = generateUniqueCodeDumpFilename(currentDir, codedump)
 		default:
-			// No name and no -y: open the fzf filename picker (same >custom +
-			// type-to-create + existing-file overwrite flow as !e export).
+			// No name and no -y: open the fzf filename picker (same >custom
+			// + existing-file overwrite flow as !e export).
 			suggested := []string{generateUniqueCodeDumpFilename(currentDir, codedump)}
-			picked, perr := chatManager.SelectExportFilename(terminal, nil, suggested, ".txt", "save codedump to: ")
+			picked, perr := chatManager.SelectExportFilename(terminal, nil, suggested, ".txt", "save codedump to (>custom=new): ")
 			if perr != nil {
 				terminal.PrintError(fmt.Sprintf("codedump cancelled: %v", perr))
 				return
