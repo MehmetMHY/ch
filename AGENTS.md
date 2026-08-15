@@ -266,7 +266,7 @@ Important expectations:
 
 ## Website Assets
 
-`docs/assets/logo.png` is the source of truth. Every other image in `docs/assets/` is derived from it. Do not hand-edit the derived files; change `logo.png` and regenerate.
+`docs/assets/logo.png` is the source of truth for square icon assets. `thumbnail.png` is normally regenerated from it too, except when an icon-only padding adjustment intentionally leaves the approved social card unchanged. Do not hand-edit the derived files; change `logo.png` and regenerate.
 
 Derived files:
 
@@ -297,15 +297,16 @@ Favicon dark-mode behavior:
 - Favicons are PNG/ICO, not SVG. Chrome reliably updates PNG/ICO favicons on a simple `href` swap but is flaky with SVG favicon updates, so PNG/ICO is used for the theme swap. Do not switch back to SVG for the theme swap; Chrome does not reliably re-render SVG favicons on `href` change.
 - `docs/assets/favicon-light.png` / `favicon-light-16x16.png` / `favicon-light.ico` are the light tab favicons (black strokes on near-white interior, transparent corners).
 - `docs/assets/favicon-dark.png` / `favicon-dark-16x16.png` / `favicon-dark.ico` are the dark tab favicons: same marks but pre-inverted (white strokes on near-black interior, transparent corners). Pixels are inverted at generation time; there is no CSS `filter` dependency.
-- `docs/index.html` defines `window.setFaviconTheme(theme)` in the head, which swaps the `href` of the `id="favicon"`, `id="favicon-small"`, and `id="shortcut-icon"` links to `assets/favicon-${theme}.png?v=5` etc. A tiny head IIFE calls it with the saved/initial theme before `DOMContentLoaded` so dark-mode page loads do not show the light favicon for a noticeable delay. Keep this early path in sync with `initializeTheme`.
+- `docs/index.html` defines `window.setFaviconTheme(theme)` in the head, which swaps the `href` of the `id="favicon"`, `id="favicon-small"`, and `id="shortcut-icon"` links to `assets/favicon-${theme}.png?v=6` etc. A tiny head IIFE calls it with the saved/initial theme before `DOMContentLoaded` so dark-mode page loads do not show the light favicon for a noticeable delay. Keep this early path in sync with `initializeTheme`.
 - `docs/js/main.js` `applyTheme` calls `window.setFaviconTheme(theme)` on every toggle. The toggle button's text is the static label `theme` in both states (not `dark`/`light`), so the centered nav row width does not shift when the label would otherwise change length.
-- The hrefs include a static `?v=5` query because Chrome caches favicons in a separate favicon database and may ignore ordinary cache clears. Bump it when you need to force clients past a stale favicon.
+- The hrefs include a static `?v=6` query because Chrome caches favicons in a separate favicon database and may ignore ordinary cache clears. Bump it when you need to force clients past a stale favicon.
 - `docs/site.webmanifest` lists only the maskable `android-chrome` PNG icons (the manifest is for installable/PWA context and does not swap with the theme; the light mark is fine there).
 
 When updating the logo or any favicon source asset:
 
 - Every favicon-derived asset comes in a light/dark pair. If you change `docs/assets/logo.png`, regenerate the full set including both the `favicon-light.*` and `favicon-dark.*` (pre-inverted) variants. The regeneration recipe below handles this; do not regenerate only one theme or the tab favicon will desync between light and dark mode.
 - The `favicon-dark.*` variants are derived by inverting RGB and preserving alpha at generation time, not at runtime. If the logo's stroke or interior colors change, verify the inverted output still reads correctly on a dark tab bar (dark interior should be near-black, strokes near-white, corners still transparent).
+- If the square icons need more breathing room but `thumbnail.png` is already approved, scale/pad `logo.png`, regenerate only the square icon family, and leave `thumbnail.png` unchanged.
 
 Icon rules:
 
