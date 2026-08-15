@@ -53,6 +53,7 @@ func main() {
 	var (
 		helpFlag       = flag.Bool("h", false, "Show help")
 		codedumpFlag   = flag.String("d", "", "Generate codedump file (optionally specify directory path)")
+		buildDumpFlag  = flag.String("b", "", "Generate codedump with fzf filename picker or a named file (directory, optional filename)")
 		platformFlag   = flag.String("p", "", "Switch platform (leave empty for interactive selection)")
 		modelFlag      = flag.String("m", "", "Specify model to use")
 		allModelsFlag  = flag.String("o", "", "Specify platform and model (format: platform|model)")
@@ -65,13 +66,17 @@ func main() {
 		clearFlag      = flag.Bool("clear", false, "Clear latest session")
 		historyFlag    = flag.Bool("a", false, "Search and load previous sessions")
 		fetchFlag      = flag.Bool("f", false, "Fetch a session into interactive mode (file name, path, or fzf pick)")
+		yesFlag        = flag.Bool("y", false, "Skip interactive fzf prompts (codedump exclude-picker)")
 	)
 	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file, or piped stdin if no file is given")
+	flag.StringVar(codedumpFlag, "dump", "", "Generate codedump file (optionally specify directory path)")
+	flag.StringVar(buildDumpFlag, "build", "", "Generate codedump with fzf filename picker or a named file (directory, optional filename)")
 	flag.BoolVar(continueFlag, "continue", false, "Continue from latest session")
 	flag.BoolVar(historyFlag, "history", false, "Search and load previous sessions")
 	flag.BoolVar(historyFlag, "hs", false, "Search and load previous sessions")
 	flag.BoolVar(fetchFlag, "fetch", false, "Fetch a session into interactive mode (file name, path, or fzf pick)")
 	flag.BoolVar(exportCodeFlag, "export", false, "Export code blocks from the last response")
+	flag.BoolVar(yesFlag, "yes", false, "Skip interactive fzf prompts (codedump exclude-picker)")
 
 	noHistoryFlag := flag.Bool("n", false, "Disable session saving for this run")
 	flag.Bool("no-history", false, "Disable session saving for this run")
@@ -213,14 +218,13 @@ func main() {
 		return
 	}
 
-	// handle codedump flag
+	// handle codedump flag (-d/--dump): auto-named, pipe-friendly
 	if flag.Lookup("d").Value.String() != flag.Lookup("d").DefValue {
 		targetDir := *codedumpFlag
 		if targetDir == "" {
 			targetDir = "."
 		}
 
-		// Validate directory
 		if !isValidCodedumpDir(targetDir) {
 			if targetDir != "." {
 				terminal.PrintError("invalid directory path or permission denied")
@@ -228,11 +232,10 @@ func main() {
 			}
 		}
 
-		codedump, err := terminal.CodeDumpFromDirForCLI(targetDir)
+		codedump, err := terminal.CodeDumpFromDirForCLI(targetDir, *yesFlag)
 		if err != nil {
-			// Check if user cancelled (Ctrl-C/Ctrl-D during fzf)
 			if strings.Contains(err.Error(), "user cancelled") {
-				return // Exit silently without creating file
+				return
 			}
 			terminal.PrintError(fmt.Sprintf("error generating codedump: %v", err))
 			return
@@ -244,6 +247,79 @@ func main() {
 			return
 		}
 		filename := generateUniqueCodeDumpFilename(currentDir, codedump)
+		err = os.WriteFile(filename, []byte(codedump), 0600)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error writing codedump file: %v", err))
+			return
+		}
+
+		fmt.Println(filename)
+		return
+	}
+
+	// handle build dump flag (-b/--build): codedump with fzf filename picker
+	// or a named output. The directory is the flag value; an optional filename
+	// is the first remaining positional arg:
+	//   ch -b .             -> fzf filename picker
+	//   ch -b . name.txt    -> saves as name.txt
+	if flag.Lookup("b").Value.String() != flag.Lookup("b").DefValue {
+		targetDir := *buildDumpFlag
+		if targetDir == "" {
+			targetDir = "."
+		}
+
+		if !isValidCodedumpDir(targetDir) {
+			if targetDir != "." {
+				terminal.PrintError("invalid directory path or permission denied")
+				return
+			}
+		}
+
+		// An optional filename may be passed as the first remaining arg.
+		var buildName string
+		if len(remainingArgs) > 0 {
+			name, nerr := chat.SanitizeCustomFilename(remainingArgs[0])
+			if nerr != nil {
+				terminal.PrintError(fmt.Sprintf("invalid codedump filename: %v", nerr))
+				return
+			}
+			buildName = name
+		}
+
+		codedump, err := terminal.CodeDumpFromDirForCLI(targetDir, *yesFlag)
+		if err != nil {
+			if strings.Contains(err.Error(), "user cancelled") {
+				return
+			}
+			terminal.PrintError(fmt.Sprintf("error generating codedump: %v", err))
+			return
+		}
+
+		currentDir, err := os.Getwd()
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error getting current directory: %v", err))
+			return
+		}
+
+		var filename string
+		switch {
+		case buildName != "":
+			filename = buildName
+		case *yesFlag:
+			// -y skips all fzf, so auto-name like -d does.
+			filename = generateUniqueCodeDumpFilename(currentDir, codedump)
+		default:
+			// No name and no -y: open the fzf filename picker (same >custom +
+			// type-to-create + existing-file overwrite flow as !e export).
+			suggested := []string{generateUniqueCodeDumpFilename(currentDir, codedump)}
+			picked, perr := chatManager.SelectExportFilename(terminal, nil, suggested, ".txt", "save codedump to: ")
+			if perr != nil {
+				terminal.PrintError(fmt.Sprintf("codedump cancelled: %v", perr))
+				return
+			}
+			filename = picked
+		}
+
 		err = os.WriteFile(filename, []byte(codedump), 0600)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error writing codedump file: %v", err))
@@ -1170,6 +1246,15 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		targetFile := ""
 		if strings.HasPrefix(input, config.ExportChat+" ") {
 			targetFile = strings.TrimSpace(strings.TrimPrefix(input, config.ExportChat+" "))
+			// Strip surrounding quotes (e.g. !e "hi.txt" -> hi.txt) so the
+			// shell-style quoting does not become part of the filename.
+			targetFile = strings.Trim(targetFile, "\"'")
+			// Sanitize: strip path separators so the file stays in cwd.
+			if targetFile != "" {
+				if sanitized, serr := chat.SanitizeCustomFilename(targetFile); serr == nil {
+					targetFile = sanitized
+				}
+			}
 		}
 		err := handleExportChatInteractive(chatManager, terminal, state, targetFile)
 		if err != nil {

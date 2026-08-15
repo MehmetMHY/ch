@@ -86,7 +86,7 @@ ch "What are the key features of Go programming language?"
 - **Unix Piping**: Pipe any command output or file content directly to Ch
 - **Seamless Pipe Output**: Automatically suppresses colors and UI elements when output is piped, perfect for shell pipelines and automation
 - **Smart File Handling**: Load text files, PDFs, Word docs (DOCX/ODT/RTF), spreadsheets (XLSX/CSV), images (with OCR text extraction), and directories
-- **Advanced Export**: Interactive chat export with fzf selection and editor integration
+- **Advanced Export**: Interactive chat export with fzf selection and editor integration, with custom filename support (`>custom` or type-to-create) across all export and codedump flows
 - **AI-Suggested Filenames**: When exporting, the current model proposes short snake_case filenames based on chat context. Configurable and fully optional, with a graceful fallback to the deterministic hash-based names.
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
 - **Session State Viewer**: Check current session details like model, platform, session file, and token usage
@@ -97,7 +97,7 @@ ch "What are the key features of Go programming language?"
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Session Continuation**: Automatically save and restore sessions to continue conversations later
 - **Session History Search**: Search and load any previous session from history with fuzzy or exact matching. Supports time-based filters (1d, 1w, 1m, 1y), epoch ranges, and direct session file loading. In interactive mode with `save_all_sessions=true`, continuing a loaded session forks it into a new timestamped session file so the original history remains unchanged.
-- **Code Dump**: Package entire directories for AI analysis (text and document files only)
+- **Code Dump**: Package entire directories for AI analysis (text and document files only). Use `-b`/`--build` for an interactive fzf filename picker or an explicit name (`ch -b ./src name.txt`); use `-y`/`--yes` to skip all interactive fzf (auto-named, pipe-friendly)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
 - **Thinking/Reasoning Display**: Shows model thinking tokens (reasoning) in gray before the response, supporting `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
@@ -290,6 +290,24 @@ ch -o openai|gpt-4o "Create a REST API in Python"
 ch -e "Write a Python script to sort a list"
 ch --export "Write a Python script to sort a list"
 
+# generate a codedump of a directory (auto-named, prints filename)
+ch -d ./src
+
+# same as above using the long-form flag
+ch --dump ./src
+
+# codedump with fzf filename picker (>custom or type-to-create, same as !e)
+ch -b ./src
+
+# codedump with an explicit output filename
+ch -b ./src my_dump.txt
+
+# codedump skipping all interactive fzf (include all files, auto-named)
+# note: -y must come before positional args due to flag parsing order
+ch -y -d ./src
+ch -y -b ./src
+ch -y -b ./src my_dump.txt
+
 # load and display file content
 ch -l document.pdf
 ch -l document.docx  # or .odt, .rtf
@@ -363,7 +381,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump
-- **`!e [file]`** - export chat(s)
+- **`!e [file]`** - export chat(s). Surrounding quotes (`"`/`'`) are stripped, so `!e "hi.txt"` saves as `hi.txt`
 - **`!y`** - add to clipboard
 - **`cc`** - quick copy latest response
 - **`ctrl+c`** - clear prompt input
@@ -387,9 +405,18 @@ Offers three modes for exporting chat history:
 
 Optional: Provide a filename (`!e output.txt`) to skip the file selection step and save directly to that file.
 
+**Custom Filenames:**
+
+Every filename selection step in the export flows (turn, block, manual, and `-e`/`--export` code blocks) supports entering a custom name in two ways:
+
+- **`>custom`**: Select the `>custom` entry at the top of the fzf list, then type a filename when prompted and press Enter.
+- **Type-to-create**: Just type a name in the fzf prompt and press Enter. If it matches no existing entry, it becomes the filename.
+
+A typed name that fuzzy-matches an existing file selects and overwrites that file, matching fzf's normal behavior. Custom names preserve spaces, uppercase, dots, and dashes as typed; path separators (`/`) are stripped so the file stays in the current directory. No extension is auto-appended, so include one if you want one (e.g. `my notes.txt`). When a filename is passed directly to `!e`, surrounding quotes are stripped (`!e "hi.txt"` saves as `hi.txt`).
+
 **AI-Suggested Filenames:**
 
-When you reach a filename selection step in any `!e` export mode, Ch asks the currently selected model to propose a few short, snake*case filenames that summarize what's being saved. The model receives the full chat history plus the content being exported, so the suggestions are context-aware. AI suggestions appear at the top of the fzf list (always with a `.txt` extension), followed by the regular `ch*<hash>.<ext>` options and existing files in the directory.
+When you reach a filename selection step in any `!e` export mode, Ch asks the currently selected model to propose a few short, `snake_case` filenames that summarize what's being saved. The model receives the full chat history plus the content being exported, so the suggestions are context-aware. AI suggestions appear at the top of the fzf list (always with a `.txt` extension), followed by the regular `ch_<hash>.<ext>` options and existing files in the directory.
 
 Behavior notes:
 

@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -845,24 +846,27 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 
 	for i, match := range matches {
 		code := match[2]
+		language := match[1]
+		if language == "" {
+			language = "text"
+		}
+		priorityExt := m.getLanguageExtension(language)
 
-		// Generate filename options and let user select. AI-suggested names
-		// (if any) sit at the top, followed by the deterministic hash list.
+		// Generate AI-suggested names and deterministic hash-based options.
 		aiNames := m.generateAIFilenameOptions(code, terminal)
-		filenameOptions := append(aiNames, m.generateFilenameOptions(code)...)
+		suggestedFilenames := m.generateFilenameOptions(code)
 
 		prompt := fmt.Sprintf("file %d/%d: ", i+1, len(matches))
-		selectedFilename, err := terminal.FzfSelect(filenameOptions, prompt)
-		if err != nil {
-			return filePaths, fmt.Errorf("filename selection failed: %v", err)
+		selected, serr := m.selectExportFilename(terminal, aiNames, suggestedFilenames, priorityExt, prompt)
+		if serr != nil {
+			// Empty selection skips this file; real errors abort.
+			if strings.Contains(serr.Error(), "export cancelled") {
+				continue
+			}
+			return filePaths, serr
 		}
 
-		if selectedFilename == "" {
-			// User cancelled - skip this file
-			continue
-		}
-
-		filename := selectedFilename
+		filename := selected
 
 		fullPath := filepath.Join(currentDir, filename)
 
@@ -1019,36 +1023,15 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 		// Use the provided target file directly
 		filename = targetFile
 	} else {
-		// Get all files in current directory (including subdirectories)
-		allFiles, err := m.getAllFilesInCurrentDir()
-		if err != nil {
-			return "", fmt.Errorf("failed to get current directory files: %v", err)
-		}
-
-		// Extract loaded files from chat history to prioritize them
-		loadedFiles := m.extractLoadedFilesFromHistory()
-
-		// Generate new filename options
+		// Generate AI-suggested names and deterministic hash-based options.
 		aiNames := m.generateAIFilenameOptions(editedContent, terminal)
 		newFileOptions := m.generateFilenameOptions(editedContent)
 
-		// Create unified list of new and existing files, prioritizing .txt.
-		// AI-suggested names go on top of the unified list.
-		unifiedOptions := append(aiNames, m.createUnifiedFileOptions(".txt", newFileOptions, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)...)
-
-		selectedOption, err := terminal.FzfSelect(unifiedOptions, "save to file: ")
-		if err != nil {
-			return "", fmt.Errorf("file selection failed: %v", err)
+		selected, serr := m.selectExportFilename(terminal, aiNames, newFileOptions, ".txt", "save to file: ")
+		if serr != nil {
+			return "", serr
 		}
-		if selectedOption == "" {
-			return "", fmt.Errorf("export cancelled")
-		}
-
-		if strings.HasPrefix(selectedOption, "[w] ") {
-			filename = strings.TrimPrefix(selectedOption, "[w] ")
-		} else {
-			filename = selectedOption
-		}
+		filename = selected
 	}
 
 	// Save to file
@@ -1195,14 +1178,6 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (str
 	// Step 4 & 5: Get filename and save files for each snippet
 	var savedFiles []string
 
-	// Pre-fetch all files once to avoid doing it in the loop
-	allFiles, err := m.getAllFilesInCurrentDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current directory files: %v", err)
-	}
-	loadedFiles := m.extractLoadedFilesFromHistory()
-	recentlyCreatedFiles := m.state.RecentlyCreatedFiles
-
 	for i := 0; i < len(selectedSnippets); i++ {
 		snippet := selectedSnippets[i]
 		ext := m.getLanguageExtension(snippet.Language)
@@ -1212,28 +1187,20 @@ func (m *Manager) ExportChatBlock(terminal *ui.Terminal, targetFile string) (str
 		}
 		prompt := fmt.Sprintf("[%s %d] save to file: ", language, i+1)
 
-		// Generate new filename options
+		// Generate AI-suggested names and deterministic hash-based options.
 		aiNames := m.generateAIFilenameOptions(snippet.Content, terminal)
 		newFileOptions := m.generatePrioritizedFilenameOptions(snippet.Content, ext)
 
-		// Create unified list of new and existing files. AI-suggested names
-		// stay on top regardless of the snippet's priority extension.
-		unifiedOptions := append(aiNames, m.createUnifiedFileOptions(ext, newFileOptions, allFiles, loadedFiles, recentlyCreatedFiles)...)
-
-		selectedOption, err := terminal.FzfSelect(unifiedOptions, prompt)
-		if err != nil {
-			return "", fmt.Errorf("file selection failed: %v", err)
-		}
-		if selectedOption == "" {
-			continue // User cancelled, skip to next snippet
+		selected, serr := m.selectExportFilename(terminal, aiNames, newFileOptions, ext, prompt)
+		if serr != nil {
+			// Empty selection skips this snippet; real errors abort.
+			if strings.Contains(serr.Error(), "export cancelled") {
+				continue
+			}
+			return "", serr
 		}
 
-		var filename string
-		if strings.HasPrefix(selectedOption, "[w] ") {
-			filename = strings.TrimPrefix(selectedOption, "[w] ")
-		} else {
-			filename = selectedOption
-		}
+		filename := selected
 
 		fullPath := filepath.Join(currentDir, filename)
 		err = os.WriteFile(fullPath, []byte(snippet.Content), 0600)
@@ -1370,32 +1337,15 @@ func (m *Manager) ExportChatTurn(terminal *ui.Terminal, targetFile string) (stri
 		// Use the provided target file directly
 		filename = targetFile
 	} else {
-		// Get filename options
-		allFiles, err := m.getAllFilesInCurrentDir()
-		if err != nil {
-			return "", fmt.Errorf("failed to get current directory files: %v", err)
-		}
-		loadedFiles := m.extractLoadedFilesFromHistory()
+		// Generate AI-suggested names and deterministic hash-based options.
 		aiNames := m.generateAIFilenameOptions(editedContent, terminal)
 		suggestedFilenames := m.generateFilenameOptions(editedContent)
 
-		fileOptions := append(aiNames, m.createUnifiedFileOptions(".txt", suggestedFilenames, allFiles, loadedFiles, m.state.RecentlyCreatedFiles)...)
-
-		// Select filename
-		selectedOption, err := terminal.FzfSelect(fileOptions, "save to file: ")
-		if err != nil {
-			return "", fmt.Errorf("filename selection failed: %v", err)
+		selected, serr := m.selectExportFilename(terminal, aiNames, suggestedFilenames, ".txt", "save to file: ")
+		if serr != nil {
+			return "", serr
 		}
-
-		if selectedOption == "" {
-			return "", fmt.Errorf("export cancelled")
-		}
-
-		if strings.HasPrefix(selectedOption, "[w] ") {
-			filename = strings.TrimPrefix(selectedOption, "[w] ")
-		} else {
-			filename = selectedOption
-		}
+		filename = selected
 	}
 
 	// Save to file
@@ -1522,6 +1472,98 @@ func (m *Manager) createUnifiedFileOptions(priorityExt string, suggestedFilename
 	}
 
 	return options
+}
+
+// selectExportFilename presents a unified filename picker supporting both
+// selecting an existing/suggested name and entering a custom name. The
+// ">custom" sentinel sits at the top of the list; selecting it prompts for a
+// name on stdin. Typing a name that matches nothing and pressing Enter also
+// creates a file with that name (type-to-create). An existing file selected
+// from the list is returned as-is so the caller overwrites it.
+//
+// aiNames are AI-suggested names (already on top of the unified list). The
+// ">custom" sentinel is prepended above them. priorityExt is the extension
+// prioritized by createUnifiedFileOptions.
+func (m *Manager) selectExportFilename(terminal *ui.Terminal, aiNames, suggestedFilenames []string, priorityExt, prompt string) (string, error) {
+	allFiles, err := m.getAllFilesInCurrentDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory files: %v", err)
+	}
+	loadedFiles := m.extractLoadedFilesFromHistory()
+	recentlyCreatedFiles := m.state.RecentlyCreatedFiles
+
+	unified := m.createUnifiedFileOptions(priorityExt, suggestedFilenames, allFiles, loadedFiles, recentlyCreatedFiles)
+	// ">custom" goes first, then AI-suggested names, then the unified list.
+	options := append([]string{">custom"}, append(aiNames, unified...)...)
+
+	selection, customQuery, err := terminal.FzfSelectWithCustom(options, prompt)
+	if err != nil {
+		return "", fmt.Errorf("file selection failed: %v", err)
+	}
+	if selection == "" && customQuery == "" {
+		return "", fmt.Errorf("export cancelled")
+	}
+
+	// Selecting the >custom sentinel prompts for a name on stdin.
+	if selection == ">custom" {
+		return m.promptCustomFilename(terminal)
+	}
+
+	// A typed query with no match becomes a custom filename.
+	if selection == "" && customQuery != "" {
+		name, serr := SanitizeCustomFilename(customQuery)
+		if serr != nil {
+			return "", fmt.Errorf("invalid filename: %v", serr)
+		}
+		return name, nil
+	}
+
+	// An item from the list was selected (suggested new file or existing file
+	// marked with [w] for overwrite).
+	return strings.TrimPrefix(selection, "[w] "), nil
+}
+
+// promptCustomFilename reads a custom filename from stdin. It prints a single
+// inline "filename: " prompt (red label, input on the same line) and
+// re-prompts on an invalid name until one is accepted or the user cancels.
+// It is robust to Ctrl+D (EOF): a partial line typed before EOF is still
+// accepted if valid, and a blank/whitespace-only line cancels.
+func (m *Manager) promptCustomFilename(terminal *ui.Terminal) (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		// Red "filename:" label, then a space, no newline: input is typed
+		// inline on the same line. Plain text when output is piped.
+		terminal.PrintInlinePrompt("filename: ")
+		line, err := reader.ReadString('\n')
+		if err != nil && line == "" {
+			// Nothing typed before EOF/Ctrl+D: clean up the line and cancel.
+			fmt.Println()
+			return "", fmt.Errorf("export cancelled")
+		}
+		// err may be non-nil with a partial line (Ctrl+D without Enter); the
+		// line is still usable if it sanitizes to a valid name.
+		name, serr := SanitizeCustomFilename(line)
+		if serr != nil {
+			if strings.TrimSpace(line) == "" {
+				// Blank line (Enter or trailing EOF on whitespace) cancels.
+				if err != nil {
+					fmt.Println()
+				}
+				return "", fmt.Errorf("export cancelled")
+			}
+			terminal.PrintError(fmt.Sprintf("invalid filename: %v", serr))
+			continue
+		}
+		return name, nil
+	}
+}
+
+// SelectExportFilename is the public entry to the filename picker used by the
+// export flows. It is also used by the -b/--build codedump flow so codedump
+// can reuse the same ">custom" + type-to-create + existing-file overwrite
+// picker. aiNames may be nil when no AI-suggested names apply (e.g. codedump).
+func (m *Manager) SelectExportFilename(terminal *ui.Terminal, aiNames, suggestedFilenames []string, priorityExt, prompt string) (string, error) {
+	return m.selectExportFilename(terminal, aiNames, suggestedFilenames, priorityExt, prompt)
 }
 
 // generatePrioritizedFilenameOptions creates filename options, prioritizing the correct extension.

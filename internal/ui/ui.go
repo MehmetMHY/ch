@@ -108,6 +108,67 @@ func (t *Terminal) runFzfSSHSafeWithQuery(fzfArgs []string, inputText string) ([
 	return strings.Split(strings.TrimRight(string(content), "\n"), "\n"), nil
 }
 
+// runFzfCoreWithQuery runs fzf with --print-query and, unlike runFzfCore,
+// preserves the buffered query output when fzf exits with code 1 (no match).
+// With --print-query, a typed query that matches nothing still prints the
+// query to stdout before exiting 1, so the caller can use it as a custom
+// name. Exit code 130 is treated as cancellation.
+func (t *Terminal) runFzfCoreWithQuery(fzfArgs []string, inputText string) ([]byte, bool, error) {
+	cmd := exec.Command("fzf", fzfArgs...) // #nosec G204 -- fzf arguments are constructed by this program and executed without a shell.
+	cmd.Stdin = strings.NewReader(inputText)
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		switch exitErr.ExitCode() {
+		case 130:
+			return nil, true, nil // User cancelled (Ctrl-C/Esc)
+		case 1:
+			// No match. With --print-query the typed query is in output, so
+			// do not treat this as cancellation; return the buffer for parsing.
+			return output.Bytes(), false, nil
+		default:
+			return nil, false, fmt.Errorf("fzf failed: %w", err)
+		}
+	} else if err != nil {
+		return nil, false, fmt.Errorf("fzf execution failed: %w", err)
+	}
+
+	return output.Bytes(), false, nil
+}
+
+// FzfSelectWithCustom runs an fzf picker that supports both selecting an
+// existing item and typing a custom name that matches nothing. It uses
+// --print-query. It returns the selected item (if any) and, when nothing was
+// selected but the user typed a query and pressed Enter, that query as
+// customQuery. cancellation returns both empty.
+func (t *Terminal) FzfSelectWithCustom(items []string, prompt string) (selection, customQuery string, err error) {
+	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--print-query"}
+	inputText := strings.Join(items, "\n")
+
+	content, cancelled, err := t.runFzfCoreWithQuery(fzfArgs, inputText)
+	if err != nil {
+		return "", "", err
+	}
+	if cancelled || len(content) == 0 {
+		return "", "", nil
+	}
+
+	lines := strings.Split(strings.TrimRight(string(content), "\n"), "\n")
+	// With --print-query, line 0 is the query and line 1 (if present) is the
+	// selected item.
+	if len(lines) >= 2 && lines[1] != "" {
+		return lines[1], "", nil
+	}
+	if len(lines) >= 1 && lines[0] != "" {
+		return "", lines[0], nil
+	}
+	return "", "", nil
+}
+
 // IsTerminal checks if the input is from a terminal
 func (t *Terminal) IsTerminal() bool {
 	fileInfo, _ := os.Stdin.Stat()
@@ -119,7 +180,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("ch - lightweight CLI for AI models")
 	fmt.Println("")
 	fmt.Println("usage:")
-	fmt.Printf("  ch [-h] [-c] [--clear] [-a|-hs] [-f [file]] [-n] [-d dir] [-p [platform]] [-m model] [-o platform|model] [-l file/url] [-w query] [-s url] [-e|--export] [-t file] [query]\n")
+	fmt.Printf("  ch [-h] [-c] [--clear] [-a|-hs] [-f [file]] [-n] [-y] [-d|--dump dir] [-b|--build dir [name]] [-p [platform]] [-m model] [-o platform|model] [-l file/url] [-w query] [-s url] [-e|--export] [-t file] [query]\n")
 	fmt.Println("")
 	fmt.Println("options:")
 	fmt.Printf("  %-18s %s\n", "-h, --help", "show help and exit")
@@ -128,7 +189,9 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %-18s %s\n", "-a, -hs, --history", "search sessions (supports filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>)")
 	fmt.Printf("  %-18s %s\n", "-f, --fetch [file]", "fetch session into interactive mode (cwd file, temp name, path, or fzf pick)")
 	fmt.Printf("  %-18s %s\n", "-n, --no-history", "disable session saving for this run")
-	fmt.Printf("  %-18s %s\n", "-d dir", "generate codedump")
+	fmt.Printf("  %-18s %s\n", "-d, --dump dir", "generate codedump")
+	fmt.Printf("  %-18s %s\n", "-b, --build dir", "codedump with fzf picker or named file (optional 2nd arg)")
+	fmt.Printf("  %-18s %s\n", "-y, --yes", "skip all interactive fzf in codedump (auto-name); put before positionals")
 	fmt.Printf("  %-18s %s\n", "-p [platform]", "switch platform")
 	fmt.Printf("  %-18s %s\n", "-m model", "specify model")
 	fmt.Printf("  %-18s %s\n", "-o platform|model", "specify platform and model")
@@ -417,34 +480,6 @@ func (t *Terminal) FzfMultiSelectForCLI(items []string, prompt string) ([]string
 	return strings.Split(result, "\n"), nil
 }
 
-// FzfSelectOrQuery provides a fuzzy finder interface that allows for selection or custom query input.
-func (t *Terminal) FzfSelectOrQuery(items []string, prompt string) (string, error) {
-	fzfArgs := []string{"--reverse", "--height=40%", "--border", "--prompt=" + prompt, "--print-query"}
-	inputText := strings.Join(items, "\n")
-
-	lines, err := t.runFzfSSHSafeWithQuery(fzfArgs, inputText)
-	if err != nil {
-		return "", err
-	}
-
-	if len(lines) == 0 {
-		return "", nil
-	}
-
-	// If fzf returns a selection, it's on the second line.
-	if len(lines) > 1 && lines[1] != "" {
-		return lines[1], nil
-	}
-
-	// If there's no selection, the query is on the first line.
-	// This handles the case where the user types a URL and hits enter.
-	if lines[0] != "" {
-		return lines[0], nil
-	}
-
-	return "", nil
-}
-
 // PrintSuccess prints a success message
 func (t *Terminal) PrintSuccess(message string) {
 	if t.config.IsPipedOutput {
@@ -469,6 +504,18 @@ func (t *Terminal) PrintInfo(message string) {
 		return // Suppress info messages when piped
 	}
 	fmt.Printf("\033[93m%s\033[0m\n", message)
+}
+
+// PrintInlinePrompt prints an inline prompt label in blue with no trailing
+// newline, so the user's input is typed on the same line (e.g. "filename: ").
+// Blue matches the existing user-input color used for the chat prompt.
+// Suppressed (plain text) when output is piped.
+func (t *Terminal) PrintInlinePrompt(label string) {
+	if t.config.IsPipedOutput {
+		fmt.Print(label)
+		return
+	}
+	fmt.Printf("\033[94m%s\033[0m", label)
 }
 
 // PrintModelSwitch prints model switch confirmation
@@ -1048,8 +1095,11 @@ func (t *Terminal) CodeDumpFromDir(targetDir string) (string, error) {
 	return t.generateCodeDumpFromDir(includedFiles, absDir)
 }
 
-// CodeDumpFromDirForCLI generates a comprehensive code dump for CLI usage with cancellation detection
-func (t *Terminal) CodeDumpFromDirForCLI(targetDir string) (string, error) {
+// CodeDumpFromDirForCLI generates a comprehensive code dump for CLI usage with
+// cancellation detection. When skipExclude is true, the interactive exclude
+// fzf picker is skipped and all discovered files are included (equivalent to
+// selecting ">none" in the picker).
+func (t *Terminal) CodeDumpFromDirForCLI(targetDir string, skipExclude bool) (string, error) {
 	// Convert to absolute path
 	absDir, err := filepath.Abs(targetDir)
 	if err != nil {
@@ -1066,23 +1116,26 @@ func (t *Terminal) CodeDumpFromDirForCLI(targetDir string) (string, error) {
 		return "", fmt.Errorf("no text files found in directory")
 	}
 
-	// Add NONE option at the top of the list
-	fzfOptions := append([]string{">none"}, allFiles...)
+	var excludedItems []string
+	if !skipExclude {
+		// Add NONE option at the top of the list
+		fzfOptions := append([]string{">none"}, allFiles...)
 
-	// Use CLI-specific fzf that detects cancellation
-	excludedItems, err := t.FzfMultiSelectForCLI(fzfOptions, "exclude from dump (tab=multi): ")
-	if err != nil {
-		return "", fmt.Errorf("failed to get exclusions: %v", err)
-	}
-
-	// Filter out the NONE option if selected
-	var filteredExclusions []string
-	for _, item := range excludedItems {
-		if !strings.HasPrefix(item, ">none") {
-			filteredExclusions = append(filteredExclusions, item)
+		// Use CLI-specific fzf that detects cancellation
+		excludedItems, err = t.FzfMultiSelectForCLI(fzfOptions, "exclude from dump (tab=multi): ")
+		if err != nil {
+			return "", fmt.Errorf("failed to get exclusions: %v", err)
 		}
+
+		// Filter out the NONE option if selected
+		var filteredExclusions []string
+		for _, item := range excludedItems {
+			if !strings.HasPrefix(item, ">none") {
+				filteredExclusions = append(filteredExclusions, item)
+			}
+		}
+		excludedItems = filteredExclusions
 	}
-	excludedItems = filteredExclusions
 
 	// Filter out excluded items
 	includedFiles := t.filterExcludedFiles(allFiles, excludedItems)

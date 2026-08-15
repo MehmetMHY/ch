@@ -257,12 +257,79 @@ func TestCLIUtilityAndExportFlags(t *testing.T) {
 		t.Fatalf("--export should be registered, got:\n%s", out)
 	}
 
+	// Codedump flag aliases and the build flag must all be registered.
+	// These do not reach the interactive fzf flow because the directory is
+	// invalid, so they are safe to run without a tty.
+	for _, flagArg := range []string{"--dump", "-b", "--build", "-y", "--yes"} {
+		out = runWithTempHome(t, binPath, flagArg)
+		if strings.Contains(out, "flag provided but not defined") {
+			t.Fatalf("%s should be registered, got:\n%s", flagArg, out)
+		}
+	}
+
+	// The removed --name and --pick flags must no longer be registered.
+	for _, flagArg := range []string{"--name", "--pick"} {
+		out = runWithTempHome(t, binPath, flagArg)
+		if !strings.Contains(out, "flag provided but not defined") {
+			t.Fatalf("%s should no longer be registered, got:\n%s", flagArg, out)
+		}
+	}
+
 	out = runWithTempHome(t, binPath, "-e", "write a code block")
 	if strings.Contains(out, "no chat history available") {
 		t.Fatalf("-e with a prompt should send the prompt before exporting, got:\n%s", out)
 	}
 	if !strings.Contains(out, "OPENAI_API_KEY") {
 		t.Fatalf("-e with a prompt should reach platform initialization in this test, got:\n%s", out)
+	}
+}
+
+// TestCodeDumpYesFlag verifies -y skips the interactive exclude-picker so the
+// codedump runs non-interactively and writes a file without a tty.
+func TestCodeDumpYesFlag(t *testing.T) {
+	binPath := testBinPath
+
+	home := t.TempDir()
+	// Work directory with a couple of source files; the codedump is written
+	// into it so it does not pollute the test process CWD.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("package main\n"), 0600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte("hello\n"), 0600); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+
+	// -d -y on a directory with files must complete without a tty and print
+	// an auto-named codedump filename (ch_cd*.txt). If the exclude-picker ran,
+	// fzf would hang on stdin and this would time out.
+	out := runWithPreparedHomeDir(t, binPath, home, dir, "-y", "-d", dir)
+	trimmed := strings.TrimSpace(out)
+	if !strings.HasPrefix(trimmed, "ch_cd") || !strings.HasSuffix(trimmed, ".txt") {
+		t.Fatalf("-y -d should print an auto-named codedump filename, got:\n%s", out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, trimmed)); err != nil {
+		t.Fatalf("codedump file %s should exist: %v", trimmed, err)
+	}
+
+	// -b -y with a name should write the named file without any fzf.
+	named := "my_dump.txt"
+	out = runWithPreparedHomeDir(t, binPath, home, dir, "-y", "-b", dir, named)
+	if strings.TrimSpace(out) != named {
+		t.Fatalf("-y -b <name> should print %q, got:\n%s", named, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, named)); err != nil {
+		t.Fatalf("named codedump %s should exist: %v", named, err)
+	}
+
+	// -b -y with no name should auto-name without opening the filename fzf.
+	out = runWithPreparedHomeDir(t, binPath, home, dir, "-y", "-b", dir)
+	trimmed = strings.TrimSpace(out)
+	if !strings.HasPrefix(trimmed, "ch_cd") || !strings.HasSuffix(trimmed, ".txt") {
+		t.Fatalf("-y -b (no name) should auto-name, got:\n%s", out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, trimmed)); err != nil {
+		t.Fatalf("auto-named codedump %s should exist: %v", trimmed, err)
 	}
 }
 

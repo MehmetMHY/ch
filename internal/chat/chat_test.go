@@ -928,3 +928,42 @@ func TestManager_CreateUnifiedFileOptions(t *testing.T) {
 		t.Errorf("createUnifiedFileOptions() = %v, want %v", opts, want)
 	}
 }
+
+// TestSelectExportFilenameListOrder verifies the option list assembled by
+// selectExportFilename puts ">custom" first, AI-suggested names next, then the
+// unified file list. It tests the assembly order without invoking fzf by
+// building the same slice the helper constructs.
+func TestSelectExportFilenameListOrder(t *testing.T) {
+	m := NewManager(&types.AppState{Config: &types.Config{}})
+
+	aiNames := []string{"ai_suggestion_one.txt", "ai_suggestion_two.txt"}
+	suggested := []string{"ch_abc.txt", "ch_abc.go"}
+	allFiles := []string{"existing.txt", "other.go"}
+	loadedFiles := []string{"loaded.txt"}
+	recentFiles := []string{"recent.txt"}
+
+	// Replicate the assembly in selectExportFilename: ">custom" first, then
+	// AI names, then the unified list from createUnifiedFileOptions.
+	unified := m.createUnifiedFileOptions(".txt", suggested, allFiles, loadedFiles, recentFiles)
+	options := append([]string{">custom"}, append(aiNames, unified...)...)
+
+	if len(options) == 0 {
+		t.Fatal("assembled option list is empty")
+	}
+	if options[0] != ">custom" {
+		t.Errorf("expected \">custom\" at index 0, got %q", options[0])
+	}
+	if len(options) < 3 || options[1] != "ai_suggestion_one.txt" || options[2] != "ai_suggestion_two.txt" {
+		t.Errorf("expected AI names at indices 1-2, got %v", options)
+	}
+	// No duplicate ">custom" entries.
+	count := 0
+	for _, o := range options {
+		if o == ">custom" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly one \">custom\" entry, got %d", count)
+	}
+}

@@ -2,7 +2,9 @@ package chat
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
+	"strings"
 )
 
 // GenerateHashFromContent creates a random hash using characters from the content
@@ -38,4 +40,18 @@ func GenerateHashFromContentWithOffset(content string, length, offset int) strin
 	}
 
 	return string(hash)
+}
+
+// SanitizeCustomFilename sanitizes a user-supplied custom filename. It strips
+// path separators so the file stays in the current directory, trims
+// surrounding whitespace, and rejects empty/whitespace-only names. It preserves
+// spaces, uppercase, dots, and dashes so the user's intent is respected.
+func SanitizeCustomFilename(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	name = strings.ReplaceAll(name, "/", "")
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == ".." {
+		return "", fmt.Errorf("invalid filename")
+	}
+	return name, nil
 }

@@ -12,9 +12,9 @@ Primary entry points:
 - `internal/config/config.go` - default config, config file loading, environment overrides.
 - `internal/config/util.go` - config utility helpers (temp dir, shallow load dir checks).
 - `internal/platform/platform.go` - provider client initialization, model listing, streaming/non-streaming requests.
-- `internal/chat/chat.go` - chat history, sessions, export logic, backtracking.
-- `internal/chat/util.go` - chat utility helpers (hashing, content manipulation).
-- `internal/ui/ui.go` - terminal helpers, file loading, scraping, web search, clipboard, fzf flows.
+- `internal/chat/chat.go` - chat history, sessions, export logic (including `selectExportFilename` and `SelectExportFilename` for the unified `>custom` + type-to-create filename picker), backtracking.
+- `internal/chat/util.go` - chat utility helpers (hashing, content manipulation, `SanitizeCustomFilename`).
+- `internal/ui/ui.go` - terminal helpers, file loading, scraping, web search, clipboard, fzf flows (including `FzfSelectWithCustom` and `runFzfCoreWithQuery` for the `--print-query` type-to-create path; `PrintInlinePrompt` for inline colored prompts).
 - `internal/ui/util.go` - editor launch helper with fallback.
 - `internal/ui/youtube.go` - SRT subtitle compaction for YouTube scrapes (strips cue numbers, milliseconds, blank lines; preserves `>>` speaker markers).
 - `internal/ui/ocr_cgo.go` - Tesseract OCR image-to-text extraction (CGO builds only).
@@ -143,23 +143,25 @@ Be careful with the order in `cmd/ch/main.go`.
 
 Complete flag reference:
 
-| Flag                 | Alias              | Description                                                                                                       |
-| -------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `-h`                 | `--help`           | Show help and exit                                                                                                |
-| `-c`                 | `--continue`       | Continue from the latest session (or a specific session file if a valid path is given as the first remaining arg) |
-| `--clear`            |                    | Clear all temp files (requires `enable_session_save=true`)                                                        |
-| `-a`                 | `-hs`, `--history` | Search and load previous sessions (requires `save_all_sessions=true`)                                             |
-| `-f [file]`          | `--fetch`          | Fetch a session into interactive mode by bare name, path, or fzf pick (no arg)                                    |
-| `-n`                 | `--no-history`     | Disable session saving for this run                                                                               |
-| `-d dir`             |                    | Generate a codedump file for the given directory (required non-empty argument)                                    |
-| `-p [platform]`      |                    | Switch platform (leave empty for interactive fzf selection)                                                       |
-| `-m model`           |                    | Specify model to use                                                                                              |
-| `-o platform\|model` |                    | Specify platform and model together (pipe-delimited format)                                                       |
-| `-l file/url`        |                    | Load and display file content (supports comma/pipe-delimited multiple values)                                     |
-| `-w query`           |                    | Web search and print results (supports comma/pipe-delimited multiple queries)                                     |
-| `-s url`             |                    | Scrape a URL and print content (supports comma/pipe-delimited multiple URLs)                                      |
-| `-e`                 | `--export`         | Export code blocks from the last response                                                                         |
-| `-t [file]`          | `--token [file]`   | Estimate token count for a file, or for piped stdin if no file is given                                           |
+| Flag                 | Alias              | Description                                                                                                              |
+| -------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `-h`                 | `--help`           | Show help and exit                                                                                                       |
+| `-c`                 | `--continue`       | Continue from the latest session (or a specific session file if a valid path is given as the first remaining arg)        |
+| `--clear`            |                    | Clear all temp files (requires `enable_session_save=true`)                                                               |
+| `-a`                 | `-hs`, `--history` | Search and load previous sessions (requires `save_all_sessions=true`)                                                    |
+| `-f [file]`          | `--fetch`          | Fetch a session into interactive mode by bare name, path, or fzf pick (no arg)                                           |
+| `-n`                 | `--no-history`     | Disable session saving for this run                                                                                      |
+| `-d dir`             | `--dump`           | Generate a codedump file for the given directory (required non-empty argument)                                           |
+| `-b dir`             | `--build`          | Generate a codedump with fzf filename picker or a named file; an optional positional arg after the dir is the filename   |
+| `-y`                 | `--yes`            | Skip all interactive fzf in codedump (exclude-picker and `-b` filename picker, auto-names). Must precede positional args |
+| `-p [platform]`      |                    | Switch platform (leave empty for interactive fzf selection)                                                              |
+| `-m model`           |                    | Specify model to use                                                                                                     |
+| `-o platform\|model` |                    | Specify platform and model together (pipe-delimited format)                                                              |
+| `-l file/url`        |                    | Load and display file content (supports comma/pipe-delimited multiple values)                                            |
+| `-w query`           |                    | Web search and print results (supports comma/pipe-delimited multiple queries)                                            |
+| `-s url`             |                    | Scrape a URL and print content (supports comma/pipe-delimited multiple URLs)                                             |
+| `-e`                 | `--export`         | Export code blocks from the last response                                                                                |
+| `-t [file]`          | `--token [file]`   | Estimate token count for a file, or for piped stdin if no file is given                                                  |
 
 Important current behavior:
 
@@ -167,7 +169,11 @@ Important current behavior:
 - `-l`, `-s`, and `-w` with an additional prompt should initialize the selected provider and send loaded context plus prompt to the model.
 - `-e` and `--export` with a prompt send the prompt first, then export code blocks from the response.
 - `-e` and `--export` without a prompt export code blocks from existing chat history.
-- `-d` is a string flag and requires a non-empty directory path argument to trigger; do not document it as optional unless the parser is changed.
+- Every export filename picker (turn, block, manual, and `-e`/`--export` code blocks) supports custom naming: a `>custom` sentinel at the top of the fzf list prompts for a name on stdin, and typing a name that matches nothing then pressing Enter (type-to-create) uses it directly. A typed name that fuzzy-matches an existing file overwrites it. Custom names are sanitized by stripping `/` only; no extension is auto-appended. `ExportCodeBlocks` now also shows existing directory files (with `[w]` overwrite markers) for consistency with the other export modes.
+- `!e [file]` in interactive mode strips surrounding `"` and `'` quotes from the filename and runs it through `SanitizeCustomFilename` so `!e "hi.txt"` saves as `hi.txt` (not `"hi.txt"` with literal quotes).
+- `-d`/`--dump` is a string flag and requires a non-empty directory path argument to trigger; do not document it as optional unless the parser is changed.
+- `-b`/`--build` is a string flag taking a directory; an optional positional arg after the dir is the output filename. With no name it opens the fzf filename picker (`>custom` + type-to-create, same as `!e`); with a name it saves directly. The name is sanitized (path separators stripped, empty rejected).
+- `-y`/`--yes` skips all interactive fzf in codedump: the exclude-picker (include all files) and, for `-b` without a name, the filename picker (auto-names like `-d`). Must precede positional args because Go's flag package stops parsing flags at the first non-flag argument.
 - `-c` requires `enable_session_save=true`. If the first remaining arg is a valid file path, it loads that file as the session instead of the latest.
 - `-a`, `-hs`, and `--history` require `save_all_sessions=true`.
 - `-f`/`--fetch` loads a session and falls through to interactive mode (or direct query if a prompt follows). With a bare name (no slashes) it first checks the current directory, then falls back to `~/.ch/tmp/`; with a path containing slashes it treats it as a literal path. The file-load branch requires `enable_session_save=true`; the no-arg fzf branch requires `save_all_sessions=true`. If the file does not exist, it errors with `session file not found: <arg>`. Every `-f` load calls `ForkSessionOnNextSave` so the original session file is preserved when `save_all_sessions=true` and the session changes.
@@ -222,6 +228,9 @@ Patterns already used:
 - `internal/config/config_test.go` uses `t.TempDir()` plus `t.Setenv("HOME", tempHome)` and `t.Setenv("USERPROFILE", tempHome)`.
 - `cmd/ch/main_test.go` builds the `ch` binary once in `TestMain` (with `CGO_ENABLED=0`, since the exec-based flag tests never touch the OCR path) and shares it via the package-level `testBinPath`. Tests run it with temp `HOME`/`USERPROFILE`, unsetting `OPENAI_API_KEY` where needed. Do not reintroduce per-test `go build` calls; reuse `testBinPath`.
 - `cmd/ch/main_test.go` `runWithTempHomeStdin` runs the test binary with a given string piped in as stdin, for flags like `-t` that read from piped input (see `TestTokenCountFlag`).
+- `internal/chat/util_test.go` `TestSanitizeCustomFilename` covers the filename sanitizer (quote/slash stripping, empty rejection, preserving spaces/case).
+- `internal/chat/chat_test.go` `TestSelectExportFilenameListOrder` verifies the `>custom` sentinel sits at index 0, AI names follow, and there is exactly one `>custom` entry.
+- `cmd/ch/main_test.go` `TestCodeDumpYesFlag` verifies `-y` skips the exclude-picker and the `-b` filename picker so codedump runs without a tty (auto-names when no name is given).
 
 If a test needs a config file, write it under the test temp home:
 
