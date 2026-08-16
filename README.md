@@ -558,7 +558,7 @@ Contributor and coding-agent guidance is available in [AGENTS.md](./AGENTS.md).
 - [gosec](https://github.com/securego/gosec) for local security scanning (`go install github.com/securego/gosec/v2/cmd/gosec@latest`)
 - [Gitleaks](https://github.com/gitleaks/gitleaks) for secret scanning (`brew install gitleaks` on macOS)
 - [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) for Go vulnerability scanning (`go install golang.org/x/vuln/cmd/govulncheck@latest`)
-- [Docker](https://www.docker.com/) **(optional)** for `./fresh.sh`, which tests the installer on a clean machine
+- [Docker](https://www.docker.com/) **(optional)** for `./.install_test.sh`, which tests the installer on a clean machine
 - `BRAVE_API_KEY` for web search (see [API Keys](#api-keys))
 - **Clipboard utils (auto-detected)**: [pbcopy](https://ss64.com/mac/pbcopy.html), [xclip](https://github.com/astrand/xclip), [xsel](https://github.com/kfish/xsel), [wl-copy](https://man.archlinux.org/man/wl-copy.1.en), [termux-clipboard-set](https://wiki.termux.com/wiki/Termux-clipboard-set)
 - [Vim](https://www.vim.org/) but [Helix IDE](https://helix-editor.com/) is recommended
@@ -623,10 +623,10 @@ go test -coverprofile=/tmp/cover.out ./... && go tool cover -func=/tmp/cover.out
 Test the installer on a clean machine (requires [Docker](https://www.docker.com/)):
 
 ```bash
-./fresh.sh
+./.install_test.sh
 ```
 
-`fresh.sh` builds a minimal Ubuntu image with only Go pre-installed, then runs the real `curl | bash` install command inside a throwaway container and reports pass/fail. This verifies the end-to-end install flow without touching your own system.
+`.install_test.sh` builds a minimal Ubuntu image with only Go pre-installed, then runs the real `curl | bash` install command inside a throwaway container and reports pass/fail. This verifies the end-to-end install flow without touching your own system.
 
 ### Security Checks
 

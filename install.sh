@@ -155,7 +155,7 @@ ensure_govulncheck() {
 	# falls back to `go run ...@latest` when the binary is absent. Do not abort
 	# a build or dev setup just because this optional tool could not install.
 	if ! go install golang.org/x/vuln/cmd/govulncheck@latest; then
-		warning "Failed to install govulncheck. The pre-push hook will fall back to 'go run govulncheck@latest'."
+		warning "Failed to install govulncheck. ./install.sh --security will fall back to 'go run govulncheck@latest'."
 		return
 	fi
 
