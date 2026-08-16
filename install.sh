@@ -688,16 +688,11 @@ run_security_checks() {
 	done
 
 	echo
-	echo "================ SECURITY SUMMARY ================"
+	echo "======== SECURITY SUMMARY ========"
 	for r in "${results[@]}"; do
-		echo -e "  $r"
+		echo -e "$r"
 	done
-	if [[ $exit_code -eq 0 ]]; then
-		echo -e "status: \033[92mPASS\033[0m"
-	else
-		echo -e "status: \033[91mFAIL\033[0m"
-	fi
-	echo "=================================================="
+	echo "=================================="
 	exit $exit_code
 }
 
@@ -913,20 +908,20 @@ update_version() {
 show_help() {
 	echo "Usage: $0 [OPTIONS]"
 	echo ""
-	echo "Ch setup script for installation, building, and maintenance"
+	echo "Ch installer, builder, & maintainer"
 	echo ""
 	echo "Options:"
-	echo "  -s, --safe-uninstall     Uninstall Ch with confirmation prompt"
-	echo "  -u, --uninstall          Uninstall Ch from the system"
-	echo "  -b, --build              Build Ch locally"
-	echo "  -r, --refresh-deps       Refresh Go dependencies before building"
-	echo "  -v, --version            Update version in Makefile"
-	echo "  -c, --check              Run unit tests and show a pass/fail summary"
-	echo "  -k, --security           Run gosec, gitleaks, and govulncheck with a pass/fail summary"
-	echo "  -d, --dev-setup          Install dev tools (gosec, gitleaks, govulncheck) and activate the fast pre-commit hook"
-	echo "  -h, --help               Show this help message"
+	echo "  -s, --safe-uninstall  uninstall with confirmation"
+	echo "  -u, --uninstall       uninstall immediately"
+	echo "  -b, --build           build locally"
+	echo "  -r, --refresh-deps    refresh deps before build"
+	echo "  -v, --version         update Makefile version"
+	echo "  -c, --check           run tests with summary"
+	echo "  -k, --security        run security scans with summary"
+	echo "  -d, --dev-setup       install dev tools & hooks"
+	echo "  -h, --help            show this help"
 	echo ""
-	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
+	echo "Default behavior: Install Ch from GitHub"
 }
 
 main() {
