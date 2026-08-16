@@ -584,10 +584,10 @@ print_success() {
 		echo -e "A symlink was created at \$PREFIX/bin/ch"
 		echo
 		echo -e "\033[93mImportant:\033[0m"
-		echo -e "- Make sure '\$PREFIX/bin' is in your \$PATH (should default to Termux)"
-		echo -e "- You can check by running: \033[90mecho \$PATH\033[0m"
-		echo -e "- You may need to restart your terminal"
-		echo -e "- Curl/wget installs should remove cloned repo"
+		echo -e "  - Make sure '\$PREFIX/bin' is in your \$PATH (should default to Termux)"
+		echo -e "  - You can check by running: \033[90mecho \$PATH\033[0m"
+		echo -e "  - You may need to restart your terminal"
+		echo -e "  - Curl/wget installs should remove cloned repo"
 	elif [[ "${SYMLINK_SKIPPED:-false}" == true ]]; then
 		echo
 		echo -e "\033[93mTo complete the installation, please add Ch to your PATH:\033[0m"
@@ -600,10 +600,10 @@ print_success() {
 		echo -e "A symlink was created at /usr/local/bin/ch"
 		echo
 		echo -e "\033[93mImportant:\033[0m"
-		echo -e "- Make sure '/usr/local/bin' is in your \$PATH"
-		echo -e "- You can check by running: \033[90mecho \$PATH\033[0m"
-		echo -e "- You may need to restart your terminal"
-		echo -e "- Curl/wget installs should remove cloned repo"
+		echo -e "  - Make sure '/usr/local/bin' is in your \$PATH"
+		echo -e "  - You can check by running: \033[90mecho \$PATH\033[0m"
+		echo -e "  - You may need to restart your terminal"
+		echo -e "  - Curl/wget installs should remove cloned repo"
 	fi
 
 	echo
@@ -850,11 +850,11 @@ update_version() {
 	local major_bump="$((major + 1)).0.0"
 
 	echo "Select the new version:"
-	echo "1) Patch: v$patch_bump"
-	echo "2) Minor: v$minor_bump"
-	echo "3) Major: v$major_bump"
-	echo "4) Stash: $current_version"
-	echo "5) Custom version"
+	echo "  1) Patch:  v$patch_bump"
+	echo "  2) Minor:  v$minor_bump"
+	echo "  3) Major:  v$major_bump"
+	echo "  4) Stash:  $current_version"
+	echo "  5) Custom version"
 
 	local choice
 	choice=$(safe_input "Enter your choice [1-5]: ") || choice=""
@@ -900,9 +900,9 @@ update_version() {
 
 	echo "Version updated to $new_version in Makefile"
 	echo "Next steps:"
-	echo "1) Commit the Makefile changes"
-	echo "2) Build with: make build"
-	echo "3) Release with: make release"
+	echo "  1) Commit the Makefile changes"
+	echo "  2) Build with: make build"
+	echo "  3) Release with: make release"
 }
 
 show_help() {
