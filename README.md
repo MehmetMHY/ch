@@ -563,7 +563,7 @@ Contributor and coding-agent guidance is available in [AGENTS.md](./AGENTS.md).
 - **Clipboard utils (auto-detected)**: [pbcopy](https://ss64.com/mac/pbcopy.html), [xclip](https://github.com/astrand/xclip), [xsel](https://github.com/kfish/xsel), [wl-copy](https://man.archlinux.org/man/wl-copy.1.en), [termux-clipboard-set](https://wiki.termux.com/wiki/Termux-clipboard-set)
 - [Vim](https://www.vim.org/) but [Helix IDE](https://helix-editor.com/) is recommended
 
-Instead of installing gosec, Gitleaks, and govulncheck by hand, you can run `./install.sh --dev-setup` once to install all three security tools and activate the local git hooks in a single step.
+Instead of installing gosec, Gitleaks, and govulncheck by hand, you can run `./install.sh --dev-setup` once to install all three security tools and activate the fast pre-commit hook in a single step.
 
 ### Build from Source
 
@@ -584,7 +584,8 @@ cd ch
 ./install.sh -r -b  # refresh/update all dependencies and build
 ./install.sh -v     # update version in Makefile interactively
 ./install.sh -c     # run unit tests with a pass/fail summary
-./install.sh -d     # dev setup: install security tools and activate git hooks
+./install.sh -k     # run gosec, gitleaks, and govulncheck with a pass/fail summary
+./install.sh -d     # dev setup: install security tools and activate the fast pre-commit hook
 ./install.sh -h     # show help with all options
 
 # using Make directly
@@ -595,7 +596,7 @@ make lint     # run linter
 make fmt      # format code
 make security # run gosec and govulncheck
 make verify   # full gate: fmt, vet, tests, security (portable, CI-agnostic)
-make install-hooks # enable local pre-commit and pre-push checks
+make install-hooks # enable the local pre-commit hook (fmt-check + staged gitleaks)
 make dev      # build and run in dev mode
 ```
 
@@ -654,23 +655,32 @@ make security          # all checks
 make verify            # full gate: fmt-check, vet, tests, and security
 ```
 
-`make verify` bundles the entire quality gate into one portable command. It is intentionally provider-agnostic: any executor (a self-hosted runner, a server-side git hook, or a manual pre-merge check) can run `make verify` without tying the project to a specific CI vendor.
+`make verify` bundles the entire quality gate into one portable command. It is intentionally provider-agnostic: any executor (a self-hosted runner or a manual pre-merge check) can run `make verify` without tying the project to a specific CI vendor.
 
-`make build` runs `security-static` before compiling. To set up local development in one step (install `gosec`, `gitleaks`, and `govulncheck`, then activate the git hooks):
+`make build` runs `security-static` before compiling. To set up local development in one step (install `gosec`, `gitleaks`, and `govulncheck`, then activate the fast pre-commit hook):
 
 ```bash
 ./install.sh --dev-setup
 git config --get core.hooksPath  # should print .githooks
 ```
 
-If you only want to activate the hooks (and already have the tools installed), you can run `make install-hooks` directly instead.
+If you only want to activate the pre-commit hook (and already have the tools installed), you can run `make install-hooks` directly instead.
 
-The checks are split across two hooks to keep commits fast:
+The pre-commit hook runs only fast checks to keep commits snappy (~1s total):
 
-- **pre-commit** runs formatting checks, unit tests, `gosec`, staged-change Gitleaks scanning, and working-tree Gitleaks scanning before allowing a commit.
-- **pre-push** runs `govulncheck` (`make security-vuln`) before allowing a push. Vulnerability scanning is the slowest local check and rarely changes between commits, so it runs on push rather than on every commit.
+- **pre-commit** runs `fmt-check` and staged-change Gitleaks scanning before allowing a commit.
 
-Git hooks are local Git configuration, so they are not activated just by cloning the repository. Run `./install.sh --dev-setup` (or `make install-hooks`) once in each checkout where you want commits to be blocked by the security gate.
+The previous heavy pre-commit checks (unit tests, `gosec`, working-tree Gitleaks) and the pre-push hook (`govulncheck`) have been removed to keep day-to-day development fast. For on-demand deep security checks, run:
+
+```bash
+./install.sh --security
+# or
+./install.sh -k
+```
+
+This runs `gosec`, `gitleaks` (committed history + working tree), and `govulncheck` in sequence and prints a combined pass/fail summary.
+
+Git hooks are local Git configuration, so they are not activated just by cloning the repository. Run `./install.sh --dev-setup` (or `make install-hooks`) once in each checkout where you want commits to be blocked by the fast security gate.
 
 For secret testing, stage the file first and run the staged scanner:
 
@@ -733,7 +743,7 @@ cd ch
 # refresh dependencies and build
 ./install.sh -r -b
 
-# install security tools and activate the pre-commit/pre-push hooks
+# install security tools and activate the fast pre-commit hook
 ./install.sh --dev-setup
 
 make dev

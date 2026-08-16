@@ -62,21 +62,20 @@ make test
 
 `make build` runs `security-static` before compiling and writes `./bin/ch`, which is ignored by git.
 
-`make verify` runs the full portable gate (`fmt-check`, `vet`, `go test -count=1 ./...`, then `make security`). It is provider-agnostic by design: any CI, self-hosted runner, server-side git hook, or manual pre-merge check can run this one command, so the quality gate is never tied to a specific CI vendor.
+`make verify` runs the full portable gate (`fmt-check`, `vet`, `go test -count=1 ./...`, then `make security`). It is provider-agnostic by design: any CI, self-hosted runner, or manual pre-merge check can run this one command, so the quality gate is never tied to a specific CI vendor.
 
 Security checks:
 
 - `make security-static` runs the locally installed `gosec ./...` scanner.
 - `make security-secrets` runs the locally installed `gitleaks git --no-banner --redact .` scanner.
-- `make security-secrets-staged` runs `gitleaks git --no-banner --redact --staged .` for pre-commit checks.
+- `make security-secrets-staged` runs `gitleaks git --no-banner --redact --staged .` for scanning staged changes before a commit (manual or via the pre-commit hook).
 - `make security-secrets-working` runs `gitleaks dir --no-banner --redact .` to catch secrets already present in the current checkout, including rename-only staged changes.
 - `make security-vuln` runs `go mod verify` and govulncheck. It prefers a locally installed `govulncheck` binary (faster, no network resolution) and falls back to `go run golang.org/x/vuln/cmd/govulncheck@latest ./...` when the binary is not present.
 - `make security` runs gosec, committed-history Gitleaks, working-tree Gitleaks, and vulnerability checks.
-- `make install-hooks` configures this checkout to use `.githooks/` (both `pre-commit` and `pre-push`), ensures the hooks are executable, and prints a verification command. Git hooks are local config and must be installed once per clone.
-- `.githooks/pre-commit` runs formatting checks, unit tests, `gosec`, and staged and working-tree Gitleaks scanning before commits.
-- `.githooks/pre-push` runs `make security-vuln` (govulncheck) before pushing. Vulnerability scanning is the slowest local check and its findings do not change between local commits, so it runs on push instead of on every commit to keep commits fast.
-- If `pre-push` fails on stdlib vulnerabilities (not your code or dependencies), it usually means the installed Go toolchain is behind a patch release (e.g. `go1.26.5` has known vulns fixed in `go1.26.6`). Upgrade Go from https://go.dev/dl/ when a newer patch is available. As a last resort, `git push --no-verify` bypasses the hook, but avoid using it as a routine workflow since it skips the security gate.
-- `./install.sh --dev-setup` (or `-d`) is the one-shot maintainer setup: it installs the dev security tools (`gosec`, `gitleaks`, `govulncheck`) and activates the git hooks via `make install-hooks`. Local-repo only.
+- `make install-hooks` configures this checkout to use `.githooks/pre-commit` (the only remaining hook), ensures it is executable, and prints a verification command. Git hooks are local config and must be installed once per clone.
+- `.githooks/pre-commit` runs only fast checks: `fmt-check` and staged-change Gitleaks scanning (~1s total). The previous heavy pre-commit checks (unit tests, gosec, working-tree Gitleaks) and the pre-push hook (govulncheck) have been removed to keep commits fast. Heavy checks are on-demand via `./install.sh --security` (or `-k`), which runs gosec, Gitleaks committed-history + working-tree scans, and govulncheck with a pass/fail summary.
+- `./install.sh --security` (or `-k`) is the on-demand deep security gate. It runs all four checks (`security-static`, `security-secrets`, `security-secrets-working`, `security-vuln`) in sequence and prints a combined PASS/FAIL summary. Local-repo only, guarded against remote/piped installs.
+- `./install.sh --dev-setup` (or `-d`) is the one-shot maintainer setup: it installs the dev security tools (`gosec`, `gitleaks`, `govulncheck`) and activates the fast pre-commit hook via `make install-hooks`. Local-repo only.
 - `gitleaks git .` scans committed history, not untracked working-tree files. To test a new secret before commit, stage it and run `make security-secrets-staged`. To scan the current checkout, run `make security-secrets-working`.
 
 Before committing or handing off, prefer:
@@ -258,8 +257,9 @@ Avoid tests that depend on:
 Important expectations:
 
 - Local repository installs should use the current checkout as-is and should not run `git pull` automatically.
-- Local `./install.sh -b` builds should ensure dev security tools are available because `make build` runs `gosec`; the script installs missing `gosec` via `go install` and handles Gitleaks as a local pre-commit/security dependency.
-- `./install.sh --dev-setup` (`-d`) installs the full dev security toolchain (`gosec`, `gitleaks`, `govulncheck`) and activates the git hooks. It is local-repo only and guarded against remote/piped installs like `-b`, `-c`, `-r`, and `-v`. `install_dev_security_tools` now also installs `govulncheck` via `ensure_govulncheck`.
+- Local `./install.sh -b` builds should ensure dev security tools are available because `make build` runs `gosec`; the script installs missing `gosec` via `go install` and handles Gitleaks as a local security dependency (used by the fast pre-commit hook and `--security`).
+- `./install.sh --dev-setup` (`-d`) installs the full dev security toolchain (`gosec`, `gitleaks`, `govulncheck`) and activates the fast pre-commit hook (fmt-check + staged gitleaks only). It is local-repo only and guarded against remote/piped installs like `-b`, `-c`, `-r`, and `-v`. `install_dev_security_tools` now also installs `govulncheck` via `ensure_govulncheck`.
+- `./install.sh --security` (or `-k`) is the on-demand deep security gate. It runs gosec, Gitleaks committed-history + working-tree scans, and govulncheck with a combined pass/fail summary. Local-repo only, guarded against remote/piped installs.
 - `./fresh.sh` builds a minimal Ubuntu + Go image (Dockerfile embedded in the script) and runs the real `curl | bash` install from README `main` inside a throwaway container, then reports PASS/FAIL. Use it to verify installer changes end-to-end without touching the host. `ensure_govulncheck` is non-fatal on failure since govulncheck is not needed to build and `make security-vuln` falls back to `go run`.
 - `--safe-uninstall` prompts first, but it still removes `~/.ch` including config/history/sessions/temp files.
 - `--uninstall` removes immediately without confirmation.

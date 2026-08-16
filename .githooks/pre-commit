@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
+# Fast pre-commit checks only (~1s total). Heavy checks (gosec, govulncheck,
+# full gitleaks history/working-tree scans) are on-demand via:
+#   ./install.sh --security
 make fmt-check
-go test -count=1 ./...
-make security-static
 make security-secrets-staged
-make security-secrets-working

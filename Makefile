@@ -148,12 +148,16 @@ verify:
 	@$(MAKE) security
 	@echo "All verification checks passed"
 
-## Configure this checkout to use versioned local git hooks
+## Configure this checkout to use versioned local git hooks.
+## Only pre-commit is installed (fast checks: fmt-check + staged gitleaks).
+## Heavy checks (gosec, govulncheck, full gitleaks) are on-demand via:
+##   ./install.sh --security
 install-hooks:
 	@test -f .githooks/pre-commit || { echo ".githooks/pre-commit not found"; exit 1; }
-	@chmod +x .githooks/pre-commit .githooks/pre-push
+	@chmod +x .githooks/pre-commit
 	@git config core.hooksPath .githooks
 	@echo "Git hooks installed from .githooks/ for this checkout"
+	@echo "Pre-commit runs: fmt-check, security-secrets-staged"
 	@echo "Verify with: git config --get core.hooksPath"
 
 ## Download dependencies
@@ -207,7 +211,7 @@ help:
 	@echo "  security    - Run gosec, gitleaks, and govulncheck"
 	@echo "  security-secrets-working - Scan current checkout for secrets"
 	@echo "  verify      - Run the full gate: fmt, vet, tests, security (portable/CI)"
-	@echo "  install-hooks - Enable versioned local git hooks"
+	@echo "  install-hooks - Enable local pre-commit hook (fmt-check + staged gitleaks)"
 	@echo "  deps        - Download and tidy dependencies"
 	@echo "  dev         - Build and run in development mode"
 	@echo "  run         - Build and run with ARGS"

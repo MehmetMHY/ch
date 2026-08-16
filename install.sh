@@ -186,7 +186,8 @@ dev_setup() {
 
 	echo
 	echo -e "\033[92m✓ Dev setup complete!\033[0m"
-	echo -e "Pre-commit and pre-push checks are now active for this checkout."
+	echo -e "Fast pre-commit hook is active: fmt-check + staged gitleaks."
+	echo -e "For deeper security checks (gosec, govulncheck, full gitleaks), run: ./install.sh --security"
 }
 
 detect_os() {
@@ -659,6 +660,47 @@ run_tests() {
 	exit $exit_code
 }
 
+run_security_checks() {
+	check_go
+	if [[ ! -f "Makefile" ]]; then
+		error "Security option requires running from the Ch repository root"
+	fi
+
+	log "running security checks (gosec, gitleaks, govulncheck)..."
+
+	local checks=("security-static" "security-secrets" "security-secrets-working" "security-vuln")
+	local labels=("gosec" "gitleaks:committed-history" "gitleaks:working-tree" "govulncheck")
+	local results=()
+	local exit_code=0
+	local i
+
+	for i in "${!checks[@]}"; do
+		local label="${labels[$i]}"
+		local target="${checks[$i]}"
+		echo
+		echo -e "\033[93m--- ${label} ---\033[0m"
+		if make "$target"; then
+			results+=("\033[92mPASS\033[0m  ${label}")
+		else
+			results+=("\033[91mFAIL\033[0m  ${label}")
+			exit_code=1
+		fi
+	done
+
+	echo
+	echo "================ SECURITY SUMMARY ================"
+	for r in "${results[@]}"; do
+		echo -e "  $r"
+	done
+	if [[ $exit_code -eq 0 ]]; then
+		echo -e "status: \033[92mPASS\033[0m"
+	else
+		echo -e "status: \033[91mFAIL\033[0m"
+	fi
+	echo "=================================================="
+	exit $exit_code
+}
+
 build_only() {
 	log "Building Ch (local build only)..."
 	check_go
@@ -880,7 +922,8 @@ show_help() {
 	echo "  -r, --refresh-deps       Refresh Go dependencies before building"
 	echo "  -v, --version            Update version in Makefile"
 	echo "  -c, --check              Run unit tests and show a pass/fail summary"
-	echo "  -d, --dev-setup          Install dev tools (gosec, gitleaks, govulncheck) and activate git hooks"
+	echo "  -k, --security           Run gosec, gitleaks, and govulncheck with a pass/fail summary"
+	echo "  -d, --dev-setup          Install dev tools (gosec, gitleaks, govulncheck) and activate the fast pre-commit hook"
 	echo "  -h, --help               Show this help message"
 	echo ""
 	echo "Default behavior: Install Ch (downloads from GitHub if needed)"
@@ -927,6 +970,12 @@ main() {
 				error "Check option is only available when running locally from the repository"
 			fi
 			run_tests
+			;;
+		-k | --security)
+			if [[ "$is_remote_install" == true ]]; then
+				error "Security option is only available when running locally from the repository"
+			fi
+			run_security_checks
 			;;
 		-d | --dev-setup)
 			if [[ "$is_remote_install" == true ]]; then
