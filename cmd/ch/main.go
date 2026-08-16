@@ -23,6 +23,14 @@ import (
 	"github.com/tiktoken-go/tokenizer"
 )
 
+// Build metadata. Overridden by ldflags at build time (see Makefile and
+// install.sh execute_build). Defaults cover `go run` and unbuilt binaries.
+var (
+	version   = "dev"
+	buildTime = "unknown"
+	gitCommit = "unknown"
+)
+
 func init() {
 	// Override default flag usage to show custom help
 	flag.Usage = func() {
@@ -34,24 +42,10 @@ func init() {
 }
 
 func main() {
-	// initialize application state
-	state := config.InitializeAppState()
-
-	// detect if stdout is being piped
-	stdoutStat, _ := os.Stdout.Stat()
-	if (stdoutStat.Mode() & os.ModeCharDevice) == 0 {
-		state.Config.IsPipedOutput = true
-	}
-
-	// initialize components
-	terminal := ui.NewTerminal(state.Config)
-	chatManager := chat.NewManager(state)
-	platformManager := platform.NewManager(state.Config)
-	chatManager.SetPlatformManager(platformManager)
-
 	// parse command line arguments
 	var (
 		helpFlag       = flag.Bool("h", false, "Show help")
+		versionFlag    = flag.Bool("v", false, "Show version and exit")
 		codedumpFlag   = flag.String("d", "", "Generate codedump file (optionally specify directory path)")
 		buildDumpFlag  = flag.String("b", "", "Generate codedump with fzf filename picker or a named file (directory, optional filename)")
 		platformFlag   = flag.String("p", "", "Switch platform (leave empty for interactive selection)")
@@ -77,6 +71,7 @@ func main() {
 	flag.BoolVar(fetchFlag, "fetch", false, "Fetch a session into interactive mode (file name, path, or fzf pick)")
 	flag.BoolVar(exportCodeFlag, "export", false, "Export code blocks from the last response")
 	flag.BoolVar(yesFlag, "yes", false, "Skip interactive fzf prompts (codedump exclude-picker)")
+	flag.BoolVar(versionFlag, "version", false, "Show version and exit")
 
 	noHistoryFlag := flag.Bool("n", false, "Disable session saving for this run")
 	flag.Bool("no-history", false, "Disable session saving for this run")
@@ -100,6 +95,12 @@ func main() {
 		return
 	}
 
+	// handle version flag before config/provider initialization
+	if *versionFlag {
+		fmt.Printf("ch %s (%s, %s)\n", version, gitCommit, buildTime)
+		return
+	}
+
 	tokenFlagProvided := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "t" || f.Name == "token" {
@@ -112,6 +113,21 @@ func main() {
 		*noHistoryFlag = true
 	}
 	remainingArgs := flag.Args()
+
+	// initialize application state
+	state := config.InitializeAppState()
+
+	// detect if stdout is being piped
+	stdoutStat, _ := os.Stdout.Stat()
+	if (stdoutStat.Mode() & os.ModeCharDevice) == 0 {
+		state.Config.IsPipedOutput = true
+	}
+
+	// initialize components
+	terminal := ui.NewTerminal(state.Config)
+	chatManager := chat.NewManager(state)
+	platformManager := platform.NewManager(state.Config)
+	chatManager.SetPlatformManager(platformManager)
 
 	// Check if input is being piped
 	var pipedInput string

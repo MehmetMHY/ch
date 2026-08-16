@@ -146,6 +146,7 @@ Complete flag reference:
 | Flag                 | Alias              | Description                                                                                                              |
 | -------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `-h`                 | `--help`           | Show help and exit                                                                                                       |
+| `-v`                 | `--version`        | Show version and exit                                                                                                    |
 | `-c`                 | `--continue`       | Continue from the latest session (or a specific session file if a valid path is given as the first remaining arg)        |
 | `--clear`            |                    | Clear all temp files (requires `enable_session_save=true`)                                                               |
 | `-a`                 | `-hs`, `--history` | Search and load previous sessions (requires `save_all_sessions=true`)                                                    |
@@ -182,6 +183,7 @@ Important current behavior:
 - Piped stdin (`cat file | ch "query"`) is supported. Piped content is combined with positional arguments before being sent to the model.
 - `-t`/`--token` is a string flag, but `cmd/ch/main.go` pre-processes `os.Args` before `flag.Parse()` so a bare trailing `-t`/`--token` (no value) does not trigger Go's "flag needs an argument" error; it is rewritten to an explicit empty value (`-t=`) instead. Whether the flag was passed at all (even empty) is tracked separately via `flag.Visit`, since an empty string is also the flag's zero value.
 - `-t`/`--token` with an explicit file path always reads that file, even if stdin is also piped. With no file path, it falls back to piped stdin content (reported as `stdin` in the output); if neither is available, it errors with `no file specified and no piped input available` instead of hanging.
+- `-v`/`--version` prints `ch <version> (<commit>, <buildTime>)` and exits before any provider/config init. `version`, `buildTime`, `gitCommit` are package-level vars in `cmd/ch/main.go` with `dev`/`unknown` defaults; they are overridden by ldflags at build time. The Makefile `LDFLAGS` (used by `make build`) and `install.sh` `compute_ldflags` (used by the direct `go build` path) must stay in sync so curl|bash and make-built binaries report the same version. The Makefile `VERSION` line is the single source of truth; `install.sh -v` bumps it there.
 
 When changing flags, update all of these together:
 
@@ -263,6 +265,7 @@ Important expectations:
 - `--uninstall` removes immediately without confirmation.
 - Optional API key status checks should stay aligned with providers documented in README and configured in `internal/config/config.go`.
 - Be cautious changing dependency installation logic because it invokes package managers and may require sudo.
+- The direct `go build` path (used by curl|bash and local-repo installs) must pass the same ldflags as the Makefile so installed binaries report real version metadata instead of the `dev` defaults. `compute_ldflags` reads `VERSION` from the Makefile (single source of truth), computes `BUILD_TIME` and `GIT_COMMIT`, and injects them into every direct `go build`. Keep `compute_ldflags` in sync with the Makefile `LDFLAGS`.
 
 ## Website Assets
 

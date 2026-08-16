@@ -284,6 +284,40 @@ func TestCLIUtilityAndExportFlags(t *testing.T) {
 	}
 }
 
+// TestVersionFlag verifies -v and --version print version metadata and exit
+// before any provider/config init. The test binary is built without ldflags,
+// so it reports the dev fallbacks (version=dev, gitCommit=unknown,
+// buildTime=unknown).
+func TestVersionFlag(t *testing.T) {
+	binPath := testBinPath
+	home := t.TempDir()
+
+	for _, flagArg := range []string{"-v", "--version"} {
+		cmd := exec.Command(binPath, flagArg)
+		cmd.Env = filteredEnv(os.Environ(), map[string]string{
+			"HOME":        home,
+			"USERPROFILE": home,
+		}, "OPENAI_API_KEY")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s should exit cleanly, got %v:\n%s", flagArg, err, out)
+		}
+		line := strings.TrimSpace(string(out))
+		if !strings.HasPrefix(line, "ch ") {
+			t.Fatalf("%s should print a line starting with 'ch ', got:\n%s", flagArg, out)
+		}
+		if !strings.Contains(line, "dev") {
+			t.Fatalf("%s should report the dev fallback when built without ldflags, got:\n%s", flagArg, out)
+		}
+		if !strings.Contains(line, "unknown") {
+			t.Fatalf("%s should report unknown buildTime/gitCommit fallbacks, got:\n%s", flagArg, out)
+		}
+		if strings.Contains(line, "OPENAI_API_KEY") {
+			t.Fatalf("%s must not initialize a provider, got:\n%s", flagArg, out)
+		}
+	}
+}
+
 // TestCodeDumpYesFlag verifies -y skips the interactive exclude-picker so the
 // codedump runs non-interactively and writes a file without a tty.
 func TestCodeDumpYesFlag(t *testing.T) {

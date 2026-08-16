@@ -277,6 +277,10 @@ ch
 # direct query
 ch "Explain quantum computing"
 
+# show version
+ch -v
+ch --version
+
 # platform-specific query
 ch -p groq "Write a Go function to reverse a string"
 
@@ -687,6 +691,15 @@ When using `./install.sh -b` for a local repository build, the installer checks 
 
 ### Version Management
 
+Check the installed version:
+
+```bash
+ch -v
+ch --version
+```
+
+This prints `ch <version> (<commit>, <buildTime>)` and exits before any provider or config initialization, so it works without an API key.
+
 Update the project version interactively:
 
 ```bash
@@ -699,6 +712,8 @@ This will:
 - Offer semantic version bump options (patch, minor, major)
 - Allow custom version input
 - Update the VERSION in Makefile automatically
+
+The Makefile `VERSION` line is the single source of truth. Both `make build` and the installer's direct `go build` path inject the same ldflags, so curl|bash and make-built binaries report the same version. A raw `go build` without ldflags reports the `dev` fallback.
 
 ## Contributing
 

@@ -417,6 +417,30 @@ check_tesseract_libs() {
 	return 1
 }
 
+# Compute the -X ldflags value for `go build` so the installed binary reports
+# the same version metadata as `make build` (see Makefile LDFLAGS). The
+# Makefile VERSION line is the single source of truth; `install.sh -v` bumps
+# it there. Returns just the inner flags; callers pass them via
+# `go build -ldflags "$ldflags"`.
+compute_ldflags() {
+	local version="dev"
+	if [[ -f "Makefile" ]]; then
+		version=$(grep "^VERSION?=" Makefile | cut -d'=' -f2-)
+	fi
+	[[ -z "$version" ]] && version="dev"
+
+	local build_time
+	build_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+	local git_commit="unknown"
+	if command -v git >/dev/null 2>&1; then
+		git_commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+	fi
+
+	printf -- '-X main.version=%s -X main.buildTime=%s -X main.gitCommit=%s' \
+		"$version" "$build_time" "$git_commit"
+}
+
 # Helper function to execute build command with OS-specific settings
 # Takes two arguments:
 #   1. build_method: either "direct" (for go build) or "make" (for make build)
@@ -428,10 +452,14 @@ execute_build() {
 	local os
 	os=$(detect_os)
 
+	# ldflags for direct builds; the make path inherits them via the Makefile.
+	local ldflags
+	ldflags=$(compute_ldflags)
+
 	if [[ "$os" == "android" ]]; then
 		if [[ "$build_method" == "direct" ]]; then
 			log "Building for Android (disabling CGO)..."
-			CGO_ENABLED=0 go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+			CGO_ENABLED=0 go build -ldflags "$ldflags" -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
 		else
 			log "Building for Android (disabling CGO)..."
 			CGO_ENABLED=0 make build || error "Build failed"
@@ -444,7 +472,7 @@ execute_build() {
 		warning "  Fedora: sudo dnf install tesseract-devel leptonica-devel"
 		warning "  macOS: brew install tesseract"
 		if [[ "$build_method" == "direct" ]]; then
-			CGO_ENABLED=0 go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+			CGO_ENABLED=0 go build -ldflags "$ldflags" -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
 		else
 			CGO_ENABLED=0 make build || error "Build failed"
 		fi
@@ -453,7 +481,7 @@ execute_build() {
 		brew_prefix=$(brew --prefix)
 		if [[ "$build_method" == "direct" ]]; then
 			log "Building for macOS on Apple Silicon with Homebrew flags..."
-			CGO_CPPFLAGS="-I${brew_prefix}/include" CGO_LDFLAGS="-L${brew_prefix}/lib" go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+			CGO_CPPFLAGS="-I${brew_prefix}/include" CGO_LDFLAGS="-L${brew_prefix}/lib" go build -ldflags "$ldflags" -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
 		else
 			log "Building for macOS on Apple Silicon with Homebrew flags..."
 			export CGO_CPPFLAGS="-I${brew_prefix}/include"
@@ -462,7 +490,7 @@ execute_build() {
 		fi
 	else
 		if [[ "$build_method" == "direct" ]]; then
-			go build -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
+			go build -ldflags "$ldflags" -o "$output_path" cmd/ch/main.go || error "Failed to build Ch"
 		else
 			log "Building project..."
 			make build || error "Build failed"
