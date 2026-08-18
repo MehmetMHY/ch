@@ -16,6 +16,7 @@
 - [Demo](#demo)
 - [Quick Start](#quick-start)
 - [Features](#features)
+- [Companion Search Tool](#companion-search-tool)
 - [Installation](#installation)
 - [Configuration](#configuration)
   - [API Keys](#api-keys)
@@ -103,6 +104,10 @@ ch "What are the key features of Go programming language?"
 - **Thinking/Reasoning Display**: Shows model thinking tokens (reasoning) in gray before the response, supporting `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
 - **Clipboard Integration**: Copy AI responses to clipboard with cross-platform support
 - **Colored Output**: Platform and model names displayed in distinct colors
+
+## Companion Search Tool
+
+For deeper meaning-based search across saved Ch sessions, use [index_ch](https://github.com/MehmetMHY/index_ch), a companion/add-on tool that indexes local chat history and adds semantic search over past conversations. It exists for heavier archived-chat search, with fzf previews, multiprocessing, embeddings, and Groq-powered reranking, while staying separate so Ch can remain lightweight and focused.
 
 ## Installation
 
