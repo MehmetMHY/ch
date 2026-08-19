@@ -227,6 +227,168 @@ p {
   }
 }
 
+/* Terminal demo (animated preview) */
+.terminal-demo {
+  background-color: var(--terminal-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+  margin: 15px 0;
+  overflow: hidden;
+}
+
+.terminal-demo pre#demo {
+  margin: 0;
+  padding: 28px 32px;
+  height: calc(22em + 36px);
+  font: 13px/1.75 var(--font-mono);
+  color: var(--text-color);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  white-space: pre;
+  -webkit-overflow-scrolling: touch;
+}
+
+.terminal-demo pre#demo::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+  display: none;
+}
+
+.terminal-demo pre#demo::-webkit-scrollbar-thumb,
+.terminal-demo pre#demo::-webkit-scrollbar-track {
+  display: none;
+}
+
+.terminal-demo pre#demo > code {
+  display: inline-block;
+  min-width: 760px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .terminal-demo pre#demo {
+    cursor: grab;
+  }
+  .terminal-demo pre#demo.dragging {
+    cursor: grabbing;
+    user-select: none;
+  }
+}
+
+.terminal-demo .dim {
+  color: var(--secondary-text);
+}
+
+.terminal-demo .acc {
+  color: var(--accent-color);
+}
+
+.terminal-demo .prompt {
+  color: #0066cc;
+}
+
+.terminal-demo .flag {
+  color: #994c00;
+}
+
+.terminal-demo .path {
+  color: #7a4f00;
+}
+
+.terminal-demo .ok {
+  color: #287a4f;
+}
+
+.terminal-demo .warn {
+  color: #9a6500;
+}
+
+.terminal-demo .platform {
+  color: #008f9c;
+}
+
+.terminal-demo .model {
+  color: #8a4bd6;
+}
+
+.terminal-demo .str {
+  color: #009900;
+}
+
+body.dark-mode .terminal-demo .prompt {
+  color: #66b3ff;
+}
+
+body.dark-mode .terminal-demo .flag {
+  color: #ffcc99;
+}
+
+body.dark-mode .terminal-demo .path {
+  color: #ffd36e;
+}
+
+body.dark-mode .terminal-demo .ok {
+  color: #7fd6a4;
+}
+
+body.dark-mode .terminal-demo .warn {
+  color: #ffd479;
+}
+
+body.dark-mode .terminal-demo .platform {
+  color: #6ee7f2;
+}
+
+body.dark-mode .terminal-demo .model {
+  color: #d7a7ff;
+}
+
+body.dark-mode .terminal-demo .str {
+  color: #98d982;
+}
+
+.terminal-demo .cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  vertical-align: -3px;
+  background: var(--secondary-text);
+  animation: terminal-blink 1.5s steps(1) infinite;
+}
+
+@keyframes terminal-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .terminal-demo pre#demo {
+    height: calc(22em + 28px);
+    padding: 20px 22px;
+    font-size: 12px;
+  }
+  .terminal-demo pre#demo > code {
+    min-width: 720px;
+  }
+}
+
 .install-command {
   background-color: var(--terminal-bg);
   border-radius: 0;

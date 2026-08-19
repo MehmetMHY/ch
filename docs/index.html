@@ -175,6 +175,73 @@
         </div>
       </div>
 
+      <h2 id="terminal-demo">Preview</h2>
+      <div class="terminal-demo">
+        <pre
+          id="demo"
+          tabindex="0"
+          aria-label="Example Ch session"
+        ><code id="demo-content"><span class="dim">$</span> <span class="acc">ch</span> <span class="str">"Explain goroutines in Go in 4 bullets"</span>
+Goroutines are lightweight functions scheduled by the Go runtime, not one OS thread each.
+- start one with <span class="acc">go</span> f() and keep the caller moving
+- communicate with channels when ownership should move between tasks
+- use sync.WaitGroup or context.Context so work has a clean lifecycle
+- prefer small, boring goroutines over hidden global background work
+
+<span class="dim">$</span> <span class="acc">git</span> diff <span class="dim">|</span> <span class="acc">ch</span> <span class="str">"summarize the risky changes"</span>
+<span class="warn">Risk summary:</span>
+- config parsing now treats explicit false correctly
+- export paths sanitize slashes but preserve spaces and dots
+- add one regression test for quoted filenames and one for empty custom names
+
+<span class="dim">$</span> <span class="acc">ch</span> <span class="flag">-l</span> <span class="path">README.md</span> <span class="str">"turn install steps into a checklist"</span>
+<span class="ok">Checklist:</span>
+1. install with curl | bash
+2. set OPENAI_API_KEY or switch providers
+3. run <span class="acc">ch -v</span> to verify version metadata
+4. try a direct prompt, then interactive mode
+
+<span class="dim">$</span> <span class="acc">ch</span> <span class="flag">-s</span> <span class="path">https://youtube.com/watch?v=AH0xG1iStf4</span>
+<span class="ok">YouTube:</span> Ch demo
+metadata loaded, subtitles compacted, cue numbers stripped
+ready to paste into a prompt or pipe into another command
+
+<span class="dim">$</span> <span class="acc">ch</span> <span class="flag">-w</span> <span class="str">"Go 1.26 release notes"</span>
+1. Go release notes - <span class="path">https://go.dev/doc/devel/release</span>
+2. Go blog - <span class="path">https://go.dev/blog/</span>
+3. Standard library changes - <span class="path">https://pkg.go.dev/std</span>
+
+<span class="dim">$</span> <span class="acc">ch</span> <span class="flag">-y</span> <span class="flag">-d</span> <span class="path">./internal</span>
+<span class="ok">codedump saved:</span> ch_dump_internal_2026-08-19.txt
+included 47 text files, skipped binaries and vendor caches
+
+<span class="dim">$</span> <span class="acc">ch</span> <span class="flag">-p</span> <span class="platform">groq</span> <span class="flag">-m</span> <span class="model">llama3-8b-8192</span> <span class="str">"give me a fast regex"</span>
+<span class="platform">groq</span> <span class="model">llama3-8b-8192</span>
+Use <span class="str">(?m)^func\s+([A-Za-z0-9_]+)\(</span> to list Go function names line-by-line.
+
+<span class="dim">$</span> <span class="acc">ch</span>
+interactive session started
+<span class="platform">openai</span> <span class="model">gpt-5.4-mini</span>
+
+<span class="prompt">user:</span> !p anthropic
+<span class="platform">anthropic</span> <span class="model">claude-3-5-sonnet-latest</span>
+<span class="prompt">user:</span> !m claude-3-5-sonnet-latest
+<span class="platform">anthropic</span> <span class="model">claude-3-5-sonnet-latest</span>
+<span class="prompt">user:</span> !l ./internal/config
+<span class="ok">loaded</span> 6 files into context
+<span class="prompt">user:</span> What config behavior should tests protect?
+Protect env overrides, explicit false booleans, shallow_load_dirs defaults, and provider key mapping.
+<span class="prompt">user:</span> !e config_notes.txt
+<span class="ok">exported chat:</span> config_notes.txt
+<span class="prompt">user:</span> !q
+bye
+
+<span class="dim">$</span> <span class="acc">ch</span> <span class="flag">-c</span> <span class="str">"continue where we left off"</span>
+loaded latest session and sent follow-up prompt
+
+<span class="dim">$</span> </code></pre>
+      </div>
+
       <h2 id="demo">Demo</h2>
       <div class="demo-container">
         <button
@@ -348,12 +415,14 @@
       import { initializeTheme, setupCopyables } from "./js/main.js";
       import { initYouTubeFacades } from "./js/youtube.js";
       import { initializeDocsVisibility, toggleDocs } from "./js/docs.js";
+      import { initTerminalDemo } from "./js/terminal-demo.js";
 
       window.addEventListener("DOMContentLoaded", () => {
         initializeTheme();
         initializeDocsVisibility();
         setupCopyables();
         initYouTubeFacades();
+        initTerminalDemo();
 
         const docsToggle = document.getElementById("docs-toggle");
         if (docsToggle) {
