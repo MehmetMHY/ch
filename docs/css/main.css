@@ -229,6 +229,7 @@ p {
 
 /* Terminal demo (animated preview) */
 .terminal-demo {
+  position: relative;
   background-color: var(--terminal-bg);
   border: 1px solid var(--border-color);
   border-radius: 0;
@@ -378,6 +379,120 @@ body.dark-mode .terminal-demo .str {
   }
 }
 
+/* skip + replay controls */
+.terminal-controls {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-btn {
+  background: var(--bg-color);
+  color: var(--secondary-text);
+  border: 1px solid var(--border-color);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  opacity: 1;
+  transition:
+    opacity 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.terminal-btn[hidden] {
+  display: none;
+}
+
+.terminal-btn:hover,
+.terminal-btn:focus-visible {
+  color: var(--text-color);
+  border-color: var(--text-color);
+}
+
+/* on desktop with fine pointer, fade replay in on hover for a cleaner
+   static appearance; on touch it stays always-visible. skip stays
+   visible while it is relevant since it is time-sensitive. */
+@media (hover: hover) and (pointer: fine) {
+  .terminal-replay {
+    opacity: 0;
+  }
+  .terminal-demo:hover .terminal-replay,
+  .terminal-replay:focus-visible {
+    opacity: 1;
+  }
+}
+
+/* copy-click affordance on command lines */
+.terminal-demo .cmd-copy {
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background-color 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .terminal-demo .cmd-copy:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+  }
+  body.dark-mode .terminal-demo .cmd-copy:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.terminal-demo .cmd-copy:active {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+body.dark-mode .terminal-demo .cmd-copy:active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-demo .cmd-copy.copied {
+  background-color: rgba(40, 122, 79, 0.15);
+}
+
+.terminal-demo .cmd-copy.copied::after {
+  content: " copied";
+  color: #287a4f;
+  font-size: 11px;
+  padding-left: 6px;
+}
+
+body.dark-mode .terminal-demo .cmd-copy.copied {
+  background-color: rgba(127, 214, 164, 0.12);
+}
+
+body.dark-mode .terminal-demo .cmd-copy.copied::after {
+  color: #7fd6a4;
+}
+
+/* keyboard hint below the preview */
+.terminal-hint {
+  margin: 0;
+  padding: 6px 32px 12px;
+  font-size: 11px;
+  color: var(--secondary-text);
+  font-family: var(--font-mono);
+  line-height: 1.4;
+}
+
+.terminal-hint .hint-desktop {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .terminal-hint .hint-touch {
+    display: none;
+  }
+  .terminal-hint .hint-desktop {
+    display: inline;
+  }
+}
+
 @media (max-width: 480px) {
   .terminal-demo pre#demo {
     height: calc(22em + 28px);
@@ -386,6 +501,9 @@ body.dark-mode .terminal-demo .str {
   }
   .terminal-demo pre#demo > code {
     min-width: 720px;
+  }
+  .terminal-hint {
+    padding: 6px 22px 10px;
   }
 }
 

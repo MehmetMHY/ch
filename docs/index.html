@@ -177,6 +177,25 @@
 
       <h2 id="terminal-demo">Preview</h2>
       <div class="terminal-demo">
+        <div class="terminal-controls">
+          <button
+            id="terminal-skip"
+            class="terminal-btn"
+            type="button"
+            aria-label="Skip to the end of the terminal demo"
+            hidden
+          >
+            skip
+          </button>
+          <button
+            id="terminal-replay"
+            class="terminal-btn terminal-replay"
+            type="button"
+            aria-label="Replay terminal demo"
+          >
+            replay
+          </button>
+        </div>
         <pre
           id="demo"
           tabindex="0"
@@ -223,10 +242,12 @@ Use <span class="str">(?m)^func\s+([A-Za-z0-9_]+)\(</span> to list Go function n
 interactive session started
 <span class="platform">openai</span> <span class="model">gpt-5.4-mini</span>
 
-<span class="prompt">user:</span> !p anthropic
-<span class="platform">anthropic</span> <span class="model">claude-3-5-sonnet-latest</span>
-<span class="prompt">user:</span> !m claude-3-5-sonnet-latest
-<span class="platform">anthropic</span> <span class="model">claude-3-5-sonnet-latest</span>
+<span class="prompt">user:</span> !p xai
+<span class="platform">xai</span> <span class="model">grok-4-fast-non-reasoning</span>
+<span class="prompt">user:</span> !o
+<span class="platform">google</span> <span class="model">gemini-2.5-flash</span>
+<span class="prompt">user:</span> !p openrouter
+<span class="platform">openrouter</span> <span class="model">anthropic/claude-3.5-sonnet</span>
 <span class="prompt">user:</span> !l ./internal/config
 <span class="ok">loaded</span> 6 files into context
 <span class="prompt">user:</span> What config behavior should tests protect?
@@ -240,6 +261,15 @@ bye
 loaded latest session and sent follow-up prompt
 
 <span class="dim">$</span> </code></pre>
+        <p class="terminal-hint">
+          <span class="hint-touch"
+            >tap a command to copy &middot; skip to jump ahead</span
+          >
+          <span class="hint-desktop"
+            >click cmd to copy &middot; skip to jump ahead &middot; arrow keys
+            scroll</span
+          >
+        </p>
       </div>
 
       <h2 id="demo">Demo</h2>

@@ -550,6 +550,8 @@ python3 run.py
 
 The server starts on port `8000` by default. If that port is taken, it automatically tries the next available port up to `8099`. Press `Ctrl+C` or `Ctrl+D` to stop the server.
 
+The landing page includes an animated terminal preview that plays a multi-scene tour of common Ch workflows (direct prompts, pipes, file/URL/web loading, YouTube scraping, codedump, provider/model switching, interactive commands, export, and continuation). It auto-follows while animating, supports manual scrolling, has skip and replay buttons, and lets you click a command line to copy it. It respects `prefers-reduced-motion` and degrades to fully readable static text without JavaScript.
+
 ## Development
 
 Contributor and coding-agent guidance is available in [AGENTS.md](./AGENTS.md).
