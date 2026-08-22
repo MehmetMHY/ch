@@ -876,16 +876,61 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 	return nil
 }
 
+// makeResizeHandler returns a readline FuncOnWidthChanged that redraws the
+// current input line correctly when the terminal is resized.
+//
+// chzyer/readline's default handler only updates the stored terminal width; it
+// never redraws the input line already on screen. On the next keystroke the
+// library erases that line using the NEW width while it was rendered at the OLD
+// width, so the cursor is moved up too many lines and the terminal scrolls,
+// wiping chat history up to the top. Hitting Enter resets readline's model,
+// which is why later prompts work again.
+//
+// We instead erase the stale rendering at the old width (rl.Clean) before the
+// library updates the width (cb), then reprint at the new width (rl.Refresh).
+// This only runs while readline is actively reading (the prompt is on screen);
+// otherwise we just update the width silently, matching the default behavior.
+func makeResizeHandler(rlp **readline.Instance, stop <-chan struct{}) func(func()) {
+	return func(cb func()) {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGWINCH)
+		go func() {
+			defer signal.Stop(ch)
+			defer func() { _ = recover() }()
+			for {
+				select {
+				case <-stop:
+					return
+				case <-ch:
+					rl := *rlp
+					if rl == nil || rl.Terminal == nil || !rl.Terminal.IsReading() {
+						cb()
+						continue
+					}
+					rl.Clean()
+					cb()
+					rl.Refresh()
+				}
+			}
+		}()
+	}
+}
+
 func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool) {
+	var mainRL *readline.Instance
+	resizeStop := make(chan struct{})
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          "\033[94muser: \033[0m",
-		InterruptPrompt: "", // Don't show ^C when Ctrl+C is pressed
-		EOFPrompt:       "exit",
+		Prompt:             "\033[94muser: \033[0m",
+		InterruptPrompt:    "", // Don't show ^C when Ctrl+C is pressed
+		EOFPrompt:          "exit",
+		FuncOnWidthChanged: makeResizeHandler(&mainRL, resizeStop),
 	})
 	if err != nil {
 		panic(err)
 	}
+	mainRL = rl
 	defer rl.Close()
+	defer close(resizeStop)
 
 	if noHistory && state.Config.EnableSessionSave {
 		fmt.Printf("\033[91mChat Is Temporary\033[0m\n")
@@ -927,10 +972,15 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 				lines = append(lines, input)
 			}
 
-			// Create a new readline instance for multi-line input
+			// Create a new readline instance for multi-line input.
+			// FuncOnWidthChanged is a no-op so this short-lived instance does not
+			// register its own SIGWINCH handler (the library's default uses a
+			// global sync.Once and would hijack the main instance's resize
+			// handling).
 			multiLineRl, err := readline.NewEx(&readline.Config{
-				Prompt:      "... ",
-				HistoryFile: "/dev/null", // Disable history for multi-line
+				Prompt:             "... ",
+				HistoryFile:        "/dev/null", // Disable history for multi-line
+				FuncOnWidthChanged: func(func()) {},
 			})
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("error creating multi-line input: %v", err))
@@ -1441,10 +1491,14 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		var lines []string
 		terminal.PrintInfo("multi-line mode (exit with '\\')")
 
-		// Create a new readline instance for multi-line input
+		// Create a new readline instance for multi-line input.
+		// FuncOnWidthChanged is a no-op so this short-lived instance does not
+		// register its own SIGWINCH handler (the library's default uses a global
+		// sync.Once and would hijack the main instance's resize handling).
 		multiLineRl, err := readline.NewEx(&readline.Config{
-			Prompt:      "... ",
-			HistoryFile: "/dev/null", // Disable history for multi-line
+			Prompt:             "... ",
+			HistoryFile:        "/dev/null", // Disable history for multi-line
+			FuncOnWidthChanged: func(func()) {},
 		})
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error creating multi-line input: %v", err))

@@ -221,6 +221,8 @@ These are the default key bindings (configurable in `~/.ch/config.json`):
 | `!a [filter]`   | Search and restore a previous session; with `save_all_sessions=true`, new messages fork into a new timestamped file |
 | `\`             | Enter multi-line mode (trailing `\` on a line continues to next line)                                               |
 
+Terminal resize handling: the main interactive readline instance uses a custom `FuncOnWidthChanged` (`makeResizeHandler` in `cmd/ch/main.go`) instead of `chzyer/readline`'s default. The default only updates the stored width and never redraws the on-screen input line, so after a resize the next keystroke erased the line using the new width while it was rendered at the old width, scrolling the terminal up and wiping chat history to the top. The custom handler erases the stale rendering at the old width (`rl.Clean()`) before the library updates the width (`cb()`), then reprints at the new width (`rl.Refresh()`), gated on `IsReading()` so it only redraws while the prompt is on screen. The short-lived multi-line readline instances use a no-op `FuncOnWidthChanged` so they do not register their own `SIGWINCH` handler (the library's default uses a global `sync.Once` and would hijack the main instance's handler).
+
 ## Tests
 
 Prefer unit tests that avoid network and real user state.
