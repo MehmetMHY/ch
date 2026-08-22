@@ -24,6 +24,11 @@
  *   Browsers throttle background timers to ~1s, which would otherwise
  *   leave a viewer returning to a crawling, half-finished tour. This is
  *   keyed to tab visibility only; hovering never pauses playback.
+ * - On bfcache restore (back/forward navigation) the page DOM and JS
+ *   state are frozen and rehydrated as-is. Stale fastForward, in-flight
+ *   timers, and scroll position produce a burst of instant playback
+ *   that scrolls to the bottom. A pageshow listener detects
+ *   event.persisted and restarts the tour cleanly from the top.
  * - Clipboard copy falls back to execCommand when the async Clipboard
  *   API is unavailable (insecure contexts, old browsers).
  * - Copy, scroll, and replay listeners are registered before the
@@ -625,6 +630,22 @@ export function initTerminalDemo() {
     demo.addEventListener("pointerup", end);
     demo.addEventListener("pointercancel", end);
   })();
+
+  // --- bfcache restore: restart cleanly --------------------------
+  // When the page is restored from the back-forward cache, the
+  // previous animation state is stale: fastForward may be stuck true
+  // (if Skip was pressed before navigating away), in-flight setTimeout
+  // chains from sleep() can fire in a burst, and the scroll position
+  // is frozen mid-tour. This produces the "really fast and jumps to the
+  // bottom" glitch. Detecting event.persisted on pageshow lets us
+  // restart the tour from the top at normal speed. start() increments
+  // genId (cancelling any in-flight run), resets fastForward, and
+  // begins a fresh run().
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) {
+      start();
+    }
+  });
 
   // Reduced motion: render the tour once with no delays. Everything
   // above (copy, scroll, drag, replay) stays wired up because those

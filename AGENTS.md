@@ -416,6 +416,7 @@ Site UI behavior:
   - `running` guards both the skip handler and the scroll-in observer so a tour that is still playing is never restarted underneath itself.
   - Copy, scroll, drag, and replay listeners must be registered _before_ the `if (reduced) { start(); return; }` early return. Those are interactions, not animation, and reduced-motion users are entitled to them. This ordering was a real bug once.
   - `IntersectionObserver` is feature-checked; without it the tour plays once so the preview is never left blank.
+  - On bfcache restore (back/forward navigation), `pageshow` with `event.persisted === true` calls `start()` to restart the tour cleanly. Without this, stale `fastForward`, burst-firing in-flight timers, and frozen scroll position cause the tour to drain instantly and jump to the bottom. This listener is registered before the `if (reduced)` early return so it covers all paths.
   - While JS animates, the `<pre>` gets `role="img"` so assistive tech receives the single `aria-label` summary instead of a stream of mutations. Reduced-motion and no-JS viewers keep the fully readable static text, so do not set the role in the reduced path.
 
 Rendered README notes:
