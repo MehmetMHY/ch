@@ -379,7 +379,7 @@ body.dark-mode .terminal-demo .str {
   }
 }
 
-/* skip + replay controls */
+/* terminal action control */
 .terminal-controls {
   position: absolute;
   top: 8px;
@@ -414,15 +414,15 @@ body.dark-mode .terminal-demo .str {
   border-color: var(--text-color);
 }
 
-/* on desktop with fine pointer, fade replay in on hover for a cleaner
-   static appearance; on touch it stays always-visible. skip stays
-   visible while it is relevant since it is time-sensitive. */
+/* on desktop with fine pointer, fade controls in as a group for a
+   cleaner static appearance; on touch they stay always-visible. */
 @media (hover: hover) and (pointer: fine) {
-  .terminal-replay {
+  .terminal-controls .terminal-btn {
     opacity: 0;
   }
-  .terminal-demo:hover .terminal-replay,
-  .terminal-replay:focus-visible {
+
+  .terminal-demo:hover .terminal-btn,
+  .terminal-controls:focus-within .terminal-btn {
     opacity: 1;
   }
 }

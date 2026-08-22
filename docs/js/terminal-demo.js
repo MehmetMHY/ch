@@ -7,9 +7,7 @@
  * - word-by-word streaming for model output (natural token feel)
  * - drag-to-scroll on desktop (touch already swipes natively)
  * - plays once on scroll-in/load, then stays finished indefinitely
- * - replay button to restart the tour on demand (always visible on
- *   touch, fades in on hover on desktop)
- * - skip button to fast-forward straight to the end of the tour
+ * - one action button: skip while running, replay while finished
  * - tap/click a command line to copy it to clipboard
  *
  * Robustness:
@@ -37,8 +35,7 @@
 export function initTerminalDemo() {
   const demo = document.getElementById("demo");
   const demoContent = document.getElementById("demo-content");
-  const replayBtn = document.getElementById("terminal-replay");
-  const skipBtn = document.getElementById("terminal-skip");
+  const actionBtn = document.getElementById("terminal-action");
   if (!demo || !demoContent) return;
 
   const cursor = document.createElement("span");
@@ -485,7 +482,12 @@ export function initTerminalDemo() {
   // --- run management -------------------------------------------
   function setRunning(state) {
     running = state;
-    if (skipBtn) skipBtn.hidden = !state;
+    if (!actionBtn) return;
+    actionBtn.textContent = state ? "skip" : "replay";
+    actionBtn.setAttribute(
+      "aria-label",
+      state ? "Skip to the end of the terminal demo" : "Replay terminal demo",
+    );
   }
 
   function start() {
@@ -545,17 +547,13 @@ export function initTerminalDemo() {
     { passive: true },
   );
 
-  // --- replay / skip buttons ------------------------------------
-  if (replayBtn) {
-    replayBtn.addEventListener("click", () => {
-      start();
-    });
-  }
-
-  if (skipBtn) {
-    skipBtn.hidden = true;
-    skipBtn.addEventListener("click", () => {
-      if (!running) return;
+  // --- action button: replay or skip -----------------------------
+  if (actionBtn) {
+    actionBtn.addEventListener("click", () => {
+      if (!running) {
+        start();
+        return;
+      }
       // let the in-flight run drain instantly rather than rebuilding,
       // so the tour ends in exactly the state it would have reached
       fastForward = true;
