@@ -6,14 +6,11 @@
  * - typing with jitter, trailing blinking cursor
  * - word-by-word streaming for model output (natural token feel)
  * - drag-to-scroll on desktop (touch already swipes natively)
- * - scroll-in replay with a 3-min cooldown
+ * - plays once on scroll-in/load, then stays finished indefinitely
  * - replay button to restart the tour on demand (always visible on
  *   touch, fades in on hover on desktop)
  * - skip button to fast-forward straight to the end of the tour
  * - tap/click a command line to copy it to clipboard
- * - reduced-motion: runs once with no delays; the static fallback
- *   already lives in the <pre id="demo"> markup so no-JS viewers
- *   still see the content.
  *
  * Robustness:
  * - A generation counter (genId) cancels in-flight runs on replay so
@@ -24,23 +21,17 @@
  *   Browsers throttle background timers to ~1s, which would otherwise
  *   leave a viewer returning to a crawling, half-finished tour. This is
  *   keyed to tab visibility only; hovering never pauses playback.
- * - On bfcache restore (back/forward navigation) the page DOM and JS
- *   state are frozen and rehydrated as-is. Stale fastForward, in-flight
- *   timers, and scroll position produce a burst of instant playback
- *   that scrolls to the bottom. A pageshow listener detects
- *   event.persisted and restarts the tour cleanly from the top.
+ * - On bfcache restore (back/forward navigation), a pageshow listener
+ *   detects event.persisted and restarts the tour cleanly.
  * - Clipboard copy falls back to execCommand when the async Clipboard
  *   API is unavailable (insecure contexts, old browsers).
- * - Copy, scroll, and replay listeners are registered before the
- *   reduced-motion early return so those users keep every interaction.
  * - All interactions work on both touch and mouse; the replay button
  *   is always visible on touch devices (no hover dependency).
  *
  * Accessibility:
  * - While JS animates the content, the <pre> becomes role="img" with a
  *   descriptive label so screen readers get one summary instead of a
- *   stream of mutations. Reduced-motion and no-JS viewers keep the
- *   fully readable static text.
+ *   stream of mutations.
  */
 
 export function initTerminalDemo() {
@@ -49,8 +40,6 @@ export function initTerminalDemo() {
   const replayBtn = document.getElementById("terminal-replay");
   const skipBtn = document.getElementById("terminal-skip");
   if (!demo || !demoContent) return;
-
-  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const cursor = document.createElement("span");
   cursor.className = "cursor";
@@ -131,11 +120,11 @@ export function initTerminalDemo() {
   async function type(text, cls, cps) {
     const s = span(cls);
     trailCursor();
-    if (reduced || fastForward) {
+    if (fastForward) {
       s.textContent = text;
       return;
     }
-    const base = 1000 / (cps || 80);
+    const base = 1000 / (cps || 36);
     for (let i = 0; i < text.length; i++) {
       if (fastForward) {
         s.textContent = text;
@@ -150,7 +139,7 @@ export function initTerminalDemo() {
   async function typeWords(text, cls) {
     const s = span(cls);
     trailCursor();
-    if (reduced || fastForward) {
+    if (fastForward) {
       s.textContent = text;
       return;
     }
@@ -164,9 +153,9 @@ export function initTerminalDemo() {
       s.textContent += token;
       // whitespace tokens are instant; words get a short delay
       if (/\s/.test(token)) continue;
-      await sleep(16 + Math.random() * 6);
+      await sleep(28 + Math.random() * 8);
       // occasional micro-pause for natural rhythm
-      if (Math.random() < 0.04) await sleep(50);
+      if (Math.random() < 0.04) await sleep(60);
     }
   }
 
@@ -218,32 +207,32 @@ export function initTerminalDemo() {
     cmdSpan.setAttribute("title", "click to copy");
 
     currentParent = cmdSpan;
-    await stream(parts, 82);
+    await stream(parts, 36);
     currentParent = demoContent;
 
     await print("\n");
-    await sleep(reduced ? 0 : 180);
+    await sleep(200);
   }
 
   async function prompt(parts) {
     await print("user:", "prompt");
     await print(" ");
     if (Array.isArray(parts)) {
-      await stream(parts, 94);
+      await stream(parts, 36);
     } else {
-      await type(parts, null, 94);
+      await type(parts, null, 36);
     }
     await print("\n");
-    await sleep(reduced ? 0 : 130);
+    await sleep(150);
   }
 
   async function output(segments) {
     await streamWords(segments);
-    await sleep(reduced ? 0 : 180);
+    await sleep(200);
   }
 
-  async function sceneBreak(ms = 650) {
-    await sleep(reduced ? 0 : ms);
+  async function sceneBreak(ms = 850) {
+    await sleep(ms);
   }
 
   // --- the tour --------------------------------------------------
@@ -254,9 +243,7 @@ export function initTerminalDemo() {
     demo.scrollTop = 0;
     autoFollow = true;
     userScrolling = false;
-    // while animating, collapse the mutating subtree into a single
-    // labelled image for assistive tech instead of streaming changes
-    if (!reduced) demo.setAttribute("role", "img");
+    demo.setAttribute("role", "img");
     trailCursor();
 
     await command([
@@ -496,20 +483,15 @@ export function initTerminalDemo() {
   }
 
   // --- run management -------------------------------------------
-  const REPLAY_COOLDOWN_MS = 3 * 60 * 1000;
-  let lastRunAt = 0;
-
   function setRunning(state) {
     running = state;
-    // nothing to skip when there are no delays to skip past
-    if (skipBtn) skipBtn.hidden = reduced ? true : !state;
+    if (skipBtn) skipBtn.hidden = !state;
   }
 
   function start() {
     genId++;
     const myGen = genId;
     fastForward = false;
-    lastRunAt = Date.now();
     setRunning(true);
     run()
       .then(() => {
@@ -632,34 +614,18 @@ export function initTerminalDemo() {
   })();
 
   // --- bfcache restore: restart cleanly --------------------------
-  // When the page is restored from the back-forward cache, the
-  // previous animation state is stale: fastForward may be stuck true
-  // (if Skip was pressed before navigating away), in-flight setTimeout
-  // chains from sleep() can fire in a burst, and the scroll position
-  // is frozen mid-tour. This produces the "really fast and jumps to the
-  // bottom" glitch. Detecting event.persisted on pageshow lets us
-  // restart the tour from the top at normal speed. start() increments
-  // genId (cancelling any in-flight run), resets fastForward, and
-  // begins a fresh run().
   window.addEventListener("pageshow", (e) => {
     if (e.persisted) {
       start();
     }
   });
 
-  // Reduced motion: render the tour once with no delays. Everything
-  // above (copy, scroll, drag, replay) stays wired up because those
-  // are interactions, not animation.
-  if (reduced) {
-    start();
-    return;
-  }
-
-  // --- replay on scroll-in --------------------------------------
-  // only past the cooldown so casual scrolling past the block
-  // does not keep retriggering it
+  // --- start on initial scroll-in ------------------------------
+  // Plays once per page load, then stops indefinitely. Scrolling
+  // away and back will not retrigger it; only a page refresh or
+  // clicking the replay button will restart the tour.
   if (typeof IntersectionObserver !== "function") {
-    // no observer support: just play once so the demo is never blank
+    // no observer support: play once so the demo is never blank
     start();
     return;
   }
@@ -668,14 +634,11 @@ export function initTerminalDemo() {
     (entries) => {
       entries.forEach((e) => {
         if (!e.isIntersecting) return;
-        // never restart a tour that is still playing
-        if (running) return;
-        if (Date.now() - lastRunAt >= REPLAY_COOLDOWN_MS) {
-          start();
-        }
+        io.disconnect();
+        start();
       });
     },
-    { threshold: 0.4 },
+    { threshold: 0.2 },
   );
   io.observe(demo);
 }

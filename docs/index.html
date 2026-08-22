@@ -234,6 +234,14 @@ ready to paste into a prompt or pipe into another command
 <span class="ok">codedump saved:</span> ch_dump_internal_2026-08-19.txt
 included 47 text files, skipped binaries and vendor caches
 
+<span class="dim">$</span> <span class="acc">ch</span> <span class="flag">-y</span> <span class="flag">-b</span> <span class="path">./cmd</span> <span class="path">cli_context.txt</span>
+<span class="ok">codedump saved:</span> cli_context.txt
+interactive pickers skipped by --yes
+
+<span class="dim">$</span> <span class="acc">cat</span> <span class="path">README.md</span> <span class="dim">|</span> <span class="acc">ch</span> <span class="flag">-t</span>
+<span class="ok">Token estimate for stdin:</span> 14,820 tokens
+model: <span class="model">gpt-5.4-mini</span>
+
 <span class="dim">$</span> <span class="acc">ch</span> <span class="flag">-p</span> <span class="platform">groq</span> <span class="flag">-m</span> <span class="model">llama3-8b-8192</span> <span class="str">"give me a fast regex"</span>
 <span class="platform">groq</span> <span class="model">llama3-8b-8192</span>
 Use <span class="str">(?m)^func\s+([A-Za-z0-9_]+)\(</span> to list Go function names line-by-line.
