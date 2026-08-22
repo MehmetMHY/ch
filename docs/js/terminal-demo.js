@@ -7,11 +7,10 @@
  * - word-by-word streaming for model output (natural token feel)
  * - drag-to-scroll on desktop (touch already swipes natively)
  * - plays once on scroll-in/load, then stays finished indefinitely
- * - one action button: skip while running, replay while finished
  * - tap/click a command line to copy it to clipboard
  *
  * Robustness:
- * - A generation counter (genId) cancels in-flight runs on replay so
+ * - A generation counter (genId) cancels in-flight runs so
  *   overlapping animations never corrupt the DOM.
  * - sleep() polls in small increments so cancellation takes effect
  *   immediately rather than after the full delay.
@@ -23,8 +22,7 @@
  *   detects event.persisted and restarts the tour cleanly.
  * - Clipboard copy falls back to execCommand when the async Clipboard
  *   API is unavailable (insecure contexts, old browsers).
- * - All interactions work on both touch and mouse; the replay button
- *   is always visible on touch devices (no hover dependency).
+ * - All interactions work on both touch and mouse.
  *
  * Accessibility:
  * - While JS animates the content, the <pre> becomes role="img" with a
@@ -35,7 +33,6 @@
 export function initTerminalDemo() {
   const demo = document.getElementById("demo");
   const demoContent = document.getElementById("demo-content");
-  const actionBtn = document.getElementById("terminal-action");
   if (!demo || !demoContent) return;
 
   const cursor = document.createElement("span");
@@ -480,27 +477,17 @@ export function initTerminalDemo() {
   }
 
   // --- run management -------------------------------------------
-  function setRunning(state) {
-    running = state;
-    if (!actionBtn) return;
-    actionBtn.textContent = state ? "skip" : "replay";
-    actionBtn.setAttribute(
-      "aria-label",
-      state ? "Skip to the end of the terminal demo" : "Replay terminal demo",
-    );
-  }
-
   function start() {
     genId++;
     const myGen = genId;
     fastForward = false;
-    setRunning(true);
+    running = true;
     run()
       .then(() => {
         // only the newest run may clear the running state
         if (myGen === genId) {
           fastForward = false;
-          setRunning(false);
+          running = false;
         }
       })
       .catch(() => {});
@@ -546,21 +533,6 @@ export function initTerminalDemo() {
     },
     { passive: true },
   );
-
-  // --- action button: replay or skip -----------------------------
-  if (actionBtn) {
-    actionBtn.addEventListener("click", () => {
-      if (!running) {
-        start();
-        return;
-      }
-      // let the in-flight run drain instantly rather than rebuilding,
-      // so the tour ends in exactly the state it would have reached
-      fastForward = true;
-      autoFollow = true;
-      userScrolling = false;
-    });
-  }
 
   // --- drag-to-scroll on desktop --------------------------------
   // touch already swipes natively. Only engages after a small

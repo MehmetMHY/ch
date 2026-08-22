@@ -379,54 +379,6 @@ body.dark-mode .terminal-demo .str {
   }
 }
 
-/* terminal action control */
-.terminal-controls {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  z-index: 2;
-  display: flex;
-  gap: 6px;
-}
-
-.terminal-btn {
-  background: var(--bg-color);
-  color: var(--secondary-text);
-  border: 1px solid var(--border-color);
-  padding: 5px 12px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  opacity: 1;
-  transition:
-    opacity 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease;
-}
-
-.terminal-btn[hidden] {
-  display: none;
-}
-
-.terminal-btn:hover,
-.terminal-btn:focus-visible {
-  color: var(--text-color);
-  border-color: var(--text-color);
-}
-
-/* on desktop with fine pointer, fade controls in as a group for a
-   cleaner static appearance; on touch they stay always-visible. */
-@media (hover: hover) and (pointer: fine) {
-  .terminal-controls .terminal-btn {
-    opacity: 0;
-  }
-
-  .terminal-demo:hover .terminal-btn,
-  .terminal-controls:focus-within .terminal-btn {
-    opacity: 1;
-  }
-}
-
 /* copy-click affordance on command lines */
 .terminal-demo .cmd-copy {
   cursor: pointer;
