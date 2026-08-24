@@ -393,7 +393,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!e [file]`** - export chat(s). Surrounding quotes (`"`/`'`) are stripped, so `!e "hi.txt"` saves as `hi.txt`
 - **`!y`** - add to clipboard
 - **`cc`** - quick copy latest response
-- **`ctrl+c`** - clear prompt input
+- **`ctrl+c`** - clear prompt input. At a custom export filename prompt, cancels the export and returns to interactive mode.
 - **`ctrl+d`** - exit completely
 
 ### Advanced Features
@@ -418,10 +418,10 @@ Optional: Provide a filename (`!e output.txt`) to skip the file selection step a
 
 Every filename selection step in the export flows (turn, block, manual, and `-e`/`--export` code blocks) supports entering a custom name via the `>custom` sentinel:
 
-- **`>custom`**: Select the `>custom` entry at the top of the fzf list, then type a filename when prompted and press Enter.
+- **`>custom`**: Select the `>custom` entry at the top of the fzf list, then type a filename when prompted and press Enter. Press `Ctrl+C` or `Ctrl+D` at the filename prompt to cancel the export and return to interactive mode.
 - **Enter**: Selects/overwrites the highlighted list item. This is how you overwrite an existing file (files already in the directory are listed and marked `[w]`).
 
-New filenames are entered only through `>custom`; typing a query that matches nothing cancels the export instead of creating a file, so a fuzzy near-match never silently overwrites the wrong file. Custom names preserve spaces, uppercase, dots, and dashes as typed; path separators (`/`) are stripped so the file stays in the current directory. No extension is auto-appended, so include one if you want one (e.g. `my notes.txt`). When a filename is passed directly to `!e`, surrounding quotes are stripped (`!e "hi.txt"` saves as `hi.txt`).
+New filenames are entered only through `>custom`; typing a query that matches nothing cancels the export instead of creating a file, so a fuzzy near-match never silently overwrites the wrong file. Custom names preserve spaces, uppercase, dots, and dashes as typed; path separators (`/`) are stripped so the file stays in the current directory. No extension is auto-appended, so include one if you want one (e.g. `my notes.txt`). Blank filename input, `Ctrl+C`, and `Ctrl+D` cancel the export without exiting Ch. When a filename is passed directly to `!e`, surrounding quotes are stripped (`!e "hi.txt"` saves as `hi.txt`).
 
 **AI-Suggested Filenames:**
 

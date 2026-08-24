@@ -1,9 +1,9 @@
 package chat
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +19,7 @@ import (
 	"github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
+	"github.com/chzyer/readline"
 	"github.com/google/uuid"
 )
 
@@ -1514,32 +1515,36 @@ func (m *Manager) selectExportFilename(terminal *ui.Terminal, aiNames, suggested
 	return strings.TrimPrefix(selection, "[w] "), nil
 }
 
-// promptCustomFilename reads a custom filename from stdin. It prints a single
-// inline "filename: " prompt (red label, input on the same line) and
-// re-prompts on an invalid name until one is accepted or the user cancels.
-// It is robust to Ctrl+D (EOF): a partial line typed before EOF is still
-// accepted if valid, and a blank/whitespace-only line cancels.
+// promptCustomFilename reads a custom filename using a short-lived readline
+// instance so Ctrl+C cancels only the export instead of reaching the process
+// level SIGINT handler and exiting interactive mode. It re-prompts on an
+// invalid name until one is accepted or the user cancels.
 func (m *Manager) promptCustomFilename(terminal *ui.Terminal) (string, error) {
-	reader := bufio.NewReader(os.Stdin)
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:             "\033[94mfilename: \033[0m",
+		InterruptPrompt:    "",
+		EOFPrompt:          "cancel",
+		HistoryFile:        "/dev/null",
+		FuncOnWidthChanged: func(func()) {},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create filename prompt: %v", err)
+	}
+	defer rl.Close()
+
 	for {
-		// Red "filename:" label, then a space, no newline: input is typed
-		// inline on the same line. Plain text when output is piped.
-		terminal.PrintInlinePrompt("filename: ")
-		line, err := reader.ReadString('\n')
-		if err != nil && line == "" {
-			// Nothing typed before EOF/Ctrl+D: clean up the line and cancel.
-			fmt.Println()
-			return "", fmt.Errorf("export cancelled")
+		line, err := rl.Readline()
+		if err != nil {
+			if err == readline.ErrInterrupt || err == io.EOF {
+				return "", fmt.Errorf("export cancelled")
+			}
+			return "", err
 		}
-		// err may be non-nil with a partial line (Ctrl+D without Enter); the
-		// line is still usable if it sanitizes to a valid name.
+
 		name, serr := SanitizeCustomFilename(line)
 		if serr != nil {
 			if strings.TrimSpace(line) == "" {
-				// Blank line (Enter or trailing EOF on whitespace) cancels.
-				if err != nil {
-					fmt.Println()
-				}
+				// Blank line cancels.
 				return "", fmt.Errorf("export cancelled")
 			}
 			terminal.PrintError(fmt.Sprintf("invalid filename: %v", serr))
