@@ -21,14 +21,49 @@ import (
 
 // Manager handles AI platform operations
 type Manager struct {
-	client *openai.Client
-	config *types.Config
+	client          *openai.Client
+	config          *types.Config
+	reasoningEffort string // current reasoning effort for user-facing requests; "" = omit
 }
 
 // NewManager creates a new platform manager
 func NewManager(config *types.Config) *Manager {
 	return &Manager{
 		config: config,
+	}
+}
+
+// SetReasoningEffort sets the active reasoning effort for subsequent
+// user-facing chat requests. An empty string means omit the parameter.
+func (m *Manager) SetReasoningEffort(effort string) {
+	m.reasoningEffort = effort
+}
+
+// GetReasoningEffort returns the active reasoning effort.
+func (m *Manager) GetReasoningEffort() string {
+	return m.reasoningEffort
+}
+
+// resolveOutboundEffort determines the reasoning_effort value to send in
+// the API request. It returns "" when the parameter should be omitted.
+//
+// Logic:
+//   - Empty effort -> always omit (provider default).
+//   - Non-empty effort with metadata: send only if the model supports it.
+//   - Non-empty effort with no metadata: send as an unverified user override.
+//   - Non-empty effort but model known to be unsupported: omit silently.
+func (m *Manager) resolveOutboundEffort(model string) string {
+	if m.reasoningEffort == "" {
+		return ""
+	}
+	cap := ResolveCapability(m.config.CurrentPlatform, model, m.config)
+	switch cap.Status {
+	case CapStatusSupported:
+		return m.reasoningEffort
+	case CapStatusUnsupported:
+		return ""
+	default: // CapStatusUnknown
+		return m.reasoningEffort
 	}
 }
 
@@ -77,6 +112,8 @@ func (m *Manager) Initialize() error {
 // SendSilentChatRequest sends a non-streaming chat request and returns the
 // full response without printing anything to stdout. Use for auxiliary
 // requests (e.g. filename suggestions) where streaming output is unwanted.
+// Reasoning effort is intentionally not applied to silent requests so
+// auxiliary calls do not inherit the user's chat-level reasoning setting.
 func (m *Manager) SendSilentChatRequest(messages []types.ChatMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
 	mergedMessages := m.mergeConsecutiveUserMessages(messages)
 
@@ -87,6 +124,11 @@ func (m *Manager) SendSilentChatRequest(messages []types.ChatMessage, model stri
 			Content: msg.Content,
 		})
 	}
+
+	// Temporarily clear reasoning effort so the silent request omits it.
+	savedEffort := m.reasoningEffort
+	m.reasoningEffort = ""
+	defer func() { m.reasoningEffort = savedEffort }()
 
 	return m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
 }
@@ -545,6 +587,9 @@ func (m *Manager) sendNonStreamingRequest(openaiMessages []openai.ChatCompletion
 		Messages: openaiMessages,
 		Stream:   false,
 	}
+	if effort := m.resolveOutboundEffort(model); effort != "" {
+		req.ReasoningEffort = effort
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	*isStreaming = true
@@ -577,6 +622,9 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 		Model:    model,
 		Messages: openaiMessages,
 		Stream:   true,
+	}
+	if effort := m.resolveOutboundEffort(model); effort != "" {
+		req.ReasoningEffort = effort
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

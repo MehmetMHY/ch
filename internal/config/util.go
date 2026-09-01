@@ -26,6 +26,22 @@ func GetTempDir() (string, error) {
 	return tempDir, nil
 }
 
+// GetCacheDir returns the application's cache directory (~/.ch/cache/),
+// creating it with 0700 permissions if it doesn't exist.
+func GetCacheDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	cacheDir := filepath.Join(homeDir, ".ch", "cache")
+	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	return cacheDir, nil
+}
+
 // IsShallowLoadDir checks if a directory should be loaded shallowly (only 1 level deep)
 func IsShallowLoadDir(cfg *types.Config, dirPath string) bool {
 	// Normalize the directory path

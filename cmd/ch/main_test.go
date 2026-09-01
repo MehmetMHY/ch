@@ -709,3 +709,94 @@ func TestFetchFlagFollowUpPrompt(t *testing.T) {
 		t.Fatalf("-f with prompt should fall through to direct query / platform init, got:\n%s", out)
 	}
 }
+
+// TestReasoningEffortFlagRegistered verifies -r and --reasoning-effort are
+// registered as valid flags.
+func TestReasoningEffortFlagRegistered(t *testing.T) {
+	binPath := testBinPath
+
+	for _, flagArg := range []string{"-r", "--reasoning-effort"} {
+		out := runWithTempHome(t, binPath, flagArg)
+		if strings.Contains(out, "flag provided but not defined") {
+			t.Fatalf("%s should be registered, got:\n%s", flagArg, out)
+		}
+	}
+}
+
+// TestReasoningEffortFlagReachesPlatformInit verifies that -r with a prompt
+// reaches platform initialization (and fails without an API key), proving
+// the flag value is consumed and the prompt is treated as a direct query.
+func TestReasoningEffortFlagReachesPlatformInit(t *testing.T) {
+	binPath := testBinPath
+
+	out := runWithTempHome(t, binPath, "-r", "medium", "test prompt")
+	if strings.Contains(out, "flag provided but not defined") {
+		t.Fatalf("-r should be registered, got:\n%s", out)
+	}
+	// Should reach platform init (and fail without API key).
+	if !strings.Contains(out, "OPENAI_API_KEY") {
+		t.Fatalf("-r with prompt should reach platform init, got:\n%s", out)
+	}
+}
+
+// TestStateOutputIncludesReasoning verifies that >state (handleShowState)
+// includes a reasoning line.
+func TestStateOutputIncludesReasoning(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	state := &types.AppState{
+		Config: &types.Config{
+			CurrentPlatform: "openai",
+			CurrentModel:    "gpt-5.4-mini",
+			SystemPrompt:    "S",
+			IsPipedOutput:   true,
+		},
+		Messages:    []types.ChatMessage{{Role: "system", Content: "S"}},
+		ChatHistory: []types.ChatHistory{{User: "S"}},
+	}
+	chatManager := chat.NewManager(state)
+	terminal := ui.NewTerminal(state.Config)
+
+	out := captureStdout(t, func() {
+		_ = handleShowState(chatManager, terminal, state, true)
+	})
+
+	if !strings.Contains(out, "reasoning:") {
+		t.Fatalf("expected state output to include reasoning line, got:\n%s", out)
+	}
+	if !strings.Contains(out, "default") {
+		t.Fatalf("expected 'default' in reasoning state, got:\n%s", out)
+	}
+}
+
+// TestStateOutputIncludesReasoningEffort verifies that >state shows the
+// active reasoning effort when set.
+func TestStateOutputIncludesReasoningEffort(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	state := &types.AppState{
+		Config: &types.Config{
+			CurrentPlatform: "openai",
+			CurrentModel:    "gpt-5.4-mini",
+			SystemPrompt:    "S",
+			IsPipedOutput:   true,
+		},
+		Messages:        []types.ChatMessage{{Role: "system", Content: "S"}},
+		ChatHistory:     []types.ChatHistory{{User: "S"}},
+		ReasoningEffort: "high",
+	}
+	chatManager := chat.NewManager(state)
+	terminal := ui.NewTerminal(state.Config)
+
+	out := captureStdout(t, func() {
+		_ = handleShowState(chatManager, terminal, state, true)
+	})
+
+	if !strings.Contains(out, "reasoning: high") {
+		t.Fatalf("expected 'reasoning: high' in state output, got:\n%s", out)
+	}
+}

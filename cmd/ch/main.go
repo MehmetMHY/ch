@@ -15,7 +15,7 @@ import (
 
 	"github.com/MehmetMHY/ch/internal/chat"
 	"github.com/MehmetMHY/ch/internal/config"
-	"github.com/MehmetMHY/ch/internal/platform"
+	platformpkg "github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/chzyer/readline"
@@ -61,6 +61,7 @@ func main() {
 		historyFlag    = flag.Bool("a", false, "Search and load previous sessions")
 		fetchFlag      = flag.Bool("f", false, "Fetch a session into interactive mode (file name, path, or fzf pick)")
 		yesFlag        = flag.Bool("y", false, "Skip interactive fzf prompts (codedump exclude-picker)")
+		reasoningFlag  = flag.String("r", "", "Set reasoning effort (e.g., low, medium, high, or default to omit)")
 	)
 	flag.StringVar(tokenFlag, "token", "", "Estimate token count in file, or piped stdin if no file is given")
 	flag.StringVar(codedumpFlag, "dump", "", "Generate codedump file (optionally specify directory path)")
@@ -72,6 +73,7 @@ func main() {
 	flag.BoolVar(exportCodeFlag, "export", false, "Export code blocks from the last response")
 	flag.BoolVar(yesFlag, "yes", false, "Skip interactive fzf prompts (codedump exclude-picker)")
 	flag.BoolVar(versionFlag, "version", false, "Show version and exit")
+	flag.StringVar(reasoningFlag, "reasoning-effort", "", "Set reasoning effort (e.g., low, medium, high, or default to omit)")
 
 	noHistoryFlag := flag.Bool("n", false, "Disable session saving for this run")
 	flag.Bool("no-history", false, "Disable session saving for this run")
@@ -102,9 +104,13 @@ func main() {
 	}
 
 	tokenFlagProvided := false
+	reasoningFlagProvided := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "t" || f.Name == "token" {
 			tokenFlagProvided = true
+		}
+		if f.Name == "r" || f.Name == "reasoning-effort" {
+			reasoningFlagProvided = true
 		}
 	})
 
@@ -126,7 +132,7 @@ func main() {
 	// initialize components
 	terminal := ui.NewTerminal(state.Config)
 	chatManager := chat.NewManager(state)
-	platformManager := platform.NewManager(state.Config)
+	platformManager := platformpkg.NewManager(state.Config)
 	chatManager.SetPlatformManager(platformManager)
 
 	// Check if input is being piped
@@ -206,12 +212,16 @@ func main() {
 		// Restore the session and show it
 		chatManager.RestoreSessionState(session)
 
+		// Restore reasoning effort from session
+		state.ReasoningEffort = session.ReasoningEffort
+
 		// Re-initialize platform client with restored state
 		err = platformManager.Initialize()
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("failed to initialize client: %v", err))
 			return
 		}
+		platformManager.SetReasoningEffort(state.ReasoningEffort)
 
 		// Print session info and conversation
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
@@ -546,6 +556,9 @@ func main() {
 		finalPlatform = session.Platform
 		finalModel = session.Model
 
+		// Restore reasoning effort from session (unless overridden by CLI later)
+		state.ReasoningEffort = session.ReasoningEffort
+
 		// Print session restoration message in red.
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
@@ -622,6 +635,9 @@ func main() {
 		finalPlatform = session.Platform
 		finalModel = session.Model
 
+		// Restore reasoning effort from session (unless overridden by CLI later)
+		state.ReasoningEffort = session.ReasoningEffort
+
 		// Print session restoration message in red
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
@@ -667,6 +683,16 @@ func main() {
 		terminal.PrintError(fmt.Sprintf("failed to initialize client: %v", err))
 		return
 	}
+
+	// Apply reasoning effort: CLI flag takes precedence over restored
+	// session and config default. Apply after session restore and
+	// platform init so the explicit CLI value wins.
+	if reasoningFlagProvided {
+		normalized := platformpkg.NormalizeEffort(*reasoningFlag)
+		state.ReasoningEffort = normalized
+		state.Config.ReasoningEffort = normalized
+	}
+	platformManager.SetReasoningEffort(state.ReasoningEffort)
 
 	// handle web search flag
 	if *webSearchFlag != "" {
@@ -835,7 +861,7 @@ func main() {
 	}
 }
 
-func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, exportCode bool, noHistory bool) error {
+func processDirectQuery(query string, chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState, exportCode bool, noHistory bool) error {
 	if handleSpecialCommands(query, chatManager, platformManager, terminal, state, noHistory, nil) {
 		return nil
 	}
@@ -916,7 +942,7 @@ func makeResizeHandler(rlp **readline.Instance, stop <-chan struct{}) func(func(
 	}
 }
 
-func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool) {
+func runInteractiveMode(chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool) {
 	var mainRL *readline.Instance
 	resizeStop := make(chan struct{})
 	rl, err := readline.NewEx(&readline.Config{
@@ -1072,11 +1098,11 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platform.Man
 	}
 }
 
-func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool, rl *readline.Instance) bool {
+func handleSpecialCommands(input string, chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool, rl *readline.Instance) bool {
 	return handleSpecialCommandsInternal(input, chatManager, platformManager, terminal, state, false, noHistory, rl)
 }
 
-func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, fromHelp bool, noHistory bool, rl *readline.Instance) bool {
+func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState, fromHelp bool, noHistory bool, rl *readline.Instance) bool {
 	config := state.Config
 
 	switch {
@@ -1177,6 +1203,13 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	case input == config.AllModels:
 		return handleAllModels(chatManager, platformManager, terminal, state)
+
+	case input == config.ReasoningEffortSwitch:
+		return handleReasoningEffort("", chatManager, platformManager, terminal, state)
+
+	case strings.HasPrefix(input, config.ReasoningEffortSwitch+" "):
+		arg := strings.TrimSpace(strings.TrimPrefix(input, config.ReasoningEffortSwitch+" "))
+		return handleReasoningEffort(arg, chatManager, platformManager, terminal, state)
 
 	case input == config.LoadFiles:
 		return handleFileLoad(chatManager, terminal, state, "")
@@ -1868,7 +1901,7 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 	currentTime := time.Now().Format("15:04:05 MST")
 
 	// Get platform and model
-	platform := chatManager.GetCurrentPlatform()
+	platformName := chatManager.GetCurrentPlatform()
 	model := chatManager.GetCurrentModel()
 	sessionFile := ""
 	if state.Config.EnableSessionSave && !noHistory {
@@ -1907,20 +1940,26 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 	combinedDateTime := currentDate + " " + currentTime
 	if state.Config.IsPipedOutput {
 		fmt.Printf("%s %s\n", "date:", combinedDateTime)
-		fmt.Printf("%s %s\n", "platform:", platform)
-		fmt.Printf("%s %s\n", "model:", model)
 		if sessionFile != "" {
 			fmt.Printf("%s %s\n", "file:", sessionFile)
 		}
+		fmt.Printf("%s %s\n", "platform:", platformName)
+		fmt.Printf("%s %s\n", "model:", model)
+		reasoningDesc := platformpkg.DescribeEffortState(state.ReasoningEffort,
+			platformpkg.ResolveCapability(platformName, model, state.Config))
+		fmt.Printf("%s %s\n", "reasoning:", reasoningDesc)
 		fmt.Printf("%s %d\n", "chats:", chatCount)
 		fmt.Printf("%s %d\n", "tokens:", tokenCount)
 	} else {
 		fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "date:", combinedDateTime)
-		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "platform:", platform)
-		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", model)
 		if sessionFile != "" {
 			fmt.Printf("\033[96m%s\033[0m \033[93m%s\033[0m\n", "file:", sessionFile)
 		}
+		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "platform:", platformName)
+		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", model)
+		reasoningDesc := platformpkg.DescribeEffortState(state.ReasoningEffort,
+			platformpkg.ResolveCapability(platformName, model, state.Config))
+		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "reasoning:", reasoningDesc)
 		fmt.Printf("\033[96m%s\033[0m \033[92m%d\033[0m\n", "chats:", chatCount)
 		fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", tokenCount)
 	}
@@ -2024,7 +2063,7 @@ func splitByDelimiters(input string) []string {
 // handleFlagWithPrompt sends context and prompt to AI, then displays response
 // context: the loaded/scraped/searched content
 // prompt: the user's query/instruction
-func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState, context string, prompt string, noHistory bool) error {
+func handleFlagWithPrompt(chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState, context string, prompt string, noHistory bool) error {
 	// Combine context and prompt for the message
 	combinedMessage := context + "\n\n" + prompt
 
@@ -2154,8 +2193,89 @@ func generateUniqueCodeDumpFilename(currentDir, content string) string {
 	return fmt.Sprintf("ch_cd%s.txt", uuid.New().String())
 }
 
+// handleReasoningEffort handles the !r command for selecting or setting
+// reasoning effort. With an empty arg it opens an fzf picker filtered to
+// the current model's supported values. With a non-empty arg it sets
+// the value directly after validation.
+func handleReasoningEffort(arg string, chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	currentModel := chatManager.GetCurrentModel()
+	currentPlatform := chatManager.GetCurrentPlatform()
+
+	cap := platformpkg.ResolveCapability(currentPlatform, currentModel, state.Config)
+
+	// Direct argument: !r low, !r default
+	if arg != "" {
+		normalized := platformpkg.NormalizeEffort(arg)
+
+		if platformpkg.IsProviderDefault(normalized) {
+			state.ReasoningEffort = ""
+			platformManager.SetReasoningEffort("")
+			if !state.Config.MuteNotifications {
+				terminal.PrintInfo("reasoning: default")
+			}
+			return true
+		}
+
+		// Validate against metadata if available.
+		if cap.Status == platformpkg.CapStatusSupported {
+			if !platformpkg.IsEffortValueValid(normalized, cap.AllowedValues) {
+				terminal.PrintError(fmt.Sprintf("unsupported reasoning effort '%s' for %s on %s (supported: %s)",
+					normalized, currentModel, currentPlatform, strings.Join(cap.AllowedValues, ", ")))
+				return true
+			}
+		} else if cap.Status == platformpkg.CapStatusUnsupported {
+			terminal.PrintError(fmt.Sprintf("reasoning effort is not supported by %s on %s", currentModel, currentPlatform))
+			return true
+		}
+		// CapStatusUnknown: allow as unverified user override.
+
+		state.ReasoningEffort = normalized
+		platformManager.SetReasoningEffort(normalized)
+		if !state.Config.MuteNotifications {
+			label := normalized
+			if cap.Status == platformpkg.CapStatusUnknown {
+				label = normalized + " (unverified)"
+			}
+			terminal.PrintInfo("reasoning: " + label)
+		}
+		return true
+	}
+
+	// No argument: open fzf picker.
+	options := platformpkg.BuildEffortOptions(cap)
+	if len(options) <= 1 && cap.Status == platformpkg.CapStatusUnsupported {
+		terminal.PrintError(fmt.Sprintf("reasoning effort is not supported by %s on %s", currentModel, currentPlatform))
+		return true
+	}
+
+	selected, err := terminal.FzfSelect(options, "reasoning effort: ")
+	if err != nil {
+		terminal.PrintError(fmt.Sprintf("error selecting reasoning effort: %v", err))
+		return true
+	}
+
+	if selected == "" {
+		return true
+	}
+
+	effort := platformpkg.LabelToEffort(selected)
+	state.ReasoningEffort = effort
+	platformManager.SetReasoningEffort(effort)
+
+	if !state.Config.MuteNotifications {
+		if effort == "" {
+			terminal.PrintInfo("reasoning: provider default")
+		} else if cap.Status == platformpkg.CapStatusUnknown {
+			terminal.PrintInfo("reasoning: " + effort + " (unverified)")
+		} else {
+			terminal.PrintInfo("reasoning: " + effort)
+		}
+	}
+	return true
+}
+
 // handleAllModels handles the !o command for selecting from all available models
-func handleAllModels(chatManager *chat.Manager, platformManager *platform.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+func handleAllModels(chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState) bool {
 	// Create channels for async operation
 	type modelResult struct {
 		models []string

@@ -63,11 +63,12 @@ func (m *Manager) AddAssistantMessage(content string) {
 // AddToHistory adds an entry to the chat history
 func (m *Manager) AddToHistory(user, bot string) {
 	m.state.ChatHistory = append(m.state.ChatHistory, types.ChatHistory{
-		Time:     time.Now().Unix(),
-		User:     user,
-		Bot:      bot,
-		Platform: m.state.Config.CurrentPlatform,
-		Model:    m.state.Config.CurrentModel,
+		Time:            time.Now().Unix(),
+		User:            user,
+		Bot:             bot,
+		Platform:        m.state.Config.CurrentPlatform,
+		Model:           m.state.Config.CurrentModel,
+		ReasoningEffort: m.state.ReasoningEffort,
 	})
 }
 
@@ -75,12 +76,13 @@ func (m *Manager) AddToHistory(user, bot string) {
 // persisted in sessions and used in exports/clipboard instead of the summary
 func (m *Manager) AddToHistoryWithContext(user, bot, context string) {
 	m.state.ChatHistory = append(m.state.ChatHistory, types.ChatHistory{
-		Time:     time.Now().Unix(),
-		User:     user,
-		Bot:      bot,
-		Platform: m.state.Config.CurrentPlatform,
-		Model:    m.state.Config.CurrentModel,
-		Context:  context,
+		Time:            time.Now().Unix(),
+		User:            user,
+		Bot:             bot,
+		Platform:        m.state.Config.CurrentPlatform,
+		Model:           m.state.Config.CurrentModel,
+		Context:         context,
+		ReasoningEffort: m.state.ReasoningEffort,
 	})
 }
 
@@ -146,11 +148,12 @@ func (m *Manager) ExportFullHistory() (string, error) {
 	for _, entry := range m.state.ChatHistory[1:] {
 		if entry.User != "" || entry.Bot != "" || entry.Context != "" {
 			entries = append(entries, types.ExportEntry{
-				Platform:    entry.Platform,
-				ModelName:   entry.Model,
-				UserPrompt:  EffectiveUserContent(entry),
-				BotResponse: entry.Bot,
-				Timestamp:   entry.Time,
+				Platform:        entry.Platform,
+				ModelName:       entry.Model,
+				UserPrompt:      EffectiveUserContent(entry),
+				BotResponse:     entry.Bot,
+				Timestamp:       entry.Time,
+				ReasoningEffort: entry.ReasoningEffort,
 			})
 		}
 	}
@@ -222,11 +225,12 @@ func (m *Manager) SaveSessionState() error {
 
 	// Create SessionFile with current state
 	session := types.SessionFile{
-		Timestamp:   time.Now().Unix(),
-		Platform:    m.state.Config.CurrentPlatform,
-		Model:       m.state.Config.CurrentModel,
-		BaseURL:     m.state.Config.CurrentBaseURL,
-		ChatHistory: m.state.ChatHistory,
+		Timestamp:       time.Now().Unix(),
+		Platform:        m.state.Config.CurrentPlatform,
+		Model:           m.state.Config.CurrentModel,
+		BaseURL:         m.state.Config.CurrentBaseURL,
+		ChatHistory:     m.state.ChatHistory,
+		ReasoningEffort: m.state.ReasoningEffort,
 	}
 
 	// Marshal to JSON
@@ -297,10 +301,11 @@ func (m *Manager) ForkSessionOnNextSave() {
 
 func (m *Manager) sessionSaveFingerprint() string {
 	session := types.SessionFile{
-		Platform:    m.state.Config.CurrentPlatform,
-		Model:       m.state.Config.CurrentModel,
-		BaseURL:     m.state.Config.CurrentBaseURL,
-		ChatHistory: m.state.ChatHistory,
+		Platform:        m.state.Config.CurrentPlatform,
+		Model:           m.state.Config.CurrentModel,
+		BaseURL:         m.state.Config.CurrentBaseURL,
+		ChatHistory:     m.state.ChatHistory,
+		ReasoningEffort: m.state.ReasoningEffort,
 	}
 
 	data, err := json.Marshal(session)
@@ -415,6 +420,7 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 	m.state.Config.CurrentBaseURL = session.BaseURL
 	m.state.ChatHistory = session.ChatHistory
 	m.state.SessionFilePath = session.SourceFile
+	m.state.ReasoningEffort = session.ReasoningEffort
 
 	// Rebuild Messages from ChatHistory
 	m.state.Messages = []types.ChatMessage{
@@ -993,7 +999,11 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 		}
 
 		timestamp := time.Unix(entry.Time, 0).Format("2006-01-02 15:04:05")
-		contentBuilder.WriteString(fmt.Sprintf("Entry %d - %s - %s/%s\n\n", i+1, timestamp, entry.Platform, entry.Model))
+		header := fmt.Sprintf("Entry %d - %s - %s/%s", i+1, timestamp, entry.Platform, entry.Model)
+		if entry.ReasoningEffort != "" {
+			header += fmt.Sprintf(" [effort: %s]", entry.ReasoningEffort)
+		}
+		contentBuilder.WriteString(header + "\n\n")
 
 		if entry.User != "" || entry.Context != "" {
 			contentBuilder.WriteString("USER:\n")

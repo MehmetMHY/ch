@@ -435,6 +435,14 @@ export function initTerminalDemo() {
       { text: " anthropic/claude-3.5-sonnet\n", cls: "model" },
     ]);
     await prompt([
+      { text: "!r", cls: "flag" },
+      { text: " high", cls: null },
+    ]);
+    await output([
+      { text: "reasoning:", cls: "ok" },
+      { text: " high\n", cls: null },
+    ]);
+    await prompt([
       { text: "!l", cls: "flag" },
       { text: " ./internal/config", cls: "path" },
     ]);

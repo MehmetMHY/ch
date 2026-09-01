@@ -7,7 +7,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/MehmetMHY/ch/internal/config"
 	"github.com/MehmetMHY/ch/pkg/types"
 )
 
@@ -138,6 +140,9 @@ func TestManager_MessageAndHistoryOperations(t *testing.T) {
 	}
 	if state.ChatHistory[1].Model != cfg.CurrentModel {
 		t.Errorf("expected model %q, got %q", cfg.CurrentModel, state.ChatHistory[1].Model)
+	}
+	if state.ChatHistory[1].ReasoningEffort != state.ReasoningEffort {
+		t.Errorf("expected reasoning_effort %q, got %q", state.ReasoningEffort, state.ChatHistory[1].ReasoningEffort)
 	}
 
 	// AddToHistoryWithContext
@@ -965,5 +970,211 @@ func TestSelectExportFilenameListOrder(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("expected exactly one \">custom\" entry, got %d", count)
+	}
+}
+
+// ---- Reasoning effort persistence ----
+
+func TestAddToHistoryCapturesReasoningEffort(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-5.4",
+	}
+	state := &types.AppState{
+		Config:      cfg,
+		Messages:    []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory: []types.ChatHistory{{User: cfg.SystemPrompt}},
+	}
+	m := NewManager(state)
+
+	// Set a reasoning effort.
+	state.ReasoningEffort = "high"
+	m.AddToHistory("question", "answer")
+	if state.ChatHistory[1].ReasoningEffort != "high" {
+		t.Errorf("expected reasoning_effort=high in history, got %q", state.ChatHistory[1].ReasoningEffort)
+	}
+
+	// Clear it.
+	state.ReasoningEffort = ""
+	m.AddToHistory("question2", "answer2")
+	if state.ChatHistory[2].ReasoningEffort != "" {
+		t.Errorf("expected empty reasoning_effort, got %q", state.ChatHistory[2].ReasoningEffort)
+	}
+}
+
+func TestAddToHistoryWithContextCapturesReasoningEffort(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-5.4",
+	}
+	state := &types.AppState{
+		Config:      cfg,
+		Messages:    []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory: []types.ChatHistory{{User: cfg.SystemPrompt}},
+	}
+	m := NewManager(state)
+
+	state.ReasoningEffort = "medium"
+	m.AddToHistoryWithContext("summary", "answer", "full context")
+	if state.ChatHistory[1].ReasoningEffort != "medium" {
+		t.Errorf("expected reasoning_effort=medium, got %q", state.ChatHistory[1].ReasoningEffort)
+	}
+	if state.ChatHistory[1].Context != "full context" {
+		t.Errorf("expected context, got %q", state.ChatHistory[1].Context)
+	}
+}
+
+func TestSaveSessionStateIncludesReasoningEffort(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	cfg := &types.Config{
+		SystemPrompt:      "S",
+		CurrentPlatform:   "openai",
+		CurrentModel:      "gpt-5.4",
+		EnableSessionSave: true,
+	}
+	state := &types.AppState{
+		Config:          cfg,
+		Messages:        []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory:     []types.ChatHistory{{User: cfg.SystemPrompt}},
+		ReasoningEffort: "low",
+	}
+	m := NewManager(state)
+
+	if err := m.SaveSessionState(); err != nil {
+		t.Fatalf("SaveSessionState error: %v", err)
+	}
+
+	// Load and verify.
+	loaded, err := m.LoadLatestSessionState()
+	if err != nil {
+		t.Fatalf("LoadLatestSessionState error: %v", err)
+	}
+	if loaded.ReasoningEffort != "low" {
+		t.Errorf("expected loaded reasoning_effort=low, got %q", loaded.ReasoningEffort)
+	}
+}
+
+func TestRestoreSessionStateRestoresReasoningEffort(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-5.4",
+	}
+	state := &types.AppState{
+		Config:          cfg,
+		Messages:        []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory:     []types.ChatHistory{{User: cfg.SystemPrompt}},
+		ReasoningEffort: "medium",
+	}
+	m := NewManager(state)
+
+	// Save.
+	if err := m.SaveSessionState(); err != nil {
+		t.Fatalf("SaveSessionState error: %v", err)
+	}
+
+	// Change reasoning effort.
+	state.ReasoningEffort = "high"
+
+	// Load and restore.
+	loaded, err := m.LoadLatestSessionState()
+	if err != nil {
+		t.Fatalf("LoadLatestSessionState error: %v", err)
+	}
+	m.RestoreSessionState(loaded)
+
+	if state.ReasoningEffort != "medium" {
+		t.Errorf("expected restored reasoning_effort=medium, got %q", state.ReasoningEffort)
+	}
+}
+
+func TestRestoreSessionState_LegacySessionWithoutReasoningEffort(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	cfg := &types.Config{
+		SystemPrompt:      "S",
+		CurrentPlatform:   "openai",
+		CurrentModel:      "gpt-5.4",
+		EnableSessionSave: true,
+	}
+	state := &types.AppState{
+		Config:          cfg,
+		Messages:        []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory:     []types.ChatHistory{{User: cfg.SystemPrompt}},
+		ReasoningEffort: "high",
+	}
+	m := NewManager(state)
+
+	// Manually write a legacy session file without reasoning_effort.
+	tmpDir, _ := config.GetTempDir()
+	legacySession := types.SessionFile{
+		Timestamp:   time.Now().Unix(),
+		Platform:    "openai",
+		Model:       "gpt-5.4",
+		ChatHistory: []types.ChatHistory{{User: "S"}},
+	}
+	data, _ := json.Marshal(legacySession)
+	legacyPath := filepath.Join(tmpDir, "ch_session_latest.json")
+	os.WriteFile(legacyPath, data, 0600)
+
+	loaded, err := m.LoadLatestSessionState()
+	if err != nil {
+		t.Fatalf("LoadLatestSessionState error: %v", err)
+	}
+	m.RestoreSessionState(loaded)
+
+	// Legacy session without reasoning_effort should restore to empty (provider default).
+	if state.ReasoningEffort != "" {
+		t.Errorf("expected empty reasoning_effort from legacy session, got %q", state.ReasoningEffort)
+	}
+}
+
+func TestExportFullHistoryIncludesReasoningEffort(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-5.4",
+	}
+	state := &types.AppState{
+		Config:   cfg,
+		Messages: []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory: []types.ChatHistory{
+			{User: cfg.SystemPrompt},
+			{User: "Q1", Bot: "A1", Platform: "openai", Model: "gpt-5.4", ReasoningEffort: "high"},
+		},
+	}
+	m := NewManager(state)
+
+	exportPath, err := m.ExportFullHistory()
+	if err != nil {
+		t.Fatalf("ExportFullHistory error: %v", err)
+	}
+
+	data, err := os.ReadFile(exportPath)
+	if err != nil {
+		t.Fatalf("failed to read export: %v", err)
+	}
+
+	var entries []types.ExportEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		t.Fatalf("failed to parse export: %v", err)
+	}
+
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].ReasoningEffort != "high" {
+		t.Errorf("expected reasoning_effort=high in export, got %q", entries[0].ReasoningEffort)
 	}
 }

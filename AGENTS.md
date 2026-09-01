@@ -10,8 +10,9 @@ Primary entry points:
 
 - `cmd/ch/main.go` - CLI flag parsing, direct mode, interactive command dispatch.
 - `internal/config/config.go` - default config, config file loading, environment overrides.
-- `internal/config/util.go` - config utility helpers (temp dir, shallow load dir checks).
-- `internal/platform/platform.go` - provider client initialization, model listing, streaming/non-streaming requests.
+- `internal/config/util.go` - config utility helpers (temp dir, cache dir, shallow load dir checks).
+- `internal/platform/platform.go` - provider client initialization, model listing, streaming/non-streaming requests, reasoning-effort resolution.
+- `internal/platform/modelsdev.go` - Models.dev metadata client: fetches and caches `api.json` under `~/.ch/cache/`, resolves provider/model capability for reasoning-effort filtering. On-demand only, never fetched during normal prompts.
 - `internal/chat/chat.go` - chat history, sessions, export logic (including `selectExportFilename` and `SelectExportFilename` for the `>custom` filename picker), backtracking.
 - `internal/chat/util.go` - chat utility helpers (hashing, content manipulation, `SanitizeCustomFilename`).
 - `internal/ui/ui.go` - terminal helpers, file loading, scraping, web search, clipboard, fzf flows (including `FzfSelectWithCustom` for the `>custom` filename picker), and inline prompt helpers.
@@ -122,7 +123,7 @@ Boolean config fields require presence tracking because false is a meaningful va
 
 Tracked boolean keys (must appear in the explicit list in `config.go`):
 
-`show_search_results`, `mute_notifications`, `enable_session_save`, `save_all_sessions`, `show_thinking`, `ai_name_enable`
+`show_search_results`, `mute_notifications`, `enable_session_save`, `save_all_sessions`, `show_thinking`, `ai_name_enable`, `models_dev_enabled`
 
 If adding a boolean config option:
 
@@ -136,6 +137,32 @@ Notable config fields beyond the basics:
 - `shallow_load_dirs` - directories where file loading only includes direct children (depth 1). Has a built-in default list of large/high-level directories.
 - `slow_model_patterns` - model name substrings that trigger a loading animation instead of streaming (reasoning models).
 - `ai_name_enable`, `ai_name_char_threshold`, `ai_name_count`, `ai_name_timeout_seconds`, `ai_name_prompt` - control AI-generated filename suggestions in the `!e` export flow.
+- `reasoning_effort` - default reasoning effort sent as root-level `reasoning_effort` in chat-completions requests (default: empty, which omits the parameter and preserves the provider default). Supported values are model-specific and discovered from Models.dev metadata.
+- `reasoning_effort_switch` - interactive command key for reasoning effort selection (default: `!r`).
+- `models_dev_enabled` - enable/disable Models.dev metadata lookups (default: true). When false, Ch uses no metadata and `!r` shows generic unverified values.
+- `models_dev_refresh_hours` - cache refresh interval in hours (default: 24). Set to 168 for weekly.
+
+### Models.dev Metadata
+
+Ch uses `https://models.dev/api.json` as an optional, on-demand metadata source for reasoning-effort capability filtering. The catalog is fetched only when a metadata-dependent action occurs (`!r` or `-r`), never during normal prompts.
+
+Key design boundaries:
+
+- The cache lives at `~/.ch/cache/models_dev.json` with a metadata sidecar at `~/.ch/cache/models_dev.meta.json` (fetch time + ETag). Directory is `0700`, files are `0600`, writes are atomic.
+- Default refresh interval is 24 hours, configurable via `models_dev_refresh_hours`.
+- On fetch failure, the last valid cache is retained and used (even if stale).
+- When no cache exists and fetch fails, Ch continues normally with metadata unavailable.
+- `models_dev_enabled: false` disables all network fetches; only existing on-disk cache is used.
+- Ch never uses remote API URLs, headers, or request-body definitions from the catalog. Only `reasoning` and `reasoning_options` fields are trusted for capability decisions. `cost` fields are retained in the cache for future pricing features but are not displayed or calculated.
+- `reasoning: true` in Models.dev does not mean slow, non-streaming, or large. It must not change Ch's loading-animation behavior (that is controlled by `slow_model_patterns`).
+
+Provider name aliases (Ch platform key to Models.dev provider ID):
+
+- `together` -> `togetherai`
+- `amazon` -> `amazon-bedrock`
+- All other built-in platform keys match directly (`openai`, `groq`, `google`, etc.)
+
+Google's native model-list endpoint returns IDs prefixed with `models/` (e.g. `models/gemini-3.7-flash`). Ch normalizes this prefix for metadata lookup only; the outbound request model value is never modified.
 
 ## CLI Flag Flow
 
@@ -143,26 +170,27 @@ Be careful with the order in `cmd/ch/main.go`.
 
 Complete flag reference:
 
-| Flag                 | Alias              | Description                                                                                                              |
-| -------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `-h`                 | `--help`           | Show help and exit                                                                                                       |
-| `-v`                 | `--version`        | Show version and exit                                                                                                    |
-| `-c`                 | `--continue`       | Continue from the latest session (or a specific session file if a valid path is given as the first remaining arg)        |
-| `--clear`            |                    | Clear all temp files (requires `enable_session_save=true`)                                                               |
-| `-a`                 | `-hs`, `--history` | Search and load previous sessions (requires `save_all_sessions=true`)                                                    |
-| `-f [file]`          | `--fetch`          | Fetch a session into interactive mode by bare name, path, or fzf pick (no arg)                                           |
-| `-n`                 | `--no-history`     | Disable session saving for this run                                                                                      |
-| `-d dir`             | `--dump`           | Generate a codedump file for the given directory (required non-empty argument)                                           |
-| `-b dir`             | `--build`          | Generate a codedump with fzf filename picker or a named file; an optional positional arg after the dir is the filename   |
-| `-y`                 | `--yes`            | Skip all interactive fzf in codedump (exclude-picker and `-b` filename picker, auto-names). Must precede positional args |
-| `-p [platform]`      |                    | Switch platform (leave empty for interactive fzf selection)                                                              |
-| `-m model`           |                    | Specify model to use                                                                                                     |
-| `-o platform\|model` |                    | Specify platform and model together (pipe-delimited format)                                                              |
-| `-l file/url`        |                    | Load and display file content (supports comma/pipe-delimited multiple values)                                            |
-| `-w query`           |                    | Web search and print results (supports comma/pipe-delimited multiple queries)                                            |
-| `-s url`             |                    | Scrape a URL and print content (supports comma/pipe-delimited multiple URLs)                                             |
-| `-e`                 | `--export`         | Export code blocks from the last response                                                                                |
-| `-t [file]`          | `--token [file]`   | Estimate token count for a file, or for piped stdin if no file is given                                                  |
+| Flag                 | Alias                | Description                                                                                                              |
+| -------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `-h`                 | `--help`             | Show help and exit                                                                                                       |
+| `-v`                 | `--version`          | Show version and exit                                                                                                    |
+| `-c`                 | `--continue`         | Continue from the latest session (or a specific session file if a valid path is given as the first remaining arg)        |
+| `--clear`            |                      | Clear all temp files (requires `enable_session_save=true`)                                                               |
+| `-a`                 | `-hs`, `--history`   | Search and load previous sessions (requires `save_all_sessions=true`)                                                    |
+| `-f [file]`          | `--fetch`            | Fetch a session into interactive mode by bare name, path, or fzf pick (no arg)                                           |
+| `-n`                 | `--no-history`       | Disable session saving for this run                                                                                      |
+| `-d dir`             | `--dump`             | Generate a codedump file for the given directory (required non-empty argument)                                           |
+| `-b dir`             | `--build`            | Generate a codedump with fzf filename picker or a named file; an optional positional arg after the dir is the filename   |
+| `-y`                 | `--yes`              | Skip all interactive fzf in codedump (exclude-picker and `-b` filename picker, auto-names). Must precede positional args |
+| `-p [platform]`      |                      | Switch platform (leave empty for interactive fzf selection)                                                              |
+| `-m model`           |                      | Specify model to use                                                                                                     |
+| `-o platform\|model` |                      | Specify platform and model together (pipe-delimited format)                                                              |
+| `-r effort`          | `--reasoning-effort` | Set reasoning effort (e.g., low, medium, high, or `default` to omit). Must precede positional args                       |
+| `-l file/url`        |                      | Load and display file content (supports comma/pipe-delimited multiple values)                                            |
+| `-w query`           |                      | Web search and print results (supports comma/pipe-delimited multiple queries)                                            |
+| `-s url`             |                      | Scrape a URL and print content (supports comma/pipe-delimited multiple URLs)                                             |
+| `-e`                 | `--export`           | Export code blocks from the last response                                                                                |
+| `-t [file]`          | `--token [file]`     | Estimate token count for a file, or for piped stdin if no file is given                                                  |
 
 Important current behavior:
 
@@ -183,6 +211,7 @@ Important current behavior:
 - Piped stdin (`cat file | ch "query"`) is supported. Piped content is combined with positional arguments before being sent to the model.
 - `-t`/`--token` is a string flag, but `cmd/ch/main.go` pre-processes `os.Args` before `flag.Parse()` so a bare trailing `-t`/`--token` (no value) does not trigger Go's "flag needs an argument" error; it is rewritten to an explicit empty value (`-t=`) instead. Whether the flag was passed at all (even empty) is tracked separately via `flag.Visit`, since an empty string is also the flag's zero value.
 - `-t`/`--token` with an explicit file path always reads that file, even if stdin is also piped. With no file path, it falls back to piped stdin content (reported as `stdin` in the output); if neither is available, it errors with `no file specified and no piped input available` instead of hanging.
+- `-r`/`--reasoning-effort` sets the reasoning effort for the session. Precedence: CLI flag > restored session > config.json > provider default (omit). The value `default` clears the setting and sends no parameter. `!r` in interactive mode changes the runtime setting only (does not rewrite config.json). The selected effort persists in session files and per-turn chat history. Models.dev metadata filters `!r` to supported values for the current model; when metadata is unavailable, unverified values are allowed as explicit user overrides. Silent auxiliary requests (e.g. AI filename generation) intentionally omit reasoning effort.
 - `-v`/`--version` prints `ch <version> (<commit>, <buildTime>)` and exits before any provider/config init. `version`, `buildTime`, `gitCommit` are package-level vars in `cmd/ch/main.go` with `dev`/`unknown` defaults; they are overridden by ldflags at build time. The Makefile `LDFLAGS` (used by `make build`) and `install.sh` `compute_ldflags` (used by the direct `go build` path) must stay in sync so curl|bash and make-built binaries report the same version. The Makefile `VERSION` line is the single source of truth; `install.sh -v` bumps it there.
 
 When changing flags, update all of these together:
@@ -205,6 +234,7 @@ These are the default key bindings (configurable in `~/.ch/config.json`):
 | `!m [model]`    | Switch model (or fzf pick if no argument)                                                                           |
 | `!p [platform]` | Switch platform (or fzf pick if no argument)                                                                        |
 | `!o`            | Pick from all models across all platforms                                                                           |
+| `!r [effort]`   | Set reasoning effort (or fzf pick if no argument). Use `default` to omit the parameter                              |
 | `!l [dir]`      | Load files from current or specified directory                                                                      |
 | `!d`            | Generate codedump and load into context                                                                             |
 | `!x [cmd]`      | Run a shell command and add output to context                                                                       |
@@ -235,6 +265,10 @@ Patterns already used:
 - `internal/chat/util_test.go` `TestSanitizeCustomFilename` covers the filename sanitizer (quote/slash stripping, empty rejection, preserving spaces/case).
 - `internal/chat/chat_test.go` `TestSelectExportFilenameListOrder` verifies the `>custom` sentinel sits at index 0, AI names follow, and there is exactly one `>custom` entry.
 - `cmd/ch/main_test.go` `TestCodeDumpYesFlag` verifies `-y` skips the exclude-picker and the `-b` filename picker so codedump runs without a tty (auto-names when no name is given).
+- `internal/platform/modelsdev_test.go` covers capability resolution, provider aliases, Google ID normalization, cache loading/corruption, effort validation, and option building. Tests use a `resetModelsDevClient` helper for singleton isolation and `writeCacheFile` to seed the on-disk cache without network.
+- `internal/platform/platform_test.go` `captureRequestPayload` starts an httptest server to verify `reasoning_effort` appears in both streaming and non-streaming request bodies, is omitted when empty or unsupported, and is omitted in silent auxiliary requests.
+- `cmd/ch/main_test.go` `TestReasoningEffortFlagRegistered` and `TestStateOutputIncludesReasoning` verify the `-r` flag and the `>state` reasoning line.
+- `internal/chat/chat_test.go` reasoning-effort tests verify per-turn history capture, session save/restore with effort, legacy session compat, and export metadata.
 
 If a test needs a config file, write it under the test temp home:
 
@@ -457,6 +491,7 @@ Ignored/generated files include:
 - `bin/`
 - local `ch` binary
 - temp/export/history artifacts
+- `~/.ch/cache/` (Models.dev metadata cache, generated on-demand)
 - `.DS_Store`
 - `*.orig`
 

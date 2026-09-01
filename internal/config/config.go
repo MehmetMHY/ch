@@ -51,6 +51,7 @@ func loadConfigFromFile() (*types.Config, error) {
 		"save_all_sessions",
 		"show_thinking",
 		"ai_name_enable",
+		"models_dev_enabled",
 	} {
 		if _, ok := raw[key]; ok {
 			config.ExplicitBoolFields[key] = true
@@ -202,6 +203,22 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 		defaultConfig.AINamePrompt = userConfig.AINamePrompt
 	}
 
+	// Reasoning effort: empty preserves provider default (field omitted).
+	if userConfig.ReasoningEffort != "" {
+		defaultConfig.ReasoningEffort = userConfig.ReasoningEffort
+	}
+	if userConfig.ReasoningEffortSwitch != "" {
+		defaultConfig.ReasoningEffortSwitch = userConfig.ReasoningEffortSwitch
+	}
+
+	// Models.dev metadata cache controls.
+	if boolFieldSet(userConfig, "models_dev_enabled") || userConfig.ModelsDevEnabled {
+		defaultConfig.ModelsDevEnabled = userConfig.ModelsDevEnabled
+	}
+	if userConfig.ModelsDevRefreshHours != 0 {
+		defaultConfig.ModelsDevRefreshHours = userConfig.ModelsDevRefreshHours
+	}
+
 	// Merge platforms if provided
 	if userConfig.Platforms != nil {
 		for name, platform := range userConfig.Platforms {
@@ -287,6 +304,10 @@ func DefaultConfig() *types.Config {
 			"```text\nhello_world\napi_request_handler\nparse_json\n```\n\n" +
 			"Do not include any text before or after the code block.",
 
+		ReasoningEffortSwitch: "!r",
+		ModelsDevEnabled:      true,
+		ModelsDevRefreshHours: 24,
+
 		Platforms: map[string]types.Platform{
 			"groq": {
 				Name:    "groq",
@@ -343,9 +364,10 @@ func DefaultConfig() *types.Config {
 				},
 			},
 			"together": {
-				Name:    "together",
-				BaseURL: types.BaseURLValue{Single: "https://api.together.ai/v1"},
-				EnvName: "TOGETHER_API_KEY",
+				Name:              "together",
+				BaseURL:           types.BaseURLValue{Single: "https://api.together.ai/v1"},
+				EnvName:           "TOGETHER_API_KEY",
+				ModelsDevProvider: "togetherai",
 				Models: types.PlatformModels{
 					URL:      "https://api.together.ai/v1/models?dedicated=false",
 					JSONPath: "id",
@@ -370,7 +392,8 @@ func DefaultConfig() *types.Config {
 				},
 			},
 			"amazon": {
-				Name: "amazon",
+				Name:              "amazon",
+				ModelsDevProvider: "amazon-bedrock",
 				BaseURL: types.BaseURLValue{
 					Multi: []string{
 						"https://bedrock-runtime.us-west-2.amazonaws.com/openai/v1",
@@ -434,7 +457,7 @@ func InitializeAppState() *types.AppState {
 			{Role: "system", Content: config.SystemPrompt},
 		},
 		ChatHistory: []types.ChatHistory{
-			{Time: time.Now().Unix(), User: config.SystemPrompt, Bot: ""},
+			{Time: time.Now().Unix(), User: config.SystemPrompt, Bot: "", Platform: config.CurrentPlatform, Model: config.CurrentModel},
 		},
 		RecentlyCreatedFiles: []string{},
 		IsStreaming:          false,
@@ -442,5 +465,6 @@ func InitializeAppState() *types.AppState {
 		IsExecutingCommand:   false,
 		CommandCancel:        nil,
 		SessionFilePath:      "",
+		ReasoningEffort:      config.ReasoningEffort,
 	}
 }

@@ -2,6 +2,10 @@ package platform
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/MehmetMHY/ch/pkg/types"
@@ -459,4 +463,444 @@ func TestExtractPlatformModelsWithTimeFromJSONFiltersTogetherServerlessChatModel
 	if got[0].name != "serverless-chat" || got[0].created != 3000 {
 		t.Fatalf("unexpected model: %+v", got[0])
 	}
+}
+
+// ---- Reasoning effort in request payloads ----
+
+// captureRequestPayload starts a test server that captures the JSON request
+// body and returns a canned chat completion response. Returns the server and
+// a pointer to the captured body.
+func captureRequestPayload(t *testing.T, stream bool) (*httptest.Server, *string) {
+	t.Helper()
+	var capturedBody string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		capturedBody = string(body)
+
+		if stream {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+			// Write a single SSE chunk then [DONE].
+			chunk := `data: {"choices":[{"delta":{"content":"hello"},"index":0}]}` + "\n\n"
+			_, _ = w.Write([]byte(chunk))
+			_, _ = w.Write([]byte("data: [DONE]\n\n"))
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			resp := `{"id":"test","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`
+			_, _ = w.Write([]byte(resp))
+		}
+	}))
+
+	return server, &capturedBody
+}
+
+func TestNonStreamingRequestIncludesReasoningEffort(t *testing.T) {
+	resetModelsDevClient(t)
+	t.Setenv("TESTPLAT_API_KEY", "test-key")
+	// Write a cache that marks the model as supporting effort.
+	catalog := ModelsDevCatalog{
+		"testplat": {
+			ID:   "testplat",
+			Name: "Test Platform",
+			Models: map[string]ModelsDevModel{
+				"test-model": {
+					ID:        "test-model",
+					Reasoning: true,
+					ReasoningOptions: []ModelsDevOption{
+						{Type: "effort", Values: []string{"low", "medium", "high"}},
+					},
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	server, captured := captureRequestPayload(t, false)
+	defer server.Close()
+
+	cfg := &types.Config{
+		CurrentPlatform:   "testplat",
+		ModelsDevEnabled:  false,
+		SlowModelPatterns: []string{".*"}, // force non-streaming path
+		Platforms: map[string]types.Platform{
+			"testplat": {Name: "testplat", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}, EnvName: "TESTPLAT_API_KEY"},
+		},
+	}
+
+	m := NewManager(cfg)
+	m.SetReasoningEffort("medium")
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("Initialize error: %v", err)
+	}
+
+	messages := []types.ChatMessage{{Role: "user", Content: "test"}}
+	cancelFn := func() {}
+	_, err := m.SendChatRequest(messages, "test-model", &cancelFn, new(bool))
+	if err != nil {
+		t.Fatalf("SendChatRequest error: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(*captured), &payload); err != nil {
+		t.Fatalf("failed to parse request body: %v", err)
+	}
+
+	effort, ok := payload["reasoning_effort"]
+	if !ok {
+		t.Fatal("expected reasoning_effort in request body")
+	}
+	if effort != "medium" {
+		t.Errorf("expected reasoning_effort=medium, got %v", effort)
+	}
+}
+
+func TestStreamingRequestIncludesReasoningEffort(t *testing.T) {
+	resetModelsDevClient(t)
+	t.Setenv("TESTPLAT_API_KEY", "test-key")
+	catalog := ModelsDevCatalog{
+		"testplat": {
+			ID:   "testplat",
+			Name: "Test Platform",
+			Models: map[string]ModelsDevModel{
+				"stream-model": {
+					ID:        "stream-model",
+					Reasoning: true,
+					ReasoningOptions: []ModelsDevOption{
+						{Type: "effort", Values: []string{"low", "medium", "high"}},
+					},
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	server, captured := captureRequestPayload(t, true)
+	defer server.Close()
+
+	cfg := &types.Config{
+		CurrentPlatform:  "testplat",
+		ModelsDevEnabled: false,
+		// No slow model patterns, so this will use streaming.
+		Platforms: map[string]types.Platform{
+			"testplat": {Name: "testplat", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}, EnvName: "TESTPLAT_API_KEY"},
+		},
+	}
+
+	m := NewManager(cfg)
+	m.SetReasoningEffort("high")
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("Initialize error: %v", err)
+	}
+
+	messages := []types.ChatMessage{{Role: "user", Content: "test"}}
+	cancelFn := func() {}
+	_, err := m.SendChatRequest(messages, "stream-model", &cancelFn, new(bool))
+	if err != nil {
+		t.Fatalf("SendChatRequest error: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(*captured), &payload); err != nil {
+		t.Fatalf("failed to parse request body: %v", err)
+	}
+
+	effort, ok := payload["reasoning_effort"]
+	if !ok {
+		t.Fatal("expected reasoning_effort in streaming request body")
+	}
+	if effort != "high" {
+		t.Errorf("expected reasoning_effort=high, got %v", effort)
+	}
+}
+
+func TestRequestOmitsReasoningEffortWhenEmpty(t *testing.T) {
+	resetModelsDevClient(t)
+	t.Setenv("TESTPLAT_API_KEY", "test-key")
+	catalog := ModelsDevCatalog{
+		"testplat": {
+			ID:   "testplat",
+			Name: "Test Platform",
+			Models: map[string]ModelsDevModel{
+				"test-model": {
+					ID:        "test-model",
+					Reasoning: true,
+					ReasoningOptions: []ModelsDevOption{
+						{Type: "effort", Values: []string{"low", "medium", "high"}},
+					},
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	server, captured := captureRequestPayload(t, false)
+	defer server.Close()
+
+	cfg := &types.Config{
+		CurrentPlatform:   "testplat",
+		ModelsDevEnabled:  false,
+		SlowModelPatterns: []string{".*"},
+		Platforms: map[string]types.Platform{
+			"testplat": {Name: "testplat", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}, EnvName: "TESTPLAT_API_KEY"},
+		},
+	}
+
+	m := NewManager(cfg)
+	m.SetReasoningEffort("") // empty = omit
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("Initialize error: %v", err)
+	}
+
+	messages := []types.ChatMessage{{Role: "user", Content: "test"}}
+	cancelFn := func() {}
+	_, err := m.SendChatRequest(messages, "test-model", &cancelFn, new(bool))
+	if err != nil {
+		t.Fatalf("SendChatRequest error: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(*captured), &payload); err != nil {
+		t.Fatalf("failed to parse request body: %v", err)
+	}
+
+	if _, ok := payload["reasoning_effort"]; ok {
+		t.Error("expected reasoning_effort to be omitted when empty")
+	}
+}
+
+func TestRequestOmitsReasoningEffortForUnsupportedModel(t *testing.T) {
+	resetModelsDevClient(t)
+	t.Setenv("TESTPLAT_API_KEY", "test-key")
+	catalog := ModelsDevCatalog{
+		"testplat": {
+			ID:   "testplat",
+			Name: "Test Platform",
+			Models: map[string]ModelsDevModel{
+				"no-reasoning": {
+					ID:        "no-reasoning",
+					Reasoning: false,
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	server, captured := captureRequestPayload(t, false)
+	defer server.Close()
+
+	cfg := &types.Config{
+		CurrentPlatform:   "testplat",
+		ModelsDevEnabled:  false,
+		SlowModelPatterns: []string{".*"},
+		Platforms: map[string]types.Platform{
+			"testplat": {Name: "testplat", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}, EnvName: "TESTPLAT_API_KEY"},
+		},
+	}
+
+	m := NewManager(cfg)
+	m.SetReasoningEffort("medium") // set but model doesn't support
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("Initialize error: %v", err)
+	}
+
+	messages := []types.ChatMessage{{Role: "user", Content: "test"}}
+	cancelFn := func() {}
+	_, err := m.SendChatRequest(messages, "no-reasoning", &cancelFn, new(bool))
+	if err != nil {
+		t.Fatalf("SendChatRequest error: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(*captured), &payload); err != nil {
+		t.Fatalf("failed to parse request body: %v", err)
+	}
+
+	if _, ok := payload["reasoning_effort"]; ok {
+		t.Error("expected reasoning_effort to be omitted for unsupported model")
+	}
+}
+
+func TestRequestSendsUnverifiedEffortWithoutMetadata(t *testing.T) {
+	resetModelsDevClient(t)
+	t.Setenv("TESTPLAT_API_KEY", "test-key") // No cache written: metadata is unavailable.
+
+	server, captured := captureRequestPayload(t, false)
+	defer server.Close()
+
+	cfg := &types.Config{
+		CurrentPlatform:   "testplat",
+		ModelsDevEnabled:  false,
+		SlowModelPatterns: []string{".*"},
+		Platforms: map[string]types.Platform{
+			"testplat": {Name: "testplat", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}, EnvName: "TESTPLAT_API_KEY"},
+		},
+	}
+
+	m := NewManager(cfg)
+	m.SetReasoningEffort("low") // unverified, no metadata
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("Initialize error: %v", err)
+	}
+
+	messages := []types.ChatMessage{{Role: "user", Content: "test"}}
+	cancelFn := func() {}
+	_, err := m.SendChatRequest(messages, "unknown-model", &cancelFn, new(bool))
+	if err != nil {
+		t.Fatalf("SendChatRequest error: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(*captured), &payload); err != nil {
+		t.Fatalf("failed to parse request body: %v", err)
+	}
+
+	effort, ok := payload["reasoning_effort"]
+	if !ok {
+		t.Fatal("expected reasoning_effort to be sent as unverified override")
+	}
+	if effort != "low" {
+		t.Errorf("expected reasoning_effort=low, got %v", effort)
+	}
+}
+
+func TestSilentRequestOmitsReasoningEffort(t *testing.T) {
+	resetModelsDevClient(t)
+	t.Setenv("TESTPLAT_API_KEY", "test-key")
+	catalog := ModelsDevCatalog{
+		"testplat": {
+			ID:   "testplat",
+			Name: "Test Platform",
+			Models: map[string]ModelsDevModel{
+				"test-model": {
+					ID:        "test-model",
+					Reasoning: true,
+					ReasoningOptions: []ModelsDevOption{
+						{Type: "effort", Values: []string{"low", "medium", "high"}},
+					},
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	server, captured := captureRequestPayload(t, false)
+	defer server.Close()
+
+	cfg := &types.Config{
+		CurrentPlatform:  "testplat",
+		ModelsDevEnabled: false,
+		Platforms: map[string]types.Platform{
+			"testplat": {Name: "testplat", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}, EnvName: "TESTPLAT_API_KEY"},
+		},
+	}
+
+	m := NewManager(cfg)
+	m.SetReasoningEffort("high") // set for normal requests
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("Initialize error: %v", err)
+	}
+
+	messages := []types.ChatMessage{{Role: "user", Content: "generate filenames"}}
+	cancelFn := func() {}
+	_, err := m.SendSilentChatRequest(messages, "test-model", &cancelFn, new(bool))
+	if err != nil {
+		t.Fatalf("SendSilentChatRequest error: %v", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(*captured), &payload); err != nil {
+		t.Fatalf("failed to parse request body: %v", err)
+	}
+
+	if _, ok := payload["reasoning_effort"]; ok {
+		t.Error("expected reasoning_effort to be omitted in silent (auxiliary) request")
+	}
+
+	// Verify the effort was restored after the silent call.
+	if m.GetReasoningEffort() != "high" {
+		t.Errorf("expected reasoning effort to be restored to high, got %q", m.GetReasoningEffort())
+	}
+}
+
+func TestGetSetReasoningEffort(t *testing.T) {
+	m := NewManager(&types.Config{})
+
+	if m.GetReasoningEffort() != "" {
+		t.Error("expected empty default")
+	}
+
+	m.SetReasoningEffort("medium")
+	if m.GetReasoningEffort() != "medium" {
+		t.Errorf("expected medium, got %q", m.GetReasoningEffort())
+	}
+
+	m.SetReasoningEffort("")
+	if m.GetReasoningEffort() != "" {
+		t.Error("expected empty after clear")
+	}
+}
+
+func TestResolveOutboundEffort(t *testing.T) {
+	resetModelsDevClient(t)
+	t.Setenv("TESTPLAT_API_KEY", "test-key")
+	catalog := ModelsDevCatalog{
+		"testplat": {
+			ID:   "testplat",
+			Name: "Test Platform",
+			Models: map[string]ModelsDevModel{
+				"effort-model": {
+					ID:        "effort-model",
+					Reasoning: true,
+					ReasoningOptions: []ModelsDevOption{
+						{Type: "effort", Values: []string{"low", "medium", "high"}},
+					},
+				},
+				"noreason-model": {
+					ID:        "noreason-model",
+					Reasoning: false,
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	cfg := &types.Config{
+		CurrentPlatform:  "testplat",
+		ModelsDevEnabled: false,
+	}
+
+	m := NewManager(cfg)
+
+	// Empty effort -> always omit.
+	m.SetReasoningEffort("")
+	if got := m.resolveOutboundEffort("effort-model"); got != "" {
+		t.Errorf("expected empty for empty effort, got %q", got)
+	}
+
+	// Supported model -> send.
+	m.SetReasoningEffort("low")
+	if got := m.resolveOutboundEffort("effort-model"); got != "low" {
+		t.Errorf("expected low for supported model, got %q", got)
+	}
+
+	// Unsupported model -> omit.
+	m.SetReasoningEffort("low")
+	if got := m.resolveOutboundEffort("noreason-model"); got != "" {
+		t.Errorf("expected empty for unsupported model, got %q", got)
+	}
+
+	// Unknown model -> send as unverified.
+	m.SetReasoningEffort("high")
+	if got := m.resolveOutboundEffort("unknown-model"); got != "high" {
+		t.Errorf("expected high for unknown model (unverified), got %q", got)
+	}
+}
+
+// Ensure we clean up temp dirs for tests that set HOME.
+func init() {
+	// Ensure tests have a clean temp home for cache operations.
+	// Individual tests that need cache set their own temp HOME.
+	_ = os.Setenv("HOME", os.TempDir())
 }

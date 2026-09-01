@@ -51,21 +51,24 @@ type ChatMessage struct {
 
 // ChatHistory represents a chat exchange entry
 type ChatHistory struct {
-	Time     int64  `json:"time"`
-	User     string `json:"user"`
-	Bot      string `json:"bot"`
-	Platform string `json:"platform"`
-	Model    string `json:"model"`
-	Context  string `json:"context,omitempty"`
+	Time            int64  `json:"time"`
+	User            string `json:"user"`
+	Bot             string `json:"bot"`
+	Platform        string `json:"platform"`
+	Model           string `json:"model"`
+	Context         string `json:"context,omitempty"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 }
 
 // Platform represents an AI platform configuration
 type Platform struct {
-	Name    string            `json:"name"`
-	BaseURL BaseURLValue      `json:"base_url"`
-	EnvName string            `json:"env_name"`
-	Models  PlatformModels    `json:"models"`
-	Headers map[string]string `json:"headers"`
+	Name                     string            `json:"name"`
+	BaseURL                  BaseURLValue      `json:"base_url"`
+	EnvName                  string            `json:"env_name"`
+	Models                   PlatformModels    `json:"models"`
+	Headers                  map[string]string `json:"headers"`
+	ModelsDevProvider        string            `json:"models_dev_provider,omitempty"`
+	ReasoningEffortTransport string            `json:"reasoning_effort_transport,omitempty"`
 }
 
 // PlatformModels contains model endpoint configuration
@@ -124,15 +127,28 @@ type Config struct {
 	AINameCount          int    `json:"ai_name_count,omitempty"`
 	AINameTimeoutSeconds int    `json:"ai_name_timeout_seconds,omitempty"`
 	AINamePrompt         string `json:"ai_name_prompt,omitempty"`
+
+	// Reasoning effort controls (sent as root-level chat-completions
+	// reasoning_effort when the active model supports it). Empty means
+	// omit the parameter and preserve the provider default.
+	ReasoningEffort       string `json:"reasoning_effort,omitempty"`
+	ReasoningEffortSwitch string `json:"reasoning_effort_switch,omitempty"`
+
+	// Models.dev metadata cache controls. The catalog is fetched
+	// on-demand for metadata-dependent actions (!r / -r) and cached
+	// under ~/.ch/cache/. Disabled users fall back to unverified values.
+	ModelsDevEnabled      bool `json:"models_dev_enabled"`
+	ModelsDevRefreshHours int  `json:"models_dev_refresh_hours,omitempty"`
 }
 
 // ExportEntry represents a single entry in the JSON export
 type ExportEntry struct {
-	Platform    string `json:"platform"`
-	ModelName   string `json:"model_name"`
-	UserPrompt  string `json:"user_prompt"`
-	BotResponse string `json:"bot_response"`
-	Timestamp   int64  `json:"timestamp"`
+	Platform        string `json:"platform"`
+	ModelName       string `json:"model_name"`
+	UserPrompt      string `json:"user_prompt"`
+	BotResponse     string `json:"bot_response"`
+	Timestamp       int64  `json:"timestamp"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 }
 
 // ChatExport represents the complete JSON export structure
@@ -143,12 +159,13 @@ type ChatExport struct {
 
 // SessionFile represents a persistent session state saved to disk
 type SessionFile struct {
-	Timestamp   int64         `json:"timestamp"`
-	Platform    string        `json:"platform"`
-	Model       string        `json:"model"`
-	BaseURL     string        `json:"base_url"`
-	ChatHistory []ChatHistory `json:"messages"`
-	SourceFile  string        `json:"-"`
+	Timestamp       int64         `json:"timestamp"`
+	Platform        string        `json:"platform"`
+	Model           string        `json:"model"`
+	BaseURL         string        `json:"base_url"`
+	ChatHistory     []ChatHistory `json:"messages"`
+	ReasoningEffort string        `json:"reasoning_effort,omitempty"`
+	SourceFile      string        `json:"-"`
 }
 
 // AppState holds the application's runtime state
@@ -163,4 +180,5 @@ type AppState struct {
 	CommandCancel        func()
 	SessionStartTime     int64 // Tracks when the current session started for consistent filename
 	SessionFilePath      string
+	ReasoningEffort      string // Active reasoning effort for the current session; "" = omit
 }

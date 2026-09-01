@@ -143,6 +143,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %-18s %s\n", "-p [platform]", "switch platform")
 	fmt.Printf("  %-18s %s\n", "-m model", "specify model")
 	fmt.Printf("  %-18s %s\n", "-o platform|model", "specify platform and model")
+	fmt.Printf("  %-18s %s\n", "-r effort", "set reasoning effort (low, medium, high, or default to omit)")
 	fmt.Printf("  %-18s %s\n", "-l file/url", "load file or scrape URL")
 	fmt.Printf("  %-18s %s\n", "-w query", "web search")
 	fmt.Printf("  %-18s %s\n", "-s url", "scrape URL")
@@ -320,6 +321,7 @@ func (t *Terminal) getCommandList() []string {
 		fmt.Sprintf("%s - select from all models", t.config.AllModels),
 		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - switch platforms", t.config.PlatformSwitch),
+		fmt.Sprintf("%s [effort] - set reasoning effort", t.config.ReasoningEffortSwitch),
 		fmt.Sprintf("%s - record shell session", t.config.ShellRecord),
 		fmt.Sprintf("%s - shell session (not recorded)", t.config.ShellRecordSilent),
 		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),

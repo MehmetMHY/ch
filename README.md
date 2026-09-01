@@ -256,6 +256,10 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `ai_name_count` - Number of AI-suggested filename candidates to request per export (default: 8).
 - `ai_name_timeout_seconds` - Cancel the AI naming request after this many seconds and fall back to the hash list (default: 15).
 - `ai_name_prompt` - Instruction sent to the model when generating filename suggestions. Use `{count}` as a placeholder for `ai_name_count`. The default asks for output as a single fenced `text` code block.
+- `reasoning_effort` - Default reasoning effort sent as root-level `reasoning_effort` in chat-completions requests (default: empty, which omits the parameter and preserves the provider default). Supported values are model-specific and discovered from [Models.dev](https://models.dev/) metadata. Example: `"high"`
+- `reasoning_effort_switch` - Interactive command key for reasoning effort selection (default: `!r`)
+- `models_dev_enabled` - Enable/disable [Models.dev](https://models.dev/) metadata lookups for reasoning-effort filtering (default: true). When false, `!r` shows generic unverified values instead of model-specific supported values
+- `models_dev_refresh_hours` - Cache refresh interval in hours for the Models.dev catalog (default: 24). Set to 168 for weekly refresh
 - Plus all other configuration options using snake_case JSON field names
 
 For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). Environment variables take precedence over the config file for default platform and model, while `~/.ch/config.json` provides a convenient way to customize Ch without setting environment variables for each session.
@@ -294,6 +298,12 @@ ch -m gpt-4o "Create a REST API in Python"
 
 # platform and model together
 ch -o openai|gpt-4o "Create a REST API in Python"
+
+# set reasoning effort for a single query
+ch -r high "Explain recursion"
+ch --reasoning-effort low "Quick summary"
+ch -r default "Use the provider default effort"
+ch -r medium -p google -m models/gemini-3.7-flash "hello"
 
 # ask the model, then export code blocks from the response to files
 ch -e "Write a Python script to sort a list"
@@ -383,6 +393,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!m`** - switch models
 - **`!o`** - select from all models
 - **`!p`** - switch platforms
+- **`!r [effort]`** - set reasoning effort (or fzf pick if no argument). Use `default` to omit the parameter. Supported values are filtered per model using Models.dev metadata
 - **`!l [dir]`** - load files/dirs
 - **`!a [filter]`** - search and load sessions (filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>). With `save_all_sessions=true`, new messages after `!a` are saved to a new forked session file instead of overwriting the loaded one.
 - **`!x`** / **`!`** - record shell session; run a command with `!x cmd`, `! cmd`, or `!cmd` (no space)
@@ -763,6 +774,7 @@ make dev
 - Test your changes thoroughly
 - Update documentation as needed
 - To add new slow models, add regex patterns to `slow_model_patterns` in `~/.ch/config.json`
+- To set a default reasoning effort, add `reasoning_effort` to `~/.ch/config.json` (e.g. `"reasoning_effort": "high"`)
 
 ## Uninstall
 
@@ -797,6 +809,12 @@ If you want to safely remove all Ch temporary files without uninstalling the app
 ```
 
 This is useful for reclaiming disk space if temporary files from shell sessions, file loads, or other operations have accumulated.
+
+The Models.dev metadata cache is stored at `~/.ch/cache/` and can be safely removed if needed. Ch will re-fetch it on the next `!r` or `-r` action:
+
+```bash
+[ -d "${HOME}/.ch/cache/" ] && rm -rf "${HOME}/.ch/cache/"
+```
 
 ## License
 

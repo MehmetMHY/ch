@@ -416,6 +416,146 @@ func TestDefaultConfig_CorruptConfigFile(t *testing.T) {
 	}
 }
 
+func TestMergeConfigs_ReasoningEffort(t *testing.T) {
+	def := &types.Config{
+		Platforms: map[string]types.Platform{},
+	}
+	user := &types.Config{
+		CurrentPlatform:       "openai",
+		ReasoningEffort:       "high",
+		ReasoningEffortSwitch: "!r",
+	}
+	merged := mergeConfigs(def, user)
+	if merged.ReasoningEffort != "high" {
+		t.Errorf("expected ReasoningEffort=high, got %q", merged.ReasoningEffort)
+	}
+	if merged.ReasoningEffortSwitch != "!r" {
+		t.Errorf("expected ReasoningEffortSwitch=!r, got %q", merged.ReasoningEffortSwitch)
+	}
+}
+
+func TestMergeConfigs_ModelsDevEnabled(t *testing.T) {
+	def := &types.Config{
+		ModelsDevEnabled:      true,
+		ModelsDevRefreshHours: 24,
+		Platforms:             map[string]types.Platform{},
+	}
+
+	// Explicitly disable.
+	user := &types.Config{
+		CurrentPlatform:    "openai",
+		ModelsDevEnabled:   false,
+		ExplicitBoolFields: map[string]bool{"models_dev_enabled": true},
+	}
+	merged := mergeConfigs(def, user)
+	if merged.ModelsDevEnabled {
+		t.Error("expected ModelsDevEnabled=false when explicitly configured")
+	}
+}
+
+func TestMergeConfigs_ModelsDevRefreshHours(t *testing.T) {
+	def := &types.Config{
+		ModelsDevRefreshHours: 24,
+		Platforms:             map[string]types.Platform{},
+	}
+	user := &types.Config{
+		CurrentPlatform:       "openai",
+		ModelsDevRefreshHours: 168,
+	}
+	merged := mergeConfigs(def, user)
+	if merged.ModelsDevRefreshHours != 168 {
+		t.Errorf("expected 168, got %d", merged.ModelsDevRefreshHours)
+	}
+}
+
+func TestDefaultConfig_ReasoningEffortDefaults(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("CH_DEFAULT_PLATFORM", "")
+	t.Setenv("CH_DEFAULT_MODEL", "")
+
+	cfg := DefaultConfig()
+	if cfg.ReasoningEffort != "" {
+		t.Errorf("expected empty default ReasoningEffort, got %q", cfg.ReasoningEffort)
+	}
+	if cfg.ReasoningEffortSwitch != "!r" {
+		t.Errorf("expected !r default, got %q", cfg.ReasoningEffortSwitch)
+	}
+	if !cfg.ModelsDevEnabled {
+		t.Error("expected ModelsDevEnabled=true by default")
+	}
+	if cfg.ModelsDevRefreshHours != 24 {
+		t.Errorf("expected 24 default refresh hours, got %d", cfg.ModelsDevRefreshHours)
+	}
+}
+
+func TestDefaultConfig_TogetherModelsDevProvider(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("CH_DEFAULT_PLATFORM", "")
+	t.Setenv("CH_DEFAULT_MODEL", "")
+
+	cfg := DefaultConfig()
+	together, ok := cfg.Platforms["together"]
+	if !ok {
+		t.Fatal("expected together platform")
+	}
+	if together.ModelsDevProvider != "togetherai" {
+		t.Errorf("expected ModelsDevProvider=togetherai, got %q", together.ModelsDevProvider)
+	}
+}
+
+func TestDefaultConfig_AmazonModelsDevProvider(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("CH_DEFAULT_PLATFORM", "")
+	t.Setenv("CH_DEFAULT_MODEL", "")
+
+	cfg := DefaultConfig()
+	amazon, ok := cfg.Platforms["amazon"]
+	if !ok {
+		t.Fatal("expected amazon platform")
+	}
+	if amazon.ModelsDevProvider != "amazon-bedrock" {
+		t.Errorf("expected ModelsDevProvider=amazon-bedrock, got %q", amazon.ModelsDevProvider)
+	}
+}
+
+func TestInitializeAppState_SeedsReasoningEffort(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("CH_DEFAULT_PLATFORM", "")
+	t.Setenv("CH_DEFAULT_MODEL", "")
+
+	state := InitializeAppState()
+	if state.ReasoningEffort != state.Config.ReasoningEffort {
+		t.Errorf("expected state ReasoningEffort to match config, got %q vs %q",
+			state.ReasoningEffort, state.Config.ReasoningEffort)
+	}
+}
+
+func TestInitializeAppState_SeedsReasoningEffortFromConfig(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("CH_DEFAULT_PLATFORM", "")
+	t.Setenv("CH_DEFAULT_MODEL", "")
+
+	chDir := filepath.Join(tempHome, ".ch")
+	os.MkdirAll(chDir, 0755)
+	data := []byte(`{"reasoning_effort":"medium"}`)
+	os.WriteFile(filepath.Join(chDir, "config.json"), data, 0644)
+
+	state := InitializeAppState()
+	if state.ReasoningEffort != "medium" {
+		t.Errorf("expected medium from config, got %q", state.ReasoningEffort)
+	}
+}
+
 // ---- InitializeAppState ----
 
 func TestInitializeAppState(t *testing.T) {

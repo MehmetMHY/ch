@@ -237,6 +237,8 @@ interactive session started
 <span class="platform">google</span> <span class="model">gemini-2.5-flash</span>
 <span class="prompt">user:</span> !p openrouter
 <span class="platform">openrouter</span> <span class="model">anthropic/claude-3.5-sonnet</span>
+<span class="prompt">user:</span> !r high
+<span class="ok">reasoning:</span> high
 <span class="prompt">user:</span> !l ./internal/config
 <span class="ok">loaded</span> 6 files into context
 <span class="prompt">user:</span> What config behavior should tests protect?
@@ -353,8 +355,11 @@ loaded latest session and sent follow-up prompt
         <div class="feature">
           <div class="feature-title">Smart Model Intelligence</div>
           <div class="feature-desc">
-            Real-time reasoning/thinking display, newest-first model sorting via
-            API timestamps, and support for 22+
+            Real-time reasoning/thinking display, reasoning effort control with
+            per-model filtering via
+            <a href="https://models.dev/" class="quiet">Models.dev</a>
+            metadata, newest-first model sorting via API timestamps, and support
+            for 22+
             <a href="https://aws.amazon.com/bedrock/" class="quiet"
               >Amazon Bedrock</a
             >
