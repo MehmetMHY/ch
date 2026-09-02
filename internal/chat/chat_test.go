@@ -2,6 +2,7 @@ package chat
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -585,12 +586,223 @@ func TestManager_SaveAndLoadSession_AllSessions(t *testing.T) {
 		t.Fatalf("SaveSessionState() error: %v", err)
 	}
 
+	tmpDir, err := config.GetTempDir()
+	if err != nil {
+		t.Fatalf("GetTempDir() error: %v", err)
+	}
+	pointerData, err := os.ReadFile(filepath.Join(tmpDir, latestSessionPointerFilename))
+	if err != nil {
+		t.Fatalf("expected latest session pointer: %v", err)
+	}
+	if got := strings.TrimSpace(string(pointerData)); got != filepath.Base(state.SessionFilePath) {
+		t.Fatalf("latest pointer = %q, want %q", got, filepath.Base(state.SessionFilePath))
+	}
+
 	loaded, err := m.LoadLatestSessionState()
 	if err != nil {
 		t.Fatalf("LoadLatestSessionState() error: %v", err)
 	}
 	if loaded.Model != "claude-3" {
 		t.Errorf("expected model 'claude-3', got %q", loaded.Model)
+	}
+}
+
+func TestManager_LoadLatestSessionState_AllSessionsUsesPointer(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	tmpDir, err := config.GetTempDir()
+	if err != nil {
+		t.Fatalf("GetTempDir() error: %v", err)
+	}
+
+	writeSession := func(filename, model string, timestamp int64) {
+		t.Helper()
+		session := types.SessionFile{
+			Timestamp:   timestamp,
+			Platform:    "openai",
+			Model:       model,
+			ChatHistory: []types.ChatHistory{{User: "S"}},
+		}
+		data, err := json.Marshal(session)
+		if err != nil {
+			t.Fatalf("failed to marshal session: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, filename), data, 0600); err != nil {
+			t.Fatalf("failed to write session %s: %v", filename, err)
+		}
+	}
+
+	writeSession("ch_session_100.json", "from-pointer", 100)
+	writeSession("ch_session_200.json", "from-scan", 200)
+	if err := os.WriteFile(filepath.Join(tmpDir, latestSessionPointerFilename), []byte("ch_session_100.json\n"), 0600); err != nil {
+		t.Fatalf("failed to write latest session pointer: %v", err)
+	}
+
+	m := NewManager(&types.AppState{Config: &types.Config{SaveAllSessions: true}})
+	loaded, err := m.LoadLatestSessionState()
+	if err != nil {
+		t.Fatalf("LoadLatestSessionState() error: %v", err)
+	}
+
+	if loaded.Model != "from-pointer" {
+		t.Fatalf("expected pointer-selected session, got model %q", loaded.Model)
+	}
+	if got := filepath.Base(loaded.SourceFile); got != "ch_session_100.json" {
+		t.Fatalf("expected pointer source file, got %q", got)
+	}
+}
+
+func TestWriteLatestSessionPointerKeepsMRUList(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	if err := writeLatestSessionPointer(tmpDir, "ch_session_100.json"); err != nil {
+		t.Fatalf("writeLatestSessionPointer() error: %v", err)
+	}
+	if err := writeLatestSessionPointer(tmpDir, "ch_session_200.json"); err != nil {
+		t.Fatalf("writeLatestSessionPointer() error: %v", err)
+	}
+	if err := writeLatestSessionPointer(tmpDir, "ch_session_100.json"); err != nil {
+		t.Fatalf("writeLatestSessionPointer() error: %v", err)
+	}
+
+	filenames := readLatestSessionPointerFilenames(tmpDir)
+	want := []string{"ch_session_100.json", "ch_session_200.json"}
+	if !reflect.DeepEqual(filenames, want) {
+		t.Fatalf("pointer filenames = %v, want %v", filenames, want)
+	}
+
+	for i := 300; i < 1500; i += 100 {
+		if err := writeLatestSessionPointer(tmpDir, fmt.Sprintf("ch_session_%d.json", i)); err != nil {
+			t.Fatalf("writeLatestSessionPointer() error: %v", err)
+		}
+	}
+
+	filenames = readLatestSessionPointerFilenames(tmpDir)
+	if len(filenames) != latestSessionPointerLimit {
+		t.Fatalf("expected %d pointer entries, got %d: %v", latestSessionPointerLimit, len(filenames), filenames)
+	}
+	if filenames[0] != "ch_session_1400.json" {
+		t.Fatalf("expected newest pointer entry first, got %q", filenames[0])
+	}
+	if filenames[len(filenames)-1] != "ch_session_500.json" {
+		t.Fatalf("expected pointer list to drop older entries first, got %v", filenames)
+	}
+}
+
+func TestManager_LoadLatestSessionState_AllSessionsTriesPointerListBeforeScan(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	tmpDir, err := config.GetTempDir()
+	if err != nil {
+		t.Fatalf("GetTempDir() error: %v", err)
+	}
+
+	validSession := types.SessionFile{
+		Timestamp:   100,
+		Platform:    "openai",
+		Model:       "from-pointer-list",
+		ChatHistory: []types.ChatHistory{{User: "S"}},
+	}
+	validData, err := json.Marshal(validSession)
+	if err != nil {
+		t.Fatalf("failed to marshal session: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "ch_session_100.json"), validData, 0600); err != nil {
+		t.Fatalf("failed to write valid session: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "ch_session_200.json"), []byte("not-json"), 0600); err != nil {
+		t.Fatalf("failed to write corrupt session: %v", err)
+	}
+
+	newerSession := types.SessionFile{
+		Timestamp:   400,
+		Platform:    "openai",
+		Model:       "from-scan",
+		ChatHistory: []types.ChatHistory{{User: "S"}},
+	}
+	newerData, err := json.Marshal(newerSession)
+	if err != nil {
+		t.Fatalf("failed to marshal newer session: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "ch_session_400.json"), newerData, 0600); err != nil {
+		t.Fatalf("failed to write newer session: %v", err)
+	}
+
+	pointer := strings.Join([]string{
+		"ch_session_300.json",
+		"ch_session_200.json",
+		"ch_session_100.json",
+	}, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, latestSessionPointerFilename), []byte(pointer), 0600); err != nil {
+		t.Fatalf("failed to write latest session pointer: %v", err)
+	}
+
+	m := NewManager(&types.AppState{Config: &types.Config{SaveAllSessions: true}})
+	loaded, err := m.LoadLatestSessionState()
+	if err != nil {
+		t.Fatalf("LoadLatestSessionState() error: %v", err)
+	}
+
+	if loaded.Model != "from-pointer-list" {
+		t.Fatalf("expected pointer-list session before scan fallback, got model %q", loaded.Model)
+	}
+	filenames := readLatestSessionPointerFilenames(tmpDir)
+	if len(filenames) == 0 || filenames[0] != "ch_session_100.json" {
+		t.Fatalf("expected working pointer entry to be promoted, got %v", filenames)
+	}
+}
+
+func TestManager_LoadLatestSessionState_AllSessionsFallsBackWithoutPointer(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	tmpDir, err := config.GetTempDir()
+	if err != nil {
+		t.Fatalf("GetTempDir() error: %v", err)
+	}
+
+	for _, item := range []struct {
+		filename  string
+		model     string
+		timestamp int64
+	}{
+		{filename: "ch_session_100.json", model: "older", timestamp: 100},
+		{filename: "ch_session_200.json", model: "newer", timestamp: 200},
+	} {
+		session := types.SessionFile{
+			Timestamp:   item.timestamp,
+			Platform:    "openai",
+			Model:       item.model,
+			ChatHistory: []types.ChatHistory{{User: "S"}},
+		}
+		data, err := json.Marshal(session)
+		if err != nil {
+			t.Fatalf("failed to marshal session: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, item.filename), data, 0600); err != nil {
+			t.Fatalf("failed to write session %s: %v", item.filename, err)
+		}
+	}
+
+	m := NewManager(&types.AppState{Config: &types.Config{SaveAllSessions: true}})
+	loaded, err := m.LoadLatestSessionState()
+	if err != nil {
+		t.Fatalf("LoadLatestSessionState() error: %v", err)
+	}
+	if loaded.Model != "newer" {
+		t.Fatalf("expected fallback scan-selected session, got model %q", loaded.Model)
+	}
+	pointerData, err := os.ReadFile(filepath.Join(tmpDir, latestSessionPointerFilename))
+	if err != nil {
+		t.Fatalf("expected fallback scan to create latest session pointer: %v", err)
+	}
+	if got := strings.TrimSpace(string(pointerData)); got != "ch_session_200.json" {
+		t.Fatalf("latest pointer = %q, want ch_session_200.json", got)
 	}
 }
 

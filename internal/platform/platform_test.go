@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/MehmetMHY/ch/pkg/types"
@@ -612,6 +613,149 @@ func TestStreamingRequestIncludesReasoningEffort(t *testing.T) {
 	}
 	if effort != "high" {
 		t.Errorf("expected reasoning_effort=high, got %v", effort)
+	}
+}
+
+type testStreamDelta struct {
+	content          string
+	reasoning        string
+	reasoningContent string
+}
+
+func captureStreamingStdout(t *testing.T, fn func() (string, error)) (string, string, error) {
+	t.Helper()
+
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdout pipe: %v", err)
+	}
+	originalStdout := os.Stdout
+	os.Stdout = writer
+
+	response, runErr := fn()
+
+	_ = writer.Close()
+	os.Stdout = originalStdout
+	outBytes, readErr := io.ReadAll(reader)
+	_ = reader.Close()
+	if readErr != nil {
+		t.Fatalf("failed to read captured stdout: %v", readErr)
+	}
+
+	return response, string(outBytes), runErr
+}
+
+func streamingDeltasServer(t *testing.T, deltas []testStreamDelta) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+
+		for _, item := range deltas {
+			delta := map[string]string{}
+			if item.content != "" {
+				delta["content"] = item.content
+			}
+			if item.reasoning != "" {
+				delta["reasoning"] = item.reasoning
+			}
+			if item.reasoningContent != "" {
+				delta["reasoning_content"] = item.reasoningContent
+			}
+
+			payload := map[string]interface{}{
+				"choices": []map[string]interface{}{{
+					"delta": delta,
+					"index": 0,
+				}},
+			}
+			data, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatalf("failed to marshal streaming payload: %v", err)
+			}
+			_, _ = w.Write([]byte("data: " + string(data) + "\n\n"))
+		}
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+}
+
+func newOllamaStreamingTestManager(t *testing.T, serverURL string, showThinking bool) *Manager {
+	t.Helper()
+
+	cfg := &types.Config{
+		CurrentPlatform:  "ollama",
+		ShowThinking:     showThinking,
+		IsPipedOutput:    true,
+		ModelsDevEnabled: false,
+		Platforms: map[string]types.Platform{
+			"ollama": {Name: "ollama", BaseURL: types.BaseURLValue{Single: serverURL + "/v1"}},
+		},
+	}
+	m := NewManager(cfg)
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("Initialize error: %v", err)
+	}
+	return m
+}
+
+func TestStreamingResponseUsesOllamaReasoningField(t *testing.T) {
+	server := streamingDeltasServer(t, []testStreamDelta{
+		{reasoning: "I should reason first."},
+		{content: "Hello!"},
+	})
+	defer server.Close()
+
+	m := newOllamaStreamingTestManager(t, server.URL, false)
+	messages := []types.ChatMessage{{Role: "user", Content: "Hi"}}
+	cancelFn := func() {}
+
+	response, output, err := captureStreamingStdout(t, func() (string, error) {
+		return m.SendChatRequest(messages, "granite4.2:8b-q8_0", &cancelFn, new(bool))
+	})
+	if err != nil {
+		t.Fatalf("SendChatRequest error: %v", err)
+	}
+
+	if response != "Hello!" {
+		t.Fatalf("expected final response only, got %q", response)
+	}
+	if strings.Contains(output, "I should reason") {
+		t.Fatalf("expected reasoning to be hidden from stdout, got %q", output)
+	}
+	if strings.Contains(response, "I should reason") {
+		t.Fatalf("expected reasoning to be omitted from stored response, got %q", response)
+	}
+}
+
+func TestStreamingResponseFiltersGranitePrefilledThinking(t *testing.T) {
+	server := streamingDeltasServer(t, []testStreamDelta{
+		{content: "I need to think about this"},
+		{content: " before answering.</thi"},
+		{content: "nk>\nHello!"},
+	})
+	defer server.Close()
+
+	m := newOllamaStreamingTestManager(t, server.URL, false)
+	messages := []types.ChatMessage{{Role: "user", Content: "Hi"}}
+	cancelFn := func() {}
+
+	response, output, err := captureStreamingStdout(t, func() (string, error) {
+		return m.SendChatRequest(messages, "granite4.2:8b-q8_0", &cancelFn, new(bool))
+	})
+	if err != nil {
+		t.Fatalf("SendChatRequest error: %v", err)
+	}
+
+	if response != "Hello!" {
+		t.Fatalf("expected final response only, got %q", response)
+	}
+	if strings.Contains(output, "think about this") || strings.Contains(output, "</think>") {
+		t.Fatalf("expected prefixless thinking to be hidden from stdout, got %q", output)
+	}
+	if strings.Contains(response, "think about this") || strings.Contains(response, "</think>") {
+		t.Fatalf("expected prefixless thinking to be omitted from stored response, got %q", response)
 	}
 }
 

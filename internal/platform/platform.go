@@ -644,6 +644,7 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 	defer func() {
 		_ = stream.Close()
 	}()
+	thinkParser := newThinkTagStreamParser(m.assumesPrefilledThinkOpening(model))
 
 	type streamChunk struct {
 		Choices []struct {
@@ -657,8 +658,6 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 
 	wasReasoning := false
 	lastReasoningEndsWithNewline := false
-	insideThinkTag := false
-	justExitedThinkTag := false
 
 	for {
 		rawBytes, err := stream.RecvRaw()
@@ -681,59 +680,218 @@ func (m *Manager) sendStreamingRequest(openaiMessages []openai.ChatCompletionMes
 		reasoning := delta.Reasoning + delta.ReasoningContent
 
 		if reasoning != "" {
-			wasReasoning = true
-			lastReasoningEndsWithNewline = strings.HasSuffix(reasoning, "\n")
-			if m.config.ShowThinking {
-				if m.config.IsPipedOutput {
-					fmt.Print(reasoning)
-				} else {
-					fmt.Print("\033[90m" + reasoning + "\033[0m")
-				}
-			}
-			response.WriteString(reasoning)
+			thinkParser.MarkStructuredReasoning()
+			m.printStreamPart(streamTextPart{text: reasoning, reasoning: true}, &wasReasoning, &lastReasoningEndsWithNewline)
 		}
 
 		if delta.Content != "" {
-			if wasReasoning && !lastReasoningEndsWithNewline && m.config.ShowThinking {
-				fmt.Println()
-			}
-			wasReasoning = false
-
-			if strings.Contains(delta.Content, "<think>") {
-				insideThinkTag = true
-			}
-
-			if justExitedThinkTag {
-				delta.Content = strings.TrimLeft(delta.Content, "\n\r ")
-				if delta.Content == "" {
-					continue
-				}
-				justExitedThinkTag = false
-			}
-
-			if insideThinkTag && !m.config.ShowThinking {
-				// Skip displaying think-tagged content
-			} else if m.config.IsPipedOutput {
-				fmt.Print(delta.Content)
-			} else if insideThinkTag {
-				fmt.Print("\033[90m" + delta.Content + "\033[0m")
-			} else {
-				fmt.Print("\033[92m" + delta.Content + "\033[0m")
-			}
-
-			if strings.Contains(delta.Content, "</think>") {
-				insideThinkTag = false
-				if !m.config.ShowThinking {
-					justExitedThinkTag = true
+			for _, part := range thinkParser.Process(delta.Content) {
+				m.printStreamPart(part, &wasReasoning, &lastReasoningEndsWithNewline)
+				if !part.reasoning {
+					response.WriteString(part.text)
 				}
 			}
+		}
+	}
 
-			response.WriteString(delta.Content)
+	for _, part := range thinkParser.Flush() {
+		m.printStreamPart(part, &wasReasoning, &lastReasoningEndsWithNewline)
+		if !part.reasoning {
+			response.WriteString(part.text)
 		}
 	}
 
 	fmt.Println()
 	return response.String(), nil
+}
+
+type streamTextPart struct {
+	text      string
+	reasoning bool
+}
+
+type thinkParseMode int
+
+const (
+	thinkModeAnswer thinkParseMode = iota
+	thinkModeReasoning
+	thinkModePrefilledReasoning
+)
+
+const (
+	thinkOpenTag  = "<think>"
+	thinkCloseTag = "</think>"
+)
+
+type thinkTagStreamParser struct {
+	mode              thinkParseMode
+	pending           string
+	trimLeadingAnswer bool
+}
+
+func newThinkTagStreamParser(assumePrefilledReasoning bool) *thinkTagStreamParser {
+	if assumePrefilledReasoning {
+		return &thinkTagStreamParser{mode: thinkModePrefilledReasoning}
+	}
+	return &thinkTagStreamParser{mode: thinkModeAnswer}
+}
+
+func (p *thinkTagStreamParser) MarkStructuredReasoning() {
+	if p.mode == thinkModePrefilledReasoning && p.pending == "" {
+		p.mode = thinkModeAnswer
+	}
+}
+
+func (p *thinkTagStreamParser) Process(input string) []streamTextPart {
+	p.pending += input
+	var parts []streamTextPart
+
+	for p.pending != "" {
+		switch p.mode {
+		case thinkModePrefilledReasoning:
+			closeIdx := strings.Index(p.pending, thinkCloseTag)
+			openIdx := strings.Index(p.pending, thinkOpenTag)
+			if openIdx >= 0 && (closeIdx < 0 || openIdx < closeIdx) {
+				p.appendPart(&parts, p.pending[:openIdx], false)
+				p.pending = p.pending[openIdx+len(thinkOpenTag):]
+				p.mode = thinkModeReasoning
+				continue
+			}
+			if closeIdx < 0 {
+				return parts
+			}
+			p.appendPart(&parts, p.pending[:closeIdx], true)
+			p.pending = p.pending[closeIdx+len(thinkCloseTag):]
+			p.mode = thinkModeAnswer
+			p.trimLeadingAnswer = true
+
+		case thinkModeReasoning:
+			closeIdx := strings.Index(p.pending, thinkCloseTag)
+			if closeIdx >= 0 {
+				p.appendPart(&parts, p.pending[:closeIdx], true)
+				p.pending = p.pending[closeIdx+len(thinkCloseTag):]
+				p.mode = thinkModeAnswer
+				p.trimLeadingAnswer = true
+				continue
+			}
+			flushLen := safeStreamFlushLen(p.pending, thinkCloseTag)
+			if flushLen == 0 {
+				return parts
+			}
+			p.appendPart(&parts, p.pending[:flushLen], true)
+			p.pending = p.pending[flushLen:]
+
+		default:
+			openIdx := strings.Index(p.pending, thinkOpenTag)
+			if openIdx >= 0 {
+				p.appendPart(&parts, p.pending[:openIdx], false)
+				p.pending = p.pending[openIdx+len(thinkOpenTag):]
+				p.mode = thinkModeReasoning
+				continue
+			}
+			flushLen := safeStreamFlushLen(p.pending, thinkOpenTag)
+			if flushLen == 0 {
+				return parts
+			}
+			p.appendPart(&parts, p.pending[:flushLen], false)
+			p.pending = p.pending[flushLen:]
+		}
+	}
+
+	return parts
+}
+
+func (p *thinkTagStreamParser) Flush() []streamTextPart {
+	if p.pending == "" {
+		return nil
+	}
+
+	text := p.pending
+	p.pending = ""
+	return []streamTextPart{{text: p.prepareAnswerText(text), reasoning: p.mode == thinkModeReasoning}}
+}
+
+func (p *thinkTagStreamParser) appendPart(parts *[]streamTextPart, text string, reasoning bool) {
+	if !reasoning {
+		text = p.prepareAnswerText(text)
+	}
+	if text == "" {
+		return
+	}
+	*parts = append(*parts, streamTextPart{text: text, reasoning: reasoning})
+}
+
+func (p *thinkTagStreamParser) prepareAnswerText(text string) string {
+	if !p.trimLeadingAnswer {
+		return text
+	}
+	text = strings.TrimLeft(text, "\n\r ")
+	if text != "" {
+		p.trimLeadingAnswer = false
+	}
+	return text
+}
+
+func safeStreamFlushLen(text, marker string) int {
+	maxKeep := len(marker) - 1
+	if len(text) <= maxKeep {
+		return 0
+	}
+	keep := maxPartialMarkerSuffix(text, marker)
+	if keep > maxKeep {
+		keep = maxKeep
+	}
+	return len(text) - keep
+}
+
+func maxPartialMarkerSuffix(text, marker string) int {
+	max := len(marker) - 1
+	if len(text) < max {
+		max = len(text)
+	}
+	for n := max; n > 0; n-- {
+		if strings.HasPrefix(marker, text[len(text)-n:]) {
+			return n
+		}
+	}
+	return 0
+}
+
+func (m *Manager) printStreamPart(part streamTextPart, wasReasoning *bool, lastReasoningEndsWithNewline *bool) {
+	if part.text == "" {
+		return
+	}
+
+	if part.reasoning {
+		*wasReasoning = true
+		*lastReasoningEndsWithNewline = strings.HasSuffix(part.text, "\n")
+		if m.config.ShowThinking {
+			if m.config.IsPipedOutput {
+				fmt.Print(part.text)
+			} else {
+				fmt.Print("\033[90m" + part.text + "\033[0m")
+			}
+		}
+		return
+	}
+
+	if *wasReasoning && !*lastReasoningEndsWithNewline && m.config.ShowThinking {
+		fmt.Println()
+	}
+	*wasReasoning = false
+
+	if m.config.IsPipedOutput {
+		fmt.Print(part.text)
+	} else {
+		fmt.Print("\033[92m" + part.text + "\033[0m")
+	}
+}
+
+func (m *Manager) assumesPrefilledThinkOpening(model string) bool {
+	if m.config.CurrentPlatform != "ollama" || strings.EqualFold(m.reasoningEffort, "none") {
+		return false
+	}
+	return strings.Contains(strings.ToLower(model), "granite4.2")
 }
 
 // fetchPlatformModelsWithTime fetches models with their creation timestamps

@@ -97,11 +97,11 @@ ch "What are the key features of Go programming language?"
 - **Smart Model Sorting**: Model lists are sorted newest-first using API-provided timestamps, with alphabetical fallback for platforms that don't provide them
 - **Chat Backtracking**: Revert to any point in conversation history
 - **Session Continuation**: Automatically save and restore sessions to continue conversations later
-- **Session History Search**: Search and load any previous session from history with fuzzy or exact matching. Supports time-based filters (1d, 1w, 1m, 1y), epoch ranges, and direct session file loading. In interactive mode with `save_all_sessions=true`, continuing a loaded session forks it into a new timestamped session file so the original history remains unchanged.
+- **Session History Search**: Search and load any previous session from history with fuzzy or exact matching. Supports time-based filters (1d, 1w, 1m, 1y), epoch ranges, and direct session file loading. In interactive mode with `save_all_sessions=true`, continuing a loaded session forks it into a new timestamped session file so the original history remains unchanged. Ch also maintains a small latest-session pointer list so `ch -c` can continue from a recent timestamped session without scanning the full temp directory.
 - **Code Dump**: Package entire directories for AI analysis (text and document files only). Use `-b`/`--build` for an interactive fzf filename picker (new names via `>custom`) or an explicit name (`ch -b ./src name.txt`); use `-y`/`--yes` to skip all interactive fzf (auto-named, pipe-friendly)
 - **Shell Session Recording**: Record terminal sessions and provide them as context to the model
 - **Web Scraping & Search**: Built-in URL scraping and web search capabilities
-- **Thinking/Reasoning Display**: Shows model thinking tokens (reasoning) in gray before the response, supporting `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
+- **Thinking/Reasoning Display**: Shows model thinking tokens (reasoning) in gray before the response, supporting `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats. In streaming mode, thinking is display-only and is stripped from the saved final assistant response.
 - **Clipboard Integration**: Copy AI responses to clipboard with cross-platform support
 - **Colored Output**: Platform and model names displayed in distinct colors
 
@@ -247,8 +247,8 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `search_lang` - Set the language for web searches (default: "en")
 - `system_prompt` - Customize the system prompt
 - `enable_session_save` - Enable/disable automatic session saving for continuation (default: false)
-- `save_all_sessions` - Save all sessions with timestamps instead of overwriting the latest (default: false). When enabled, each session gets a unique timestamped file; when disabled, only the latest session is kept
-- `show_thinking` - Show/hide model thinking/reasoning tokens (default: true). When enabled, thinking content is displayed in gray before the response. Supports `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats
+- `save_all_sessions` - Save all sessions with timestamps instead of overwriting the latest (default: false). When enabled, each session gets a unique timestamped file plus a small latest-session pointer list for fast `ch -c`; when disabled, only the latest session is kept
+- `show_thinking` - Show/hide model thinking/reasoning tokens (default: true). When enabled, thinking content is displayed in gray before the response. Supports `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats. In streaming mode, thinking is display-only and is stripped from the saved final assistant response.
 - `slow_model_patterns` - List of regex patterns for models that should use non-streaming mode with a loading animation (default: empty). Example: `["^o\\d+", "^gpt-5$"]`
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
 - `ai_name_enable` - Enable AI-suggested filenames in `!e` export modes (default: false). When true, the current model is asked to propose short snake_case filenames before each export filename prompt.

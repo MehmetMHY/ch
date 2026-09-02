@@ -31,6 +31,12 @@ type Manager struct {
 	forkSessionBaseline string
 }
 
+const (
+	latestSessionPointerFilename = "ch_session_latest.ptr"
+	// (9-1-2026) hardcoded MRU cap keeps -c O(1) without config bloat
+	latestSessionPointerLimit = 10
+)
+
 // NewManager creates a new chat manager
 func NewManager(state *types.AppState) *Manager {
 	return &Manager{
@@ -251,8 +257,83 @@ func (m *Manager) SaveSessionState() error {
 		_ = os.Remove(tempFullPath)
 		return fmt.Errorf("failed to rename session file: %v", err)
 	}
+	if m.state.Config.SaveAllSessions {
+		if err := writeLatestSessionPointer(filepath.Dir(fullPath), filepath.Base(fullPath)); err != nil {
+			return err
+		}
+	}
 
 	return nil
+}
+
+func writeLatestSessionPointer(tmpDir, filename string) error {
+	if !isTimestampedSessionFilename(filename) {
+		return fmt.Errorf("invalid latest session filename: %s", filename)
+	}
+
+	filenames := []string{filename}
+	for _, existing := range readLatestSessionPointerFilenames(tmpDir) {
+		if existing == filename {
+			continue
+		}
+		filenames = append(filenames, existing)
+		if len(filenames) == latestSessionPointerLimit {
+			break
+		}
+	}
+
+	pointerPath := filepath.Join(tmpDir, latestSessionPointerFilename)
+	tempPointerPath := pointerPath + ".tmp"
+	if err := os.WriteFile(tempPointerPath, []byte(strings.Join(filenames, "\n")+"\n"), 0600); err != nil {
+		return fmt.Errorf("failed to write latest session pointer: %v", err)
+	}
+	if err := os.Rename(tempPointerPath, pointerPath); err != nil {
+		_ = os.Remove(tempPointerPath)
+		return fmt.Errorf("failed to rename latest session pointer: %v", err)
+	}
+	return nil
+}
+
+func readLatestSessionPointerFilenames(tmpDir string) []string {
+	pointerPath := filepath.Join(tmpDir, latestSessionPointerFilename)
+	data, err := os.ReadFile(pointerPath) // #nosec G304 -- Latest session pointer path is under Ch's own temp session directory.
+	if err != nil {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var filenames []string
+	for _, line := range strings.Split(string(data), "\n") {
+		filename := strings.TrimSpace(line)
+		if filename == "" || seen[filename] || !isTimestampedSessionFilename(filename) {
+			continue
+		}
+		seen[filename] = true
+		filenames = append(filenames, filename)
+		if len(filenames) == latestSessionPointerLimit {
+			break
+		}
+	}
+	return filenames
+}
+
+func isTimestampedSessionFilename(filename string) bool {
+	if filepath.Base(filename) != filename {
+		return false
+	}
+	if !strings.HasPrefix(filename, "ch_session_") || !strings.HasSuffix(filename, ".json") || filename == "ch_session_latest.json" {
+		return false
+	}
+	timestamp := strings.TrimSuffix(strings.TrimPrefix(filename, "ch_session_"), ".json")
+	if timestamp == "" {
+		return false
+	}
+	for _, r := range timestamp {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // PrepareSessionFilePath chooses the file used for saving the current session.
@@ -331,7 +412,11 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 	}
 
 	if m.state.Config.SaveAllSessions {
-		// When saving all sessions, find the most recent session file
+		if session, ok := loadLatestSessionFromPointer(tmpDir); ok {
+			return session, nil
+		}
+
+		// Legacy fallback for temp dirs created before the latest-session pointer existed.
 		files, err := os.ReadDir(tmpDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read temp directory: %v", err)
@@ -374,20 +459,14 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 			return nil, fmt.Errorf("no session file found")
 		}
 
-		// Load the most recent session
-		data, err := os.ReadFile(latestFile) // #nosec G304 -- Latest session path is selected from Ch's own temp session directory.
+		session, err := loadSessionFile(latestFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read session file: %v", err)
+			return nil, err
 		}
-
-		var session types.SessionFile
-		err = json.Unmarshal(data, &session)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
+		if filename := filepath.Base(latestFile); isTimestampedSessionFilename(filename) {
+			_ = writeLatestSessionPointer(tmpDir, filename)
 		}
-
-		session.SourceFile = latestFile
-		return &session, nil
+		return session, nil
 	} else {
 		// Load the single session file
 		fullPath := filepath.Join(tmpDir, "ch_session_latest.json")
@@ -397,20 +476,41 @@ func (m *Manager) LoadLatestSessionState() (*types.SessionFile, error) {
 			return nil, fmt.Errorf("no session file found")
 		}
 
-		data, err := os.ReadFile(fullPath) // #nosec G304 -- Latest session path is under Ch's own temp session directory.
+		session, err := loadSessionFile(fullPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read session file: %v", err)
+			return nil, err
 		}
-
-		var session types.SessionFile
-		err = json.Unmarshal(data, &session)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
-		}
-
-		session.SourceFile = fullPath
-		return &session, nil
+		return session, nil
 	}
+}
+
+func loadLatestSessionFromPointer(tmpDir string) (*types.SessionFile, bool) {
+	for i, filename := range readLatestSessionPointerFilenames(tmpDir) {
+		session, err := loadSessionFile(filepath.Join(tmpDir, filename))
+		if err == nil {
+			if i > 0 {
+				_ = writeLatestSessionPointer(tmpDir, filename)
+			}
+			return session, true
+		}
+	}
+	return nil, false
+}
+
+func loadSessionFile(fullPath string) (*types.SessionFile, error) {
+	data, err := os.ReadFile(fullPath) // #nosec G304,G703 -- Session path is selected from Ch's own temp session directory after pointer filename validation.
+	if err != nil {
+		return nil, fmt.Errorf("failed to read session file: %v", err)
+	}
+
+	var session types.SessionFile
+	err = json.Unmarshal(data, &session)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse session file (corrupt): %v", err)
+	}
+
+	session.SourceFile = fullPath
+	return &session, nil
 }
 
 // RestoreSessionState restores the application state from a SessionFile
