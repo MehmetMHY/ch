@@ -1,6 +1,9 @@
 # Ch
 
-<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a> <a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.26.5+-blue.svg" alt="Go 1.26.5+"></a>
+<p align="left">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>&nbsp;&nbsp;<a href="https://golang.org/"><img src="https://img.shields.io/badge/go-1.26.5+-blue.svg" alt="Go 1.26.5+"></a>&nbsp;&nbsp;<img src="https://img.shields.io/badge/platform-macos%20%7C%20linux-blue" alt="Platform: macOS | Linux"><br>
+  <a href="https://github.com/MehmetMHY/ch"><img src="https://img.shields.io/github/stars/MehmetMHY/ch?label=Ch" alt="Ch Stars"></a>&nbsp;&nbsp;<a href="https://github.com/MehmetMHY/cha"><img src="https://img.shields.io/github/stars/MehmetMHY/cha?label=%F0%9F%93%A6%20Cha" alt="Cha Legacy Stars"></a>&nbsp;&nbsp;<a href="https://github.com/MehmetMHY/index_ch"><img src="https://img.shields.io/github/stars/MehmetMHY/index_ch?label=%F0%9F%A7%B0%20IndexCh" alt="IndexCh Companion Stars"></a>
+</p>
 
 <p align="left">
   <a href="https://www.youtube.com/watch?v=AH0xG1iStf4">
