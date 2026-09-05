@@ -644,7 +644,7 @@ Test the installer on a clean machine (requires [Docker](https://www.docker.com/
 ./.install_test.sh
 ```
 
-`.install_test.sh` builds a minimal Ubuntu image with only Go pre-installed, then runs the real `curl | bash` install command inside a throwaway container and reports pass/fail. This verifies the end-to-end install flow without touching your own system.
+`.install_test.sh` builds a minimal Ubuntu image with only Go pre-installed, then runs the real `curl | bash` install command inside a throwaway container and reports pass/fail. Installer progress is streamed live; the fresh dependency installation and build can take several minutes. This verifies the end-to-end install flow without touching your own system.
 
 ### Security Checks
 

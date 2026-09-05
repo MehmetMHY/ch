@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This script is a self-contained integration test for Ch's curl-based install method. It builds a minimal Ubuntu Docker image with a basic setup, installs Ch using curl, and then verifies that Ch was installed correctly. This ensures that the curl-based install method continues to work as Ch evolves over time.
+# This script is a self-contained integration test for Ch's curl-based install method. It builds a minimal Ubuntu Docker image with a basic setup, installs Ch using curl, and then verifies that Ch was installed correctly. Installer output is streamed while being retained for the final result checks.
 
 set -uo pipefail
 
@@ -44,16 +44,24 @@ echo "OK: image built"
 echo
 
 echo "==> Running the real installer inside a fresh container..."
+echo "    This can take several minutes while dependencies are installed and Ch is built."
 echo "----------------------------------------------------------"
-output=$(docker run --rm "$IMAGE_NAME" bash -c "
+OUTPUT_FILE=$(mktemp "${TMPDIR:-/tmp}/ch-install-test.XXXXXX")
+trap 'rm -f "$OUTPUT_FILE"' EXIT
+
+docker run --rm "$IMAGE_NAME" bash -c "
 	set -eo pipefail
 	curl -fsSL '$INSTALL_URL' | bash
 	echo '---VERIFY---'
 	command -v ch
 	ch -h | head -5
-" 2>&1)
-status=$?
-echo "$output"
+" 2>&1 | tee "$OUTPUT_FILE"
+pipe_status=("${PIPESTATUS[@]}")
+status=${pipe_status[0]}
+if [[ $status -eq 0 ]] && [[ ${pipe_status[1]} -ne 0 ]]; then
+	status=${pipe_status[1]}
+fi
+output=$(<"$OUTPUT_FILE")
 echo "----------------------------------------------------------"
 echo
 
