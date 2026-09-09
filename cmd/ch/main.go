@@ -99,7 +99,7 @@ func main() {
 
 	// handle version flag before config/provider initialization
 	if *versionFlag {
-		fmt.Printf("ch %s (%s, %s)\n", version, gitCommit, buildTime)
+		fmt.Printf("ch %s\n", version)
 		return
 	}
 

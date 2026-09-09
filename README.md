@@ -732,7 +732,7 @@ ch -v
 ch --version
 ```
 
-This prints `ch <version> (<commit>, <buildTime>)` and exits before any provider or config initialization, so it works without an API key.
+This prints `ch <version>` and exits before any provider or config initialization, so it works without an API key.
 
 Update the project version interactively:
 

@@ -284,10 +284,9 @@ func TestCLIUtilityAndExportFlags(t *testing.T) {
 	}
 }
 
-// TestVersionFlag verifies -v and --version print version metadata and exit
+// TestVersionFlag verifies -v and --version print the version and exit
 // before any provider/config init. The test binary is built without ldflags,
-// so it reports the dev fallbacks (version=dev, gitCommit=unknown,
-// buildTime=unknown).
+// so it reports the dev fallback (version=dev).
 func TestVersionFlag(t *testing.T) {
 	binPath := testBinPath
 	home := t.TempDir()
@@ -303,14 +302,8 @@ func TestVersionFlag(t *testing.T) {
 			t.Fatalf("%s should exit cleanly, got %v:\n%s", flagArg, err, out)
 		}
 		line := strings.TrimSpace(string(out))
-		if !strings.HasPrefix(line, "ch ") {
-			t.Fatalf("%s should print a line starting with 'ch ', got:\n%s", flagArg, out)
-		}
-		if !strings.Contains(line, "dev") {
-			t.Fatalf("%s should report the dev fallback when built without ldflags, got:\n%s", flagArg, out)
-		}
-		if !strings.Contains(line, "unknown") {
-			t.Fatalf("%s should report unknown buildTime/gitCommit fallbacks, got:\n%s", flagArg, out)
+		if line != "ch dev" {
+			t.Fatalf("%s should print 'ch dev' when built without ldflags, got:\n%s", flagArg, out)
 		}
 		if strings.Contains(line, "OPENAI_API_KEY") {
 			t.Fatalf("%s must not initialize a provider, got:\n%s", flagArg, out)
