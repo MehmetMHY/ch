@@ -1596,6 +1596,13 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		chatManager.AddToHistory(fullInput, response)
 		return true
 
+	case input == config.CompressHistory:
+		if fromHelp {
+			fmt.Printf("\033[93m%s - compress conversation history\033[0m\n", config.CompressHistory)
+			return true
+		}
+		return handleCompress(chatManager, platformManager, terminal, state)
+
 	case strings.HasPrefix(input, "!!"):
 		if fromHelp {
 			return true
@@ -2270,6 +2277,22 @@ func handleReasoningEffort(arg string, chatManager *chat.Manager, platformManage
 		} else {
 			terminal.PrintInfo("reasoning: " + effort)
 		}
+	}
+	return true
+}
+
+// handleCompress handles the !z command for compressing conversation
+// history. It delegates to chatManager.CompressHistory which summarises
+// the active Messages via a silent model request and rebuilds the
+// runtime context. On failure (too short, not enough tokens, request
+// error, or cancellation) nothing is mutated.
+func handleCompress(chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState) bool {
+	if err := chatManager.CompressHistory(terminal); err != nil {
+		terminal.PrintError(fmt.Sprintf("%v", err))
+		return true
+	}
+	if !state.Config.MuteNotifications {
+		terminal.PrintInfo("history compressed")
 	}
 	return true
 }

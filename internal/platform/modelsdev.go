@@ -45,6 +45,7 @@ type ModelsDevModel struct {
 	Reasoning        bool              `json:"reasoning"`
 	ReasoningOptions []ModelsDevOption `json:"reasoning_options"`
 	Cost             *ModelsDevCost    `json:"cost,omitempty"`
+	Limit            *ModelsDevLimit   `json:"limit,omitempty"`
 }
 
 // ModelsDevOption describes a reasoning control option.
@@ -62,6 +63,16 @@ type ModelsDevCost struct {
 	Reasoning  float64 `json:"reasoning,omitempty"`
 	CacheRead  float64 `json:"cache_read,omitempty"`
 	CacheWrite float64 `json:"cache_write,omitempty"`
+}
+
+// ModelsDevLimit holds the model's token limits from api.json.
+// Context is the full context window. Ch uses 40% of it as the max
+// chunk size for map-reduce compression, leaving room for the system
+// prompt, the output summary, and safety margin.
+type ModelsDevLimit struct {
+	Context int `json:"context,omitempty"`
+	Input   int `json:"input,omitempty"`
+	Output  int `json:"output,omitempty"`
 }
 
 // ModelsDevCatalog is the parsed api.json payload.
@@ -458,4 +469,37 @@ func DescribeEffortState(effort string, cap CapabilityResult) string {
 		return fmt.Sprintf("%s (unverified, metadata unavailable)", effort)
 	}
 	return effort
+}
+
+// ResolveContextWindow returns the model's context window (in tokens)
+// from Models.dev metadata, or 0 if unavailable. Used by the compression
+// map-reduce logic to size chunks so they fit within the model's limit.
+func ResolveContextWindow(platformKey, modelID string, cfg *types.Config) int {
+	client := getModelsDevClient()
+	catalog := client.catalogForConfig(cfg)
+
+	if catalog == nil {
+		return 0
+	}
+
+	providerID := resolveModelsDevProvider(platformKey, cfg)
+	provider, ok := catalog[providerID]
+	if !ok {
+		return 0
+	}
+
+	// Try the raw model ID first.
+	model, found := provider.Models[modelID]
+	if !found {
+		// Try normalized alias (e.g. "models/gemini-3.7-flash" -> "gemini-3.7-flash").
+		normalized := normalizeModelIDForLookup(modelID)
+		if normalized != modelID {
+			model, found = provider.Models[normalized]
+		}
+	}
+	if !found || model.Limit == nil {
+		return 0
+	}
+
+	return model.Limit.Context
 }

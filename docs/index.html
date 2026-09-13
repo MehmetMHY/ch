@@ -245,6 +245,9 @@ interactive session started
 Protect env overrides, explicit false booleans, shallow_load_dirs defaults, and provider key mapping.
 <span class="prompt">user:</span> !e config_notes.txt
 <span class="ok">exported chat:</span> config_notes.txt
+<span class="prompt">user:</span> !z
+<span class="ok">compressed summary (through turn 5):</span>
+Env overrides, explicit false booleans, shallow_load_dirs, provider key mapping, export sanitization.
 <span class="prompt">user:</span> !q
 bye
 
@@ -346,7 +349,8 @@ loaded latest session and sent follow-up prompt
         <div class="feature">
           <div class="feature-title">Robust Session Management</div>
           <div class="feature-desc">
-            Optionally persist sessions, backtrack through history, and search
+            Optionally persist sessions, backtrack through history, compress
+            long conversations to save tokens without losing context, and search
             previous chats instantly using
             <a href="https://github.com/junegunn/fzf" class="quiet">fzf</a
             >-powered fuzzy matching.

@@ -325,6 +325,7 @@ func (t *Terminal) getCommandList() []string {
 		fmt.Sprintf("%s - record shell session", t.config.ShellRecord),
 		fmt.Sprintf("%s - shell session (not recorded)", t.config.ShellRecordSilent),
 		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
+		fmt.Sprintf("%s - compress conversation history", t.config.CompressHistory),
 		fmt.Sprintf("%s - add to clipboard", t.config.CopyToClipboard),
 		fmt.Sprintf("%s - quick copy latest response", t.config.QuickCopyLatest),
 		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),

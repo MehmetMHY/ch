@@ -141,8 +141,32 @@ Notable config fields beyond the basics:
 - `reasoning_effort_switch` - interactive command key for reasoning effort selection (default: `!r`).
 - `models_dev_enabled` - enable/disable Models.dev metadata lookups (default: true). When false, Ch uses no metadata and `!r` shows generic unverified values.
 - `models_dev_refresh_hours` - cache refresh interval in hours (default: 24). Set to 168 for weekly.
+- `compress_history` - interactive command key for compressing conversation history (default: `!z`). When fired, Ch summarizes the active Messages into a dense continuation summary that replaces the runtime context. The full ChatHistory is never mutated.
+- `compress_min_tokens` - minimum token count in the active Messages before `!z` will fire (default: 4000). Below this threshold compression is skipped. There is no turn-count gate; a single large loaded file can trigger compression.
 
-### Models.dev Metadata
+### Conversation Compression (`!z`)
+
+`!z` compresses the active conversation context to reduce token usage for future provider requests. The full `ChatHistory` (used for exports, search, session files, and display) is never mutated by compression. Instead, a new `CompressionRecord` is appended to `state.Compressions`, and `state.Messages` is rebuilt to contain only the summary plus any turns after the compression point.
+
+Key design boundaries:
+
+- `Messages` is always derived from `ChatHistory` plus the newest valid `CompressionRecord` via `rebuildMessages()`. This is the single hook point; every session load, backtrack, and clear calls it.
+- The compression summary is stored as a `user` role message in `Messages` (not `system`), preceded by the system prompt. This keeps the provider request structure compatible across all providers.
+- Multiple compressions compose: each new compression summarizes the current active context (which already includes the previous summary plus newer turns), producing a progressively deeper summary.
+- `CompressionRecord.ThroughIndex` marks the last `ChatHistory` entry included in the summary. On backtrack, compression records past the new history length are pruned via `pruneCompressions()`.
+- `ClearHistory` clears both `ChatHistory` and `Compressions`.
+- `SaveSessionState` persists `Compressions` as a top-level `compressions` array in the session JSON. Old sessions without `compressions` load and behave exactly like before (no migration, no pre-population).
+- index_ch reads `raw["messages"]` and ignores `compressions`, so the field is backward compatible.
+
+Map-reduce chunking for oversized conversations:
+
+- If the transcript exceeds the model's chunk limit, it is split into chunks and summarized in parallel (up to 4 concurrent requests via a worker pool with a shared parent context).
+- Chunk size is determined by `resolveMaxChunkChars()`: 40% of the model's context window from Models.dev metadata (converted to chars at ~4 chars/token), or a conservative 80K char fallback (~20K tokens, safe for 32K+ context models).
+- If a request fails with a context-length-type error, the chunk size is halved and retried up to 3 times (floor: 1000 chars). This safeguards against unknown models with smaller context windows.
+- `SendSilentChatRequestWithContext` (in `internal/platform/platform.go`) is the context-aware variant used by parallel chunk workers so a single parent cancel controls every in-flight request.
+- `looksLikeContextLengthError` detects context-length errors across providers (OpenAI, Anthropic, Google, Groq, etc.) to trigger adaptive retry.
+- Progress is printed as `compressing: N/total` instead of a spinner, so the user can see how far along a large compression is.
+- Ctrl+C cancels the parent context, which cancels all in-flight chunk requests and prevents queued chunks from starting. No state is mutated on cancellation.
 
 Ch uses `https://models.dev/api.json` as an optional, on-demand metadata source for reasoning-effort capability filtering. The catalog is fetched only when a metadata-dependent action occurs (`!r` or `-r`), never during normal prompts.
 
@@ -238,6 +262,7 @@ These are the default key bindings (configurable in `~/.ch/config.json`):
 | `!r [effort]`   | Set reasoning effort (or fzf pick if no argument). Use `default` to omit the parameter                              |
 | `!l [dir]`      | Load files from current or specified directory                                                                      |
 | `!d`            | Generate codedump and load into context                                                                             |
+| `!z`            | Compress conversation history into a dense summary (reduces token usage; full transcript preserved)                 |
 | `!x [cmd]`      | Run a shell command and add output to context                                                                       |
 | `!!x [cmd]`     | Run a shell command silently (output not saved to history)                                                          |
 | `!` (prefix)    | Run a shell command and add output to context                                                                       |
@@ -272,6 +297,9 @@ Patterns already used:
 - `internal/platform/platform_test.go` also uses a fake Ollama-compatible SSE server to verify streaming `delta.reasoning` and Granite-style prefixless `<think>` fallback handling without live Ollama, network, or API keys.
 - `cmd/ch/main_test.go` `TestReasoningEffortFlagRegistered` and `TestStateOutputIncludesReasoning` verify the `-r` flag and the `>state` reasoning line.
 - `internal/chat/chat_test.go` reasoning-effort tests verify per-turn history capture, session save/restore with effort, legacy session compat, and export metadata.
+- `internal/chat/chat_test.go` compression tests verify `rebuildMessages` with/without compression, multiple compressions, `activeCompression` selection, `RestoreSessionState` with compressions, legacy session compat (no `compressions` field), save/load round-trip, backtrack pruning via `pruneCompressions`, `ClearHistory` clearing compressions, transcript building, `splitTranscript` chunking, `looksLikeContextLengthError` detection, and retry halving math.
+- `internal/platform/modelsdev_test.go` covers `ResolveContextWindow` from Models.dev metadata including provider aliases, Google ID normalization, nil-limit fallback, and no-metadata return.
+- `cmd/ch/main_test.go` `TestCompressHistoryConfigDefault`, `TestCompressHistoryLowTokens`, and `TestCompressHistoryNoPlatformManager` verify the `!z` config defaults, token threshold gate, and nil platform manager guard.
 
 If a test needs a config file, write it under the test temp home:
 

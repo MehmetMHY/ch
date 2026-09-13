@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/MehmetMHY/ch/internal/config"
@@ -21,6 +23,7 @@ import (
 	"github.com/MehmetMHY/ch/pkg/types"
 	"github.com/chzyer/readline"
 	"github.com/google/uuid"
+	"github.com/tiktoken-go/tokenizer"
 )
 
 // Manager handles chat operations
@@ -35,7 +38,92 @@ const (
 	latestSessionPointerFilename = "ch_session_latest.ptr"
 	// (9-1-2026) hardcoded MRU cap keeps -c O(1) without config bloat
 	latestSessionPointerLimit = 10
+
+	// compressPrompt is the system instruction sent to the model when
+	// generating a continuation summary. It asks for a dense, specific
+	// summary that preserves all actionable context for future turns.
+	compressPrompt = "Summarize this conversation for future continuation. " +
+		"Preserve user goals, decisions, constraints, file paths, commands, " +
+		"errors, code changes, open tasks, and unresolved questions. " +
+		"Be dense and specific. Do not add preamble."
+
+	// compressChunkPrompt is used for individual chunks in the map-reduce
+	// path when the conversation is too large for a single request.
+	compressChunkPrompt = "You are summarizing ONE part of a longer conversation " +
+		"between a user and an AI assistant. Concisely summarize the topics, " +
+		"questions, and answers in this part. It is only a fragment, so do " +
+		"not worry about overall conclusions. Do not add commentary or a " +
+		"preamble, just the summary."
+
+	// compressCombinePrompt is used to merge partial summaries into one.
+	compressCombinePrompt = "The following are summaries of consecutive parts " +
+		"of a single conversation between a user and an AI assistant. " +
+		"Combine them into one concise summary capturing the main topics, " +
+		"questions asked, and any conclusions reached, so it can be found " +
+		"later for continuation. Do not add commentary or a preamble, " +
+		"just the summary."
+
+	// compressDefaultMaxChars is the conservative char-based limit for
+	// chunk size when no model context window is known. At ~4 chars/token
+	// this is ~20K tokens, safe for any model with a 32K+ context window.
+	compressDefaultMaxChars = 80000
+
+	// compressCharPerToken is the rough char-to-token ratio used to
+	// convert a token context window into a char-based chunk size.
+	compressCharPerToken = 4
+
+	// compressContextFraction is the fraction of the model's context
+	// window used for chunk input. The remainder covers the system prompt,
+	// the output summary, and a safety margin.
+	compressContextFraction = 0.4
+
+	// compressMaxRetries is the maximum number of times the compression
+	// will retry with progressively smaller chunks when a request fails
+	// with a context-length-type error. Each retry halves the chunk size.
+	compressMaxRetries = 3
+
+	// compressMinChunkChars is the floor for chunk size during retries.
+	// Below this, further halving would produce absurdly tiny requests,
+	// so we give up instead.
+	compressMinChunkChars = 1000
+
+	// compressParallelism is the maximum number of concurrent chunk
+	// summarization requests. This limits API rate-limit pressure while
+	// still parallelizing the slow map phase. For a local Ollama model
+	// the bottleneck is local inference, so higher concurrency helps less;
+	// for cloud providers it cuts wall time roughly in proportion.
+	compressParallelism = 4
 )
+
+// looksLikeContextLengthError checks whether an error message indicates
+// the request exceeded the model's context window. This is used to
+// trigger an adaptive retry with smaller chunks. The check is intentionally
+// broad: it matches common phrasing across providers (OpenAI, Anthropic,
+// Google, Groq, etc.) without requiring exact error codes.
+func looksLikeContextLengthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	for _, pattern := range []string{
+		"context length",
+		"maximum context",
+		"too long",
+		"too many tokens",
+		"token limit",
+		"maximum number of tokens",
+		"exceeds the model",
+		"reduce the length",
+		"context window",
+		"input length",
+		"max_tokens",
+	} {
+		if strings.Contains(msg, pattern) {
+			return true
+		}
+	}
+	return false
+}
 
 // NewManager creates a new chat manager
 func NewManager(state *types.AppState) *Manager {
@@ -132,6 +220,7 @@ func (m *Manager) ClearHistory() {
 	m.state.ChatHistory = []types.ChatHistory{
 		{Time: time.Now().Unix(), User: m.state.Config.SystemPrompt, Bot: "", Platform: m.state.Config.CurrentPlatform, Model: m.state.Config.CurrentModel},
 	}
+	m.state.Compressions = nil
 }
 
 // ExportFullHistory exports the entire chat history to a JSON file.
@@ -237,6 +326,7 @@ func (m *Manager) SaveSessionState() error {
 		BaseURL:         m.state.Config.CurrentBaseURL,
 		ChatHistory:     m.state.ChatHistory,
 		ReasoningEffort: m.state.ReasoningEffort,
+		Compressions:    m.state.Compressions,
 	}
 
 	// Marshal to JSON
@@ -387,6 +477,7 @@ func (m *Manager) sessionSaveFingerprint() string {
 		BaseURL:         m.state.Config.CurrentBaseURL,
 		ChatHistory:     m.state.ChatHistory,
 		ReasoningEffort: m.state.ReasoningEffort,
+		Compressions:    m.state.Compressions,
 	}
 
 	data, err := json.Marshal(session)
@@ -521,15 +612,35 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 	m.state.ChatHistory = session.ChatHistory
 	m.state.SessionFilePath = session.SourceFile
 	m.state.ReasoningEffort = session.ReasoningEffort
+	m.state.Compressions = session.Compressions
 
-	// Rebuild Messages from ChatHistory
+	m.rebuildMessages()
+}
+
+// rebuildMessages reconstructs the active Messages slice from the full
+// ChatHistory and the newest valid compression record. When a compression
+// is active, Messages starts with the system prompt, then a single user
+// message containing the summary, then every turn after the compression's
+// through_index. When no compression is active, Messages is rebuilt from
+// the full ChatHistory exactly as before.
+func (m *Manager) rebuildMessages() {
 	m.state.Messages = []types.ChatMessage{
 		{Role: "system", Content: m.state.Config.SystemPrompt},
 	}
-	for i, entry := range m.state.ChatHistory {
-		if i == 0 {
-			continue // Skip system prompt entry
-		}
+
+	startIndex := 1 // skip system prompt entry
+
+	active := m.activeCompression()
+	if active != nil {
+		m.state.Messages = append(m.state.Messages, types.ChatMessage{
+			Role:    "user",
+			Content: fmt.Sprintf("Compressed conversation summary:\n\n%s", active.Summary),
+		})
+		startIndex = active.ThroughIndex + 1
+	}
+
+	for i := startIndex; i < len(m.state.ChatHistory); i++ {
+		entry := m.state.ChatHistory[i]
 		if entry.User != "" || entry.Context != "" {
 			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: EffectiveUserContent(entry)})
 		}
@@ -537,6 +648,473 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
 		}
 	}
+}
+
+// activeCompression returns the newest compression record whose
+// through_index is still within the current ChatHistory bounds, or nil
+// if there are no valid compressions. This handles backtrack pruning:
+// if the history was truncated below a compression's through_index,
+// that compression is no longer active and an older one (or none) is
+// used instead.
+func (m *Manager) activeCompression() *types.CompressionRecord {
+	if len(m.state.Compressions) == 0 {
+		return nil
+	}
+	for i := len(m.state.Compressions) - 1; i >= 0; i-- {
+		c := &m.state.Compressions[i]
+		if c.ThroughIndex >= 0 && c.ThroughIndex < len(m.state.ChatHistory) {
+			return c
+		}
+	}
+	return nil
+}
+
+// CompressHistory compresses the active conversation into a summary
+// using the current model. The full ChatHistory is never mutated; instead
+// a new CompressionRecord is appended and Messages is rebuilt to contain
+// only the summary (plus any future turns). This reduces token usage for
+// subsequent provider requests while preserving the full transcript for
+// exports, search, and session files.
+//
+// Robustness: if the summarization request fails, is cancelled, or returns
+// an empty response, no state is mutated. The summary is only appended
+// after a successful response, and Messages is only rebuilt after the
+// append. A crash at any point leaves the on-disk session unchanged
+// (the atomic save in SaveSessionState handles the write side).
+func (m *Manager) CompressHistory(terminal *ui.Terminal) error {
+	// A single loaded file or codedump can be millions of tokens in one
+	// turn, so turn count is not a useful gate. The token threshold
+	// (compress_min_tokens, default 4000) is the sole gatekeeper: if the
+	// active context is large enough to benefit from compression, !z fires.
+	//
+	// The token check is intentionally before the platform-manager check
+	// so a low-token conversation is rejected without requiring a
+	// platform manager to be wired.
+	tokenCount, err := m.countActiveTokens()
+	if err != nil {
+		return fmt.Errorf("error counting tokens: %v", err)
+	}
+	minTokens := m.state.Config.CompressMinTokens
+	if minTokens <= 0 {
+		minTokens = 4000
+	}
+	if tokenCount < minTokens {
+		return fmt.Errorf("compression skipped: only %d tokens, minimum is %d", tokenCount, minTokens)
+	}
+
+	if m.platformManager == nil {
+		return fmt.Errorf("platform manager not initialized")
+	}
+
+	// Build a transcript from the active Messages (which already includes
+	// any previous compression summary plus recent turns). This lets
+	// multiple compressions compose naturally.
+	transcript := m.buildCompressionTranscript()
+
+	// Determine max chunk size in chars. Use the model's context window
+	// from Models.dev metadata if available, otherwise fall back to a
+	// conservative default.
+	maxChunkChars := m.resolveMaxChunkChars()
+
+	// Wire streaming flags so the global SIGINT handler treats Ctrl+C
+	// as a request cancellation rather than exiting the program.
+	m.state.IsStreaming = true
+	m.state.StreamingCancel = func() {}
+
+	defer func() {
+		m.state.IsStreaming = false
+		m.state.StreamingCancel = nil
+	}()
+
+	// Summarize the transcript, using map-reduce for oversized inputs.
+	// The summarization adapts to the model's context window: if a
+	// request fails with a context-length error, it retries with
+	// progressively smaller chunks (up to compressMaxRetries times).
+	summary, err := m.summarizeWithRetry(transcript, maxChunkChars, terminal)
+	if err != nil {
+		return fmt.Errorf("compression failed: %v", err)
+	}
+
+	if summary == "" {
+		return fmt.Errorf("compression failed: empty summary")
+	}
+
+	// Print the summary with a colored header so the user sees what was
+	// captured.
+	throughIndex := len(m.state.ChatHistory) - 1
+	fmt.Printf("\033[93mcompressed summary (through turn %d):\033[0m\n", throughIndex)
+	fmt.Printf("\033[93m%s\033[0m\n", summary)
+
+	// Append the compression record. This is the commit point: after this
+	// append, rebuildMessages will use the new summary.
+	m.state.Compressions = append(m.state.Compressions, types.CompressionRecord{
+		Time:         time.Now().Unix(),
+		ThroughIndex: throughIndex,
+		Summary:      summary,
+		Platform:     m.state.Config.CurrentPlatform,
+		Model:        m.state.Config.CurrentModel,
+	})
+
+	// Rebuild Messages from the newest compression.
+	m.rebuildMessages()
+
+	return nil
+}
+
+// resolveMaxChunkChars determines the maximum chunk size (in characters)
+// for map-reduce compression. It uses the model's context window from
+// Models.dev metadata when available (40% of context, converted to chars
+// at ~4 chars/token), falling back to a conservative default that is
+// safe for any model with a 32K+ context window.
+func (m *Manager) resolveMaxChunkChars() int {
+	if m.state.Config == nil {
+		return compressDefaultMaxChars
+	}
+	ctxWindow := platform.ResolveContextWindow(
+		m.state.Config.CurrentPlatform,
+		m.state.Config.CurrentModel,
+		m.state.Config,
+	)
+	if ctxWindow <= 0 {
+		return compressDefaultMaxChars
+	}
+	maxChars := int(float64(ctxWindow) * compressCharPerToken * compressContextFraction)
+	if maxChars < 1000 {
+		return 1000 // floor: never use absurdly tiny chunks
+	}
+	return maxChars
+}
+
+// summarizeWithRetry wraps summarizeTranscript with an adaptive retry
+// mechanism. If the initial attempt fails with a context-length-type
+// error (detected via looksLikeContextLengthError), it halves the chunk
+// size and retries, up to compressMaxRetries times. The minimum chunk
+// size is compressMinChunkChars; below that, further retries would
+// produce absurdly tiny requests and the original error is returned.
+//
+// This safeguard handles the case where no Models.dev metadata is
+// available and the fallback chunk size (compressDefaultMaxChars,
+// ~20K tokens) is too large for the model's actual context window.
+// It also covers edge cases where metadata exists but the provider
+// enforces a tighter limit than advertised.
+func (m *Manager) summarizeWithRetry(transcript string, maxChunkChars int, terminal *ui.Terminal) (string, error) {
+	currentMax := maxChunkChars
+	var lastErr error
+
+	for attempt := 0; attempt <= compressMaxRetries; attempt++ {
+		summary, err := m.summarizeTranscript(transcript, currentMax, terminal)
+		if err == nil {
+			return summary, nil
+		}
+		lastErr = err
+
+		// Only retry if the error looks like a context-length issue.
+		if !looksLikeContextLengthError(err) {
+			return "", err
+		}
+
+		// Halve the chunk size for the next attempt.
+		currentMax = currentMax / 2
+		if currentMax < compressMinChunkChars {
+			// Can't go smaller; return the last error.
+			break
+		}
+
+		// Print a notice so the user knows what's happening.
+		if attempt == 0 {
+			fmt.Printf("\033[93mcompression: retrying with smaller chunks...\033[0m\n")
+		}
+	}
+
+	return "", fmt.Errorf("compression failed after %d retries (last error: %v)", compressMaxRetries, lastErr)
+}
+
+// summarizeTranscript summarizes the transcript text. If it fits in a
+// single request (under maxChunkChars), it sends one request. If it is
+// too large, it splits the transcript into chunks, summarizes each chunk
+// in parallel (up to compressParallelism concurrent requests), then
+// combines the partial summaries into one final summary.
+//
+// Robustness: if any chunk or the combine request fails or is cancelled,
+// the entire operation aborts and returns an error without mutating any
+// state. A shared parent cancellation function is wired to
+// m.state.StreamingCancel so Ctrl+C cancels all in-flight chunk requests
+// at once. Each chunk goroutine uses its own local streaming flags to
+// avoid racing on m.state's shared fields.
+func (m *Manager) summarizeTranscript(transcript string, maxChunkChars int, terminal *ui.Terminal) (string, error) {
+	if len(transcript) <= maxChunkChars {
+		return m.summarizeOnce(transcript, compressPrompt)
+	}
+
+	chunks := m.splitTranscript(transcript, maxChunkChars)
+
+	// Print chunk count so the user knows what to expect for large
+	// conversations.
+	if len(chunks) > 1 {
+		fmt.Printf("\033[93mcompressing: %d chunks, %d parallel\033[0m\n", len(chunks), compressParallelism)
+	}
+
+	// Parallel map phase: summarize chunks with a fixed worker pool. A shared
+	// parent context lets Ctrl+C (via m.state.StreamingCancel) cancel active
+	// requests and prevents queued chunks from starting afterward.
+	type chunkResult struct {
+		index   int
+		summary string
+		err     error
+	}
+	type chunkJob struct {
+		index int
+		text  string
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	m.state.IsStreaming = true
+	m.state.StreamingCancel = cancel
+
+	results := make([]chunkResult, len(chunks))
+	jobs := make(chan chunkJob)
+	var wg sync.WaitGroup
+	var resultsMu sync.Mutex
+	var firstErr error
+	var firstErrOnce sync.Once
+
+	// Progress tracking: print completed/total as each chunk finishes.
+	var completed atomic.Int64
+	total := int64(len(chunks))
+	var printMu sync.Mutex
+	recordErr := func(err error) {
+		firstErrOnce.Do(func() {
+			firstErr = err
+			cancel()
+		})
+	}
+
+	workerCount := compressParallelism
+	if len(chunks) < workerCount {
+		workerCount = len(chunks)
+	}
+	for worker := 0; worker < workerCount; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case job, ok := <-jobs:
+					if !ok {
+						return
+					}
+					requestMessages := []types.ChatMessage{
+						{Role: "system", Content: compressChunkPrompt},
+						{Role: "user", Content: job.text},
+					}
+
+					response, err := m.platformManager.SendSilentChatRequestWithContext(
+						ctx,
+						requestMessages,
+						m.state.Config.CurrentModel,
+					)
+
+					done := completed.Add(1)
+					if total > 1 {
+						printMu.Lock()
+						fmt.Printf("\r\033[K\033[93mcompressing: %d/%d\033[0m", done, total)
+						if done == total {
+							fmt.Println()
+						}
+						printMu.Unlock()
+					}
+
+					if err != nil {
+						wrapped := fmt.Errorf("chunk %d/%d failed: %v", job.index+1, len(chunks), err)
+						resultsMu.Lock()
+						results[job.index] = chunkResult{index: job.index, err: wrapped}
+						resultsMu.Unlock()
+						recordErr(wrapped)
+						return
+					}
+					summary := strings.TrimSpace(response)
+					if summary == "" {
+						wrapped := fmt.Errorf("chunk %d/%d returned empty summary", job.index+1, len(chunks))
+						resultsMu.Lock()
+						results[job.index] = chunkResult{index: job.index, err: wrapped}
+						resultsMu.Unlock()
+						recordErr(wrapped)
+						return
+					}
+					resultsMu.Lock()
+					results[job.index] = chunkResult{index: job.index, summary: summary}
+					resultsMu.Unlock()
+				}
+			}
+		}()
+	}
+
+feedDone:
+	for i, chunk := range chunks {
+		select {
+		case <-ctx.Done():
+			break feedDone
+		case jobs <- chunkJob{index: i, text: chunk}:
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	if total > 1 && completed.Load() < total {
+		printMu.Lock()
+		fmt.Println()
+		printMu.Unlock()
+	}
+	if firstErr != nil {
+		return "", firstErr
+	}
+	if ctx.Err() != nil {
+		return "", fmt.Errorf("request was interrupted")
+	}
+
+	// Collect results in order; abort on first error.
+	var partials []string
+	for _, r := range results {
+		if r.err != nil {
+			return "", r.err
+		}
+		partials = append(partials, r.summary)
+	}
+
+	// Reduce: combine partial summaries. The combined text of all
+	// partials should be much smaller than the original, so it almost
+	// always fits in one request. If it somehow still exceeds the chunk
+	// limit (extremely unlikely), recursively reduce again.
+	combined := strings.Join(partials, "\n\n")
+	return m.summarizeTranscript(combined, maxChunkChars, terminal)
+}
+
+// summarizeOnce sends a single silent summarization request with the
+// given system prompt and user content. It manages the streaming flags
+// so Ctrl+C is treated as cancellation. Returns the trimmed summary
+// or an error.
+func (m *Manager) summarizeOnce(content, systemPrompt string) (string, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Re-arm streaming flags so the global SIGINT handler treats Ctrl+C as a
+	// request cancellation rather than exiting the program.
+	m.state.IsStreaming = true
+	m.state.StreamingCancel = cancel
+	defer func() {
+		m.state.IsStreaming = false
+		m.state.StreamingCancel = nil
+	}()
+
+	requestMessages := []types.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: content},
+	}
+
+	response, err := m.platformManager.SendSilentChatRequestWithContext(
+		ctx,
+		requestMessages,
+		m.state.Config.CurrentModel,
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(response), nil
+}
+
+// splitTranscript divides the transcript into chunks of at most
+// maxChunkChars. It splits on paragraph boundaries (double newlines)
+// when possible to avoid cutting mid-turn. If a single paragraph exceeds
+// the chunk limit, it falls back to a hard character split.
+func (m *Manager) splitTranscript(transcript string, maxChunkChars int) []string {
+	if maxChunkChars <= 0 {
+		return []string{transcript}
+	}
+
+	paragraphs := strings.Split(transcript, "\n\n")
+
+	var chunks []string
+	var current strings.Builder
+
+	for _, para := range paragraphs {
+		// If adding this paragraph would exceed the limit and we already
+		// have content, flush the current chunk.
+		if current.Len() > 0 && current.Len()+len(para)+2 > maxChunkChars {
+			chunks = append(chunks, current.String())
+			current.Reset()
+		}
+
+		// If the paragraph itself exceeds the limit, hard-split it.
+		if len(para) > maxChunkChars {
+			if current.Len() > 0 {
+				chunks = append(chunks, current.String())
+				current.Reset()
+			}
+			for start := 0; start < len(para); start += maxChunkChars {
+				end := start + maxChunkChars
+				if end > len(para) {
+					end = len(para)
+				}
+				chunks = append(chunks, para[start:end])
+			}
+			continue
+		}
+
+		if current.Len() > 0 {
+			current.WriteString("\n\n")
+		}
+		current.WriteString(para)
+	}
+
+	if current.Len() > 0 {
+		chunks = append(chunks, current.String())
+	}
+
+	// Edge case: empty transcript or no chunks produced.
+	if len(chunks) == 0 {
+		return []string{transcript}
+	}
+
+	return chunks
+}
+
+// buildCompressionTranscript renders the active Messages as plain text
+// for the summarization request. It skips the system prompt and labels
+// each role. When a previous compression is active, the transcript
+// includes that summary as a user turn, so the new summary can build on
+// it.
+func (m *Manager) buildCompressionTranscript() string {
+	var b strings.Builder
+	for _, msg := range m.state.Messages {
+		if msg.Role == "system" {
+			continue
+		}
+		role := "USER"
+		if msg.Role == "assistant" {
+			role = "ASSISTANT"
+		}
+		b.WriteString(role + ": " + msg.Content + "\n\n")
+	}
+	return b.String()
+}
+
+// countActiveTokens estimates the token count of the active Messages
+// using the cl100k_base tokenizer, matching the approach used in
+// handleShowState.
+func (m *Manager) countActiveTokens() (int, error) {
+	var totalContent string
+	for _, msg := range m.state.Messages {
+		totalContent += msg.Content + " "
+	}
+	enc, err := tokenizer.Get(tokenizer.Cl100kBase)
+	if err != nil {
+		return 0, err
+	}
+	return enc.Count(totalContent)
 }
 
 // LoadCustomHistoryFile loads a session from a custom history file path
@@ -844,19 +1422,29 @@ func (m *Manager) BacktrackHistory(terminal *ui.Terminal) (int, error) {
 	m.state.ChatHistory = m.state.ChatHistory[:index+1]
 	backtrackedCount := originalHistoryCount - len(m.state.ChatHistory)
 
-	m.state.Messages = []types.ChatMessage{
-		{Role: "system", Content: m.state.Config.SystemPrompt},
-	}
-	for _, entry := range m.state.ChatHistory[1:] {
-		if entry.User != "" || entry.Context != "" {
-			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: EffectiveUserContent(entry)})
-		}
-		if entry.Bot != "" {
-			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
-		}
-	}
+	// Drop compression records whose through_index is now beyond the
+	// truncated history. This prevents a compression from referencing
+	// turns that no longer exist.
+	m.pruneCompressions(len(m.state.ChatHistory))
+
+	m.rebuildMessages()
 
 	return backtrackedCount, nil
+}
+
+// pruneCompressions removes compression records whose through_index is
+// >= historyLen, since those turns no longer exist after a backtrack.
+func (m *Manager) pruneCompressions(historyLen int) {
+	if len(m.state.Compressions) == 0 {
+		return
+	}
+	var kept []types.CompressionRecord
+	for _, c := range m.state.Compressions {
+		if c.ThroughIndex >= 0 && c.ThroughIndex < historyLen {
+			kept = append(kept, c)
+		}
+	}
+	m.state.Compressions = kept
 }
 
 // HandleTerminalInput handles terminal input mode

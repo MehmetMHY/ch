@@ -464,6 +464,15 @@ export function initTerminalDemo() {
       { text: "exported chat:", cls: "ok" },
       { text: " config_notes.txt\n", cls: null },
     ]);
+    await prompt([{ text: "!z", cls: "flag" }]);
+    await output([
+      { text: "compressing: 1 chunk, 4 parallel\n", cls: "warn" },
+      { text: "compressed summary (through turn 5):\n", cls: "warn" },
+      {
+        text: "Env overrides, explicit false booleans, shallow_load_dirs, provider key mapping, export sanitization.\n",
+        cls: null,
+      },
+    ]);
     await prompt([{ text: "!q", cls: "flag" }]);
     await output([{ text: "bye\n\n" }]);
     await sceneBreak(750);

@@ -793,3 +793,94 @@ func TestStateOutputIncludesReasoningEffort(t *testing.T) {
 		t.Fatalf("expected 'reasoning: high' in state output, got:\n%s", out)
 	}
 }
+
+// TestCompressHistoryConfigDefault verifies the default config has
+// compress_history set to !z and compress_min_tokens set to 4000.
+func TestCompressHistoryConfigDefault(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("CH_DEFAULT_PLATFORM", "")
+	t.Setenv("CH_DEFAULT_MODEL", "")
+
+	state := chconfig.InitializeAppState()
+	if state.Config.CompressHistory != "!z" {
+		t.Errorf("expected CompressHistory=!z, got %q", state.Config.CompressHistory)
+	}
+	if state.Config.CompressMinTokens != 4000 {
+		t.Errorf("expected CompressMinTokens=4000, got %d", state.Config.CompressMinTokens)
+	}
+}
+
+// TestCompressHistoryLowTokens verifies that CompressHistory refuses
+// when the active token count is below the minimum threshold.
+func TestCompressHistoryLowTokens(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	cfg := &types.Config{
+		SystemPrompt:      "S",
+		CurrentPlatform:   "openai",
+		CurrentModel:      "gpt-4o",
+		CompressMinTokens: 4000,
+	}
+	state := &types.AppState{
+		Config: cfg,
+		Messages: []types.ChatMessage{
+			{Role: "system", Content: "S"},
+			{Role: "user", Content: "Q1"},
+			{Role: "assistant", Content: "A1"},
+		},
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},
+			{User: "Q1", Bot: "A1"},
+		},
+	}
+	m := chat.NewManager(state)
+	terminal := ui.NewTerminal(cfg)
+
+	err := m.CompressHistory(terminal)
+	if err == nil {
+		t.Fatal("expected error for low-token conversation, got nil")
+	}
+	if !strings.Contains(err.Error(), "compression skipped") {
+		t.Errorf("expected 'compression skipped' in error, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "minimum is 4000") {
+		t.Errorf("expected 'minimum is 4000' in error, got %q", err.Error())
+	}
+}
+
+// TestCompressHistoryNoPlatformManager verifies that CompressHistory
+// returns an error when the platform manager is not set but the
+// token count exceeds the threshold.
+func TestCompressHistoryNoPlatformManager(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:      "S",
+		CurrentPlatform:   "openai",
+		CurrentModel:      "gpt-4o",
+		CompressMinTokens: 4000,
+	}
+	// Build a large enough message body to exceed the 4000 token threshold.
+	// ~4 chars/token, so 20000 chars is ~5000 tokens.
+	bigContent := strings.Repeat("This is a test message with enough content to exceed the token threshold. ", 300)
+	state := &types.AppState{
+		Config:   cfg,
+		Messages: []types.ChatMessage{{Role: "system", Content: "S"}, {Role: "user", Content: bigContent}},
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},
+			{User: bigContent, Bot: "response"},
+		},
+	}
+	m := chat.NewManager(state)
+	terminal := ui.NewTerminal(cfg)
+
+	err := m.CompressHistory(terminal)
+	if err == nil {
+		t.Fatal("expected error when platform manager is nil, got nil")
+	}
+	if !strings.Contains(err.Error(), "platform manager not initialized") {
+		t.Errorf("expected 'platform manager not initialized', got %q", err.Error())
+	}
+}

@@ -582,3 +582,57 @@ func TestInitializeAppState(t *testing.T) {
 		t.Error("IsExecutingCommand should default to false")
 	}
 }
+
+func TestDefaultConfig_CompressDefaults(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	t.Setenv("CH_DEFAULT_PLATFORM", "")
+	t.Setenv("CH_DEFAULT_MODEL", "")
+
+	cfg := DefaultConfig()
+	if cfg.CompressHistory != "!z" {
+		t.Errorf("expected CompressHistory=!z, got %q", cfg.CompressHistory)
+	}
+	if cfg.CompressMinTokens != 4000 {
+		t.Errorf("expected CompressMinTokens=4000, got %d", cfg.CompressMinTokens)
+	}
+}
+
+func TestMergeConfigs_CompressHistory(t *testing.T) {
+	def := &types.Config{
+		CompressHistory:   "!z",
+		CompressMinTokens: 4000,
+		Platforms:         map[string]types.Platform{},
+	}
+	user := &types.Config{
+		CurrentPlatform:   "openai",
+		CompressHistory:   "!k",
+		CompressMinTokens: 8000,
+	}
+	merged := mergeConfigs(def, user)
+	if merged.CompressHistory != "!k" {
+		t.Errorf("expected CompressHistory=!k, got %q", merged.CompressHistory)
+	}
+	if merged.CompressMinTokens != 8000 {
+		t.Errorf("expected CompressMinTokens=8000, got %d", merged.CompressMinTokens)
+	}
+}
+
+func TestMergeConfigs_CompressDefaultsPreserved(t *testing.T) {
+	def := &types.Config{
+		CompressHistory:   "!z",
+		CompressMinTokens: 4000,
+		Platforms:         map[string]types.Platform{},
+	}
+	user := &types.Config{
+		CurrentPlatform: "openai",
+	}
+	merged := mergeConfigs(def, user)
+	if merged.CompressHistory != "!z" {
+		t.Errorf("expected default !z, got %q", merged.CompressHistory)
+	}
+	if merged.CompressMinTokens != 4000 {
+		t.Errorf("expected default 4000, got %d", merged.CompressMinTokens)
+	}
+}

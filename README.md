@@ -266,6 +266,8 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `reasoning_effort_switch` - Interactive command key for reasoning effort selection (default: `!r`)
 - `models_dev_enabled` - Enable/disable [Models.dev](https://models.dev/) metadata lookups for reasoning-effort filtering (default: true). When false, `!r` shows generic unverified values instead of model-specific supported values
 - `models_dev_refresh_hours` - Cache refresh interval in hours for the Models.dev catalog (default: 24). Set to 168 for weekly refresh
+- `compress_history` - Interactive command key for compressing conversation history (default: `!z`)
+- `compress_min_tokens` - Minimum token count in the active context before `!z` will fire (default: 4000). Below this threshold compression is skipped
 - Plus all other configuration options using snake_case JSON field names
 
 For a complete list of all configuration options and their defaults, see [internal/config/config.go](./internal/config/config.go). Environment variables take precedence over the config file for default platform and model, while `~/.ch/config.json` provides a convenient way to customize Ch without setting environment variables for each session.
@@ -407,6 +409,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!s [url]`** - scrape URL(s) or from history
 - **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump
+- **`!z`** - compress conversation history. Summarizes the active context into a dense continuation summary, reducing token usage for future prompts while preserving the full transcript for exports, search, and session files. Uses map-reduce chunking for oversized conversations with parallel summarization. Ctrl+C cancels safely without mutating state
 - **`!e [file]`** - export chat(s). Surrounding quotes (`"`/`'`) are stripped, so `!e "hi.txt"` saves as `hi.txt`
 - **`!y`** - add to clipboard
 - **`cc`** - quick copy latest response

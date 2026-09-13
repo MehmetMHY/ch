@@ -211,6 +211,14 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 		defaultConfig.ReasoningEffortSwitch = userConfig.ReasoningEffortSwitch
 	}
 
+	// Compression controls.
+	if userConfig.CompressHistory != "" {
+		defaultConfig.CompressHistory = userConfig.CompressHistory
+	}
+	if userConfig.CompressMinTokens != 0 {
+		defaultConfig.CompressMinTokens = userConfig.CompressMinTokens
+	}
+
 	// Models.dev metadata cache controls.
 	if boolFieldSet(userConfig, "models_dev_enabled") || userConfig.ModelsDevEnabled {
 		defaultConfig.ModelsDevEnabled = userConfig.ModelsDevEnabled
@@ -307,6 +315,9 @@ func DefaultConfig() *types.Config {
 		ReasoningEffortSwitch: "!r",
 		ModelsDevEnabled:      true,
 		ModelsDevRefreshHours: 24,
+
+		CompressHistory:   "!z",
+		CompressMinTokens: 4000,
 
 		Platforms: map[string]types.Platform{
 			"groq": {

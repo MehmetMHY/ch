@@ -133,6 +133,43 @@ func (m *Manager) SendSilentChatRequest(messages []types.ChatMessage, model stri
 	return m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
 }
 
+// SendSilentChatRequestWithContext sends a non-streaming auxiliary request using
+// the caller-provided context. It intentionally omits reasoning effort, matching
+// SendSilentChatRequest, but does not touch shared streaming state. This is used
+// by parallel compression chunks where a single parent context cancels every
+// in-flight request.
+func (m *Manager) SendSilentChatRequestWithContext(ctx context.Context, messages []types.ChatMessage, model string) (string, error) {
+	mergedMessages := m.mergeConsecutiveUserMessages(messages)
+
+	openaiMessages := make([]openai.ChatCompletionMessage, 0, len(mergedMessages))
+	for _, msg := range mergedMessages {
+		openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	req := openai.ChatCompletionRequest{
+		Model:    model,
+		Messages: openaiMessages,
+		Stream:   false,
+	}
+
+	resp, err := m.client.CreateChatCompletion(ctx, req)
+	if err != nil {
+		if ctx.Err() == context.Canceled {
+			return "", fmt.Errorf("request was interrupted")
+		}
+		return "", err
+	}
+
+	if len(resp.Choices) > 0 {
+		return resp.Choices[0].Message.Content, nil
+	}
+
+	return "", fmt.Errorf("no response content")
+}
+
 // SendChatRequest sends a chat request to the current platform
 func (m *Manager) SendChatRequest(messages []types.ChatMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
 	var openaiMessages []openai.ChatCompletionMessage

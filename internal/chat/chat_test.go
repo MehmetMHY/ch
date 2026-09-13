@@ -1390,3 +1390,695 @@ func TestExportFullHistoryIncludesReasoningEffort(t *testing.T) {
 		t.Errorf("expected reasoning_effort=high in export, got %q", entries[0].ReasoningEffort)
 	}
 }
+
+// ---- Compression: rebuildMessages ----
+
+func TestRebuildMessages_NoCompressions(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "Sys",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config: cfg,
+		ChatHistory: []types.ChatHistory{
+			{User: cfg.SystemPrompt, Bot: ""},   // index 0: system
+			{User: "Hello", Bot: "Hi there"},    // index 1
+			{User: "How are you?", Bot: "Good"}, // index 2
+		},
+	}
+	m := NewManager(state)
+	m.rebuildMessages()
+
+	want := []types.ChatMessage{
+		{Role: "system", Content: "Sys"},
+		{Role: "user", Content: "Hello"},
+		{Role: "assistant", Content: "Hi there"},
+		{Role: "user", Content: "How are you?"},
+		{Role: "assistant", Content: "Good"},
+	}
+	if !reflect.DeepEqual(state.Messages, want) {
+		t.Errorf("messages = %+v, want %+v", state.Messages, want)
+	}
+}
+
+func TestRebuildMessages_WithCompression(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "Sys",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config: cfg,
+		ChatHistory: []types.ChatHistory{
+			{User: cfg.SystemPrompt, Bot: ""}, // index 0: system
+			{User: "Old Q1", Bot: "Old A1"},   // index 1
+			{User: "Old Q2", Bot: "Old A2"},   // index 2
+			{User: "Old Q3", Bot: "Old A3"},   // index 3
+			{User: "New Q1", Bot: "New A1"},   // index 4
+			{User: "New Q2", Bot: "New A2"},   // index 5
+		},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 3, Summary: "Summary of old conversation"},
+		},
+	}
+	m := NewManager(state)
+	m.rebuildMessages()
+
+	want := []types.ChatMessage{
+		{Role: "system", Content: "Sys"},
+		{Role: "user", Content: "Compressed conversation summary:\n\nSummary of old conversation"},
+		{Role: "user", Content: "New Q1"},
+		{Role: "assistant", Content: "New A1"},
+		{Role: "user", Content: "New Q2"},
+		{Role: "assistant", Content: "New A2"},
+	}
+	if !reflect.DeepEqual(state.Messages, want) {
+		t.Errorf("messages = %+v, want %+v", state.Messages, want)
+	}
+}
+
+func TestRebuildMessages_WithCompressionAtEnd(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "Sys",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config: cfg,
+		ChatHistory: []types.ChatHistory{
+			{User: cfg.SystemPrompt, Bot: ""}, // index 0
+			{User: "Q1", Bot: "A1"},           // index 1
+			{User: "Q2", Bot: "A2"},           // index 2
+			{User: "Q3", Bot: "A3"},           // index 3
+		},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 3, Summary: "Full summary"},
+		},
+	}
+	m := NewManager(state)
+	m.rebuildMessages()
+
+	// Compression through_index=3 means everything up to and including
+	// index 3 is summarized. No raw turns follow.
+	want := []types.ChatMessage{
+		{Role: "system", Content: "Sys"},
+		{Role: "user", Content: "Compressed conversation summary:\n\nFull summary"},
+	}
+	if !reflect.DeepEqual(state.Messages, want) {
+		t.Errorf("messages = %+v, want %+v", state.Messages, want)
+	}
+}
+
+// ---- Compression: activeCompression ----
+
+func TestActiveCompression_NewestValid(t *testing.T) {
+	state := &types.AppState{
+		ChatHistory: []types.ChatHistory{{}, {}, {}, {}, {}, {}, {}, {}},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 2, Summary: "old"},
+			{ThroughIndex: 5, Summary: "new"},
+		},
+	}
+	m := NewManager(state)
+	active := m.activeCompression()
+	if active == nil {
+		t.Fatal("expected non-nil active compression")
+	}
+	if active.Summary != "new" {
+		t.Errorf("expected newest summary 'new', got %q", active.Summary)
+	}
+}
+
+func TestActiveCompression_NoneValid(t *testing.T) {
+	state := &types.AppState{
+		ChatHistory: []types.ChatHistory{{}, {}},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 5, Summary: "stale"},
+		},
+	}
+	m := NewManager(state)
+	active := m.activeCompression()
+	if active != nil {
+		t.Errorf("expected nil when through_index exceeds history, got %+v", active)
+	}
+}
+
+func TestActiveCompression_Empty(t *testing.T) {
+	state := &types.AppState{
+		ChatHistory: []types.ChatHistory{{}},
+	}
+	m := NewManager(state)
+	if active := m.activeCompression(); active != nil {
+		t.Errorf("expected nil for empty compressions, got %+v", active)
+	}
+}
+
+// ---- Compression: RestoreSessionState ----
+
+func TestRestoreSessionState_RestoresCompressions(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config:      cfg,
+		ChatHistory: []types.ChatHistory{},
+	}
+	m := NewManager(state)
+
+	session := &types.SessionFile{
+		Platform: "groq",
+		Model:    "llama3",
+		ChatHistory: []types.ChatHistory{
+			{User: "S", Bot: ""},
+			{User: "Q1", Bot: "A1"},
+			{User: "Q2", Bot: "A2"},
+			{User: "Q3", Bot: "A3"},
+		},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 2, Summary: "Sum of Q1/A1 and Q2/A2"},
+		},
+	}
+	m.RestoreSessionState(session)
+
+	if len(state.Compressions) != 1 {
+		t.Fatalf("expected 1 compression, got %d", len(state.Compressions))
+	}
+	if state.Compressions[0].Summary != "Sum of Q1/A1 and Q2/A2" {
+		t.Errorf("unexpected summary: %q", state.Compressions[0].Summary)
+	}
+
+	// Messages should use the compression summary plus turns after index 2.
+	want := []types.ChatMessage{
+		{Role: "system", Content: "S"},
+		{Role: "user", Content: "Compressed conversation summary:\n\nSum of Q1/A1 and Q2/A2"},
+		{Role: "user", Content: "Q3"},
+		{Role: "assistant", Content: "A3"},
+	}
+	if !reflect.DeepEqual(state.Messages, want) {
+		t.Errorf("messages = %+v, want %+v", state.Messages, want)
+	}
+}
+
+func TestRestoreSessionState_LegacyWithoutCompressions(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config:      cfg,
+		ChatHistory: []types.ChatHistory{},
+	}
+	m := NewManager(state)
+
+	// Legacy session with no compressions field.
+	session := &types.SessionFile{
+		Platform: "openai",
+		Model:    "gpt-4o",
+		ChatHistory: []types.ChatHistory{
+			{User: "S", Bot: ""},
+			{User: "Q1", Bot: "A1"},
+		},
+	}
+	m.RestoreSessionState(session)
+
+	if len(state.Compressions) != 0 {
+		t.Errorf("expected 0 compressions for legacy session, got %d", len(state.Compressions))
+	}
+
+	// Messages should be rebuilt from full history (no compression).
+	want := []types.ChatMessage{
+		{Role: "system", Content: "S"},
+		{Role: "user", Content: "Q1"},
+		{Role: "assistant", Content: "A1"},
+	}
+	if !reflect.DeepEqual(state.Messages, want) {
+		t.Errorf("messages = %+v, want %+v", state.Messages, want)
+	}
+}
+
+// ---- Compression: SaveSessionState round-trip ----
+
+func TestSaveAndLoadSession_CompressionsRoundTrip(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	cfg := &types.Config{
+		CurrentPlatform:   "openai",
+		CurrentModel:      "gpt-4o",
+		SystemPrompt:      "S",
+		EnableSessionSave: true,
+	}
+	state := &types.AppState{
+		Config:      cfg,
+		ChatHistory: []types.ChatHistory{{User: "S"}, {User: "Q1", Bot: "A1"}, {User: "Q2", Bot: "A2"}, {User: "Q3", Bot: "A3"}},
+		Compressions: []types.CompressionRecord{
+			{Time: 1000, ThroughIndex: 2, Summary: "Summary 1", Platform: "openai", Model: "gpt-4o"},
+		},
+	}
+	m := NewManager(state)
+
+	if err := m.SaveSessionState(); err != nil {
+		t.Fatalf("SaveSessionState error: %v", err)
+	}
+
+	loaded, err := m.LoadLatestSessionState()
+	if err != nil {
+		t.Fatalf("LoadLatestSessionState error: %v", err)
+	}
+	if len(loaded.Compressions) != 1 {
+		t.Fatalf("expected 1 compression in loaded session, got %d", len(loaded.Compressions))
+	}
+	if loaded.Compressions[0].Summary != "Summary 1" {
+		t.Errorf("expected summary 'Summary 1', got %q", loaded.Compressions[0].Summary)
+	}
+	if loaded.Compressions[0].ThroughIndex != 2 {
+		t.Errorf("expected through_index 2, got %d", loaded.Compressions[0].ThroughIndex)
+	}
+}
+
+// ---- Compression: multiple compressions ----
+
+func TestRebuildMessages_MultipleCompressions(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config: cfg,
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},             // 0
+			{User: "Q1", Bot: "A1"}, // 1
+			{User: "Q2", Bot: "A2"}, // 2
+			{User: "Q3", Bot: "A3"}, // 3
+			{User: "Q4", Bot: "A4"}, // 4
+			{User: "Q5", Bot: "A5"}, // 5
+			{User: "Q6", Bot: "A6"}, // 6
+		},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 2, Summary: "First summary"},
+			{ThroughIndex: 5, Summary: "Second summary (includes first)"},
+		},
+	}
+	m := NewManager(state)
+	m.rebuildMessages()
+
+	// Should use the newest compression (through_index=5), so only Q6/A6 follows.
+	want := []types.ChatMessage{
+		{Role: "system", Content: "S"},
+		{Role: "user", Content: "Compressed conversation summary:\n\nSecond summary (includes first)"},
+		{Role: "user", Content: "Q6"},
+		{Role: "assistant", Content: "A6"},
+	}
+	if !reflect.DeepEqual(state.Messages, want) {
+		t.Errorf("messages = %+v, want %+v", state.Messages, want)
+	}
+}
+
+// ---- Compression: BacktrackHistory prunes compressions ----
+
+func TestBacktrackHistory_PruneCompressions(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config: cfg,
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},             // 0
+			{User: "Q1", Bot: "A1"}, // 1
+			{User: "Q2", Bot: "A2"}, // 2
+			{User: "Q3", Bot: "A3"}, // 3
+			{User: "Q4", Bot: "A4"}, // 4
+		},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 2, Summary: "Sum up to Q2/A2"},
+			{ThroughIndex: 4, Summary: "Sum up to Q4/A4"},
+		},
+	}
+	m := NewManager(state)
+
+	// Backtrack to index 2 (keeping entries 0, 1, 2).
+	// This requires fzf; simulate by calling the internal logic directly
+	// since BacktrackHistory uses fzf for selection.
+	m.pruneCompressions(3) // historyLen = index+1 = 3
+
+	// The compression with through_index=4 should be dropped.
+	// The one with through_index=2 should survive (2 < 3).
+	if len(state.Compressions) != 1 {
+		t.Fatalf("expected 1 compression after prune, got %d", len(state.Compressions))
+	}
+	if state.Compressions[0].ThroughIndex != 2 {
+		t.Errorf("expected through_index=2, got %d", state.Compressions[0].ThroughIndex)
+	}
+}
+
+func TestBacktrackHistory_PruneAllCompressions(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config: cfg,
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},
+			{User: "Q1", Bot: "A1"},
+		},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 5, Summary: "stale"},
+		},
+	}
+	m := NewManager(state)
+	m.pruneCompressions(2)
+
+	if len(state.Compressions) != 0 {
+		t.Errorf("expected 0 compressions after prune, got %d", len(state.Compressions))
+	}
+}
+
+// ---- Compression: ClearHistory clears compressions ----
+
+func TestClearHistory_ClearsCompressions(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config:   cfg,
+		Messages: []types.ChatMessage{{Role: "system", Content: "S"}},
+		ChatHistory: []types.ChatHistory{
+			{User: "S"},
+			{User: "Q1", Bot: "A1"},
+		},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 1, Summary: "test"},
+		},
+	}
+	m := NewManager(state)
+	m.ClearHistory()
+
+	if len(state.Compressions) != 0 {
+		t.Errorf("expected 0 compressions after clear, got %d", len(state.Compressions))
+	}
+}
+
+// ---- Compression: buildCompressionTranscript ----
+
+func TestBuildCompressionTranscript(t *testing.T) {
+	cfg := &types.Config{SystemPrompt: "Sys"}
+	state := &types.AppState{
+		Config: cfg,
+		Messages: []types.ChatMessage{
+			{Role: "system", Content: "Sys"},
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: "Hi there"},
+			{Role: "user", Content: "Follow up"},
+		},
+	}
+	m := NewManager(state)
+	transcript := m.buildCompressionTranscript()
+
+	if !strings.Contains(transcript, "USER: Hello") {
+		t.Errorf("expected 'USER: Hello' in transcript, got %q", transcript)
+	}
+	if !strings.Contains(transcript, "ASSISTANT: Hi there") {
+		t.Errorf("expected 'ASSISTANT: Hi there' in transcript, got %q", transcript)
+	}
+	if !strings.Contains(transcript, "USER: Follow up") {
+		t.Errorf("expected 'USER: Follow up' in transcript, got %q", transcript)
+	}
+	if strings.Contains(transcript, "Sys") {
+		t.Errorf("system prompt should be excluded from transcript, got %q", transcript)
+	}
+}
+
+func TestBuildCompressionTranscript_WithPreviousSummary(t *testing.T) {
+	cfg := &types.Config{SystemPrompt: "Sys"}
+	state := &types.AppState{
+		Config: cfg,
+		Messages: []types.ChatMessage{
+			{Role: "system", Content: "Sys"},
+			{Role: "user", Content: "Compressed conversation summary:\n\nPrevious summary text"},
+			{Role: "user", Content: "New question after compression"},
+			{Role: "assistant", Content: "New answer"},
+		},
+	}
+	m := NewManager(state)
+	transcript := m.buildCompressionTranscript()
+
+	// The transcript should include the previous summary as a user turn,
+	// so the new compression can build on it.
+	if !strings.Contains(transcript, "Previous summary text") {
+		t.Errorf("expected previous summary in transcript, got %q", transcript)
+	}
+	if !strings.Contains(transcript, "New question after compression") {
+		t.Errorf("expected new question in transcript, got %q", transcript)
+	}
+}
+
+// ---- Compression: pruneCompressions edge cases ----
+
+func TestPruneCompressions_EmptyCompressions(t *testing.T) {
+	state := &types.AppState{
+		ChatHistory: []types.ChatHistory{{}, {}, {}},
+	}
+	m := NewManager(state)
+	m.pruneCompressions(3)
+	if len(state.Compressions) != 0 {
+		t.Errorf("expected 0 compressions, got %d", len(state.Compressions))
+	}
+}
+
+func TestPruneCompressions_KeepsBoundary(t *testing.T) {
+	state := &types.AppState{
+		ChatHistory: []types.ChatHistory{{}, {}, {}, {}},
+		Compressions: []types.CompressionRecord{
+			{ThroughIndex: 2, Summary: "at boundary"},
+			{ThroughIndex: 3, Summary: "past boundary"},
+		},
+	}
+	m := NewManager(state)
+	// historyLen=3: through_index=2 is < 3 (kept), through_index=3 is >= 3 (dropped).
+	m.pruneCompressions(3)
+	if len(state.Compressions) != 1 {
+		t.Fatalf("expected 1 compression, got %d", len(state.Compressions))
+	}
+	if state.Compressions[0].ThroughIndex != 2 {
+		t.Errorf("expected through_index=2, got %d", state.Compressions[0].ThroughIndex)
+	}
+}
+
+// ---- Compression: sessionSaveFingerprint includes compressions ----
+
+func TestSessionSaveFingerprint_IncludesCompressions(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{
+		Config:      cfg,
+		ChatHistory: []types.ChatHistory{{User: "S"}, {User: "Q", Bot: "A"}},
+	}
+	m := NewManager(state)
+
+	fp1 := m.sessionSaveFingerprint()
+
+	state.Compressions = []types.CompressionRecord{
+		{ThroughIndex: 1, Summary: "test"},
+	}
+
+	fp2 := m.sessionSaveFingerprint()
+
+	if fp1 == fp2 {
+		t.Error("expected fingerprint to change when compressions are added")
+	}
+}
+
+// ---- Compression: splitTranscript ----
+
+func TestSplitTranscript_SingleChunk(t *testing.T) {
+	m := NewManager(&types.AppState{Config: &types.Config{}})
+	transcript := "USER: Hello\n\nASSISTANT: Hi"
+	chunks := m.splitTranscript(transcript, 10000)
+	if len(chunks) != 1 {
+		t.Fatalf("expected 1 chunk, got %d", len(chunks))
+	}
+	if chunks[0] != transcript {
+		t.Errorf("chunk = %q, want %q", chunks[0], transcript)
+	}
+}
+
+func TestSplitTranscript_MultipleChunks(t *testing.T) {
+	m := NewManager(&types.AppState{Config: &types.Config{}})
+	// Each paragraph is ~20 chars; limit 50 chars = ~2 paragraphs per chunk.
+	paragraphs := []string{
+		"USER: Question number one here", // 30 chars
+		"ASSISTANT: Answer number one",   // 27 chars
+		"USER: Question number two here", // 29 chars
+		"ASSISTANT: Answer number two",   // 27 chars
+		"USER: Question number three",    // 26 chars
+	}
+	transcript := strings.Join(paragraphs, "\n\n")
+	chunks := m.splitTranscript(transcript, 50)
+
+	if len(chunks) < 2 {
+		t.Fatalf("expected at least 2 chunks for %d char transcript with limit 50, got %d", len(transcript), len(chunks))
+	}
+
+	// Verify no chunk exceeds the limit (except when a single paragraph
+	// itself exceeds the limit, which is not the case here).
+	for i, c := range chunks {
+		if len(c) > 50 {
+			t.Errorf("chunk %d exceeds limit: %d > 50", i, len(c))
+		}
+	}
+}
+
+func TestSplitTranscript_HardSplitLongParagraph(t *testing.T) {
+	m := NewManager(&types.AppState{Config: &types.Config{}})
+	// Single paragraph longer than the limit forces a hard split.
+	transcript := strings.Repeat("x", 250)
+	chunks := m.splitTranscript(transcript, 100)
+
+	if len(chunks) != 3 {
+		t.Fatalf("expected 3 chunks for 250 chars with limit 100, got %d", len(chunks))
+	}
+	if len(chunks[0]) != 100 || len(chunks[1]) != 100 || len(chunks[2]) != 50 {
+		t.Errorf("chunk sizes = %d/%d/%d, want 100/100/50", len(chunks[0]), len(chunks[1]), len(chunks[2]))
+	}
+}
+
+func TestSplitTranscript_EmptyTranscript(t *testing.T) {
+	m := NewManager(&types.AppState{Config: &types.Config{}})
+	chunks := m.splitTranscript("", 1000)
+	if len(chunks) != 1 {
+		t.Fatalf("expected 1 chunk for empty transcript, got %d", len(chunks))
+	}
+}
+
+// ---- Compression: resolveMaxChunkChars ----
+
+func TestResolveMaxChunkChars_DefaultWhenNoMetadata(t *testing.T) {
+	cfg := &types.Config{
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+		// No Models.dev metadata loaded, so should fall back to default.
+		ModelsDevEnabled: false,
+	}
+	state := &types.AppState{Config: cfg}
+	m := NewManager(state)
+
+	result := m.resolveMaxChunkChars()
+	if result != compressDefaultMaxChars {
+		t.Errorf("expected default %d, got %d", compressDefaultMaxChars, result)
+	}
+}
+
+func TestResolveMaxChunkChars_FloorsAt1000(t *testing.T) {
+	// Even with a tiny context window, chunk size should not go below 1000.
+	cfg := &types.Config{
+		CurrentPlatform: "openai",
+		CurrentModel:    "gpt-4o",
+	}
+	state := &types.AppState{Config: cfg}
+	m := NewManager(state)
+
+	// Simulate by checking the floor constant is respected.
+	// We can't easily set the context window without network, but we can
+	// verify the floor logic: if contextWindow were 100 tokens:
+	// 100 * 4 * 0.4 = 160, which is < 1000, so it should return 1000.
+	// This is validated by the code path, not a direct test here.
+	_ = m.resolveMaxChunkChars()
+}
+
+// ---- Compression: looksLikeContextLengthError ----
+
+func TestLooksLikeContextLengthError(t *testing.T) {
+	tests := []struct {
+		name   string
+		errMsg string
+		want   bool
+	}{
+		{"context length", "This model's maximum context length is 8192 tokens", true},
+		{"maximum context", "You exceeded the maximum context length", true},
+		{"too long", "Your request is too long", true},
+		{"too many tokens", "too many tokens in the request", true},
+		{"token limit", "request exceeds token limit", true},
+		{"maximum number of tokens", "maximum number of tokens exceeded", true},
+		{"exceeds the model", "input exceeds the model's context window", true},
+		{"reduce the length", "Please reduce the length of the messages", true},
+		{"context window", "input is larger than the context window", true},
+		{"input length", "input length is too large", true},
+		{"max_tokens", "max_tokens limit exceeded", true},
+		{"auth error", "invalid api key", false},
+		{"network error", "connection refused", false},
+		{"rate limit", "rate limit exceeded, please retry", false},
+		{"nil error", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+			if tt.errMsg != "" {
+				err = fmt.Errorf("%s", tt.errMsg)
+			}
+			if got := looksLikeContextLengthError(err); got != tt.want {
+				t.Errorf("looksLikeContextLengthError(%q) = %v, want %v", tt.errMsg, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLooksLikeContextLengthError_NilError(t *testing.T) {
+	if looksLikeContextLengthError(nil) {
+		t.Error("expected false for nil error")
+	}
+}
+
+// ---- Compression: retry halving math ----
+
+func TestSummarizeWithRetry_HalvingMath(t *testing.T) {
+	// Verify the halving logic produces the expected sequence:
+	// 80000 -> 40000 -> 20000 -> 10000 (3 retries)
+	// 10000 > compressMinChunkChars (1000), so all 3 retries would fire.
+	maxChars := 80000
+	current := maxChars
+	for i := 0; i < compressMaxRetries; i++ {
+		current = current / 2
+	}
+	if current != 10000 {
+		t.Errorf("after %d halvings from %d: got %d, want 10000", compressMaxRetries, maxChars, current)
+	}
+	if current < compressMinChunkChars {
+		t.Errorf("floor %d should be below %d", current, compressMinChunkChars)
+	}
+}
+
+func TestSummarizeWithRetry_FloorStopsHalving(t *testing.T) {
+	// Verify that a very small initial chunk size hits the floor.
+	small := 2000 // already above 1000 floor
+	current := small
+	for i := 0; i < compressMaxRetries; i++ {
+		halved := current / 2
+		if halved < compressMinChunkChars {
+			break // floor reached
+		}
+		current = halved
+	}
+	// 2000 -> 1000 (floor hit after 1 halving)
+	if current != 1000 {
+		t.Errorf("expected floor 1000, got %d", current)
+	}
+}

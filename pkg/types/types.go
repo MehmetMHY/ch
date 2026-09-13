@@ -49,6 +49,19 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
+// CompressionRecord represents a single compression point in a session.
+// The full ChatHistory is never mutated by compression; instead the
+// active Messages slice is rebuilt to contain the summary plus any turns
+// after ThroughIndex. This keeps exports, search, and session files
+// backward compatible while reducing token usage for provider requests.
+type CompressionRecord struct {
+	Time         int64  `json:"time"`
+	ThroughIndex int    `json:"through_index"`
+	Summary      string `json:"summary"`
+	Platform     string `json:"platform"`
+	Model        string `json:"model"`
+}
+
 // ChatHistory represents a chat exchange entry
 type ChatHistory struct {
 	Time            int64  `json:"time"`
@@ -134,6 +147,13 @@ type Config struct {
 	ReasoningEffort       string `json:"reasoning_effort,omitempty"`
 	ReasoningEffortSwitch string `json:"reasoning_effort_switch,omitempty"`
 
+	// Compression controls. The interactive command compresses the active
+	// conversation into a summary that replaces the runtime Messages slice
+	// (the full ChatHistory is preserved). CompressMinTokens is the
+	// minimum token count in the active Messages before !z will fire.
+	CompressHistory   string `json:"compress_history,omitempty"`
+	CompressMinTokens int    `json:"compress_min_tokens,omitempty"`
+
 	// Models.dev metadata cache controls. The catalog is fetched
 	// on-demand for metadata-dependent actions (!r / -r) and cached
 	// under ~/.ch/cache/. Disabled users fall back to unverified values.
@@ -159,13 +179,14 @@ type ChatExport struct {
 
 // SessionFile represents a persistent session state saved to disk
 type SessionFile struct {
-	Timestamp       int64         `json:"timestamp"`
-	Platform        string        `json:"platform"`
-	Model           string        `json:"model"`
-	BaseURL         string        `json:"base_url"`
-	ChatHistory     []ChatHistory `json:"messages"`
-	ReasoningEffort string        `json:"reasoning_effort,omitempty"`
-	SourceFile      string        `json:"-"`
+	Timestamp       int64               `json:"timestamp"`
+	Platform        string              `json:"platform"`
+	Model           string              `json:"model"`
+	BaseURL         string              `json:"base_url"`
+	ChatHistory     []ChatHistory       `json:"messages"`
+	ReasoningEffort string              `json:"reasoning_effort,omitempty"`
+	Compressions    []CompressionRecord `json:"compressions,omitempty"`
+	SourceFile      string              `json:"-"`
 }
 
 // AppState holds the application's runtime state
@@ -181,4 +202,5 @@ type AppState struct {
 	SessionStartTime     int64 // Tracks when the current session started for consistent filename
 	SessionFilePath      string
 	ReasoningEffort      string // Active reasoning effort for the current session; "" = omit
+	Compressions         []CompressionRecord
 }

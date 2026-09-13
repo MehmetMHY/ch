@@ -503,3 +503,125 @@ func getCacheDirForTest() (string, error) {
 	}
 	return cacheDir, nil
 }
+
+func TestResolveContextWindow_FromMetadata(t *testing.T) {
+	resetModelsDevClient(t)
+
+	catalog := ModelsDevCatalog{
+		"openai": {
+			ID:   "openai",
+			Name: "OpenAI",
+			Models: map[string]ModelsDevModel{
+				"gpt-5.4": {
+					ID:   "gpt-5.4",
+					Name: "GPT-5.4",
+					Limit: &ModelsDevLimit{
+						Context: 400000,
+						Output:  128000,
+					},
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	cfg := &types.Config{ModelsDevEnabled: false}
+	ctxWindow := ResolveContextWindow("openai", "gpt-5.4", cfg)
+	if ctxWindow != 400000 {
+		t.Errorf("expected context window 400000, got %d", ctxWindow)
+	}
+}
+
+func TestResolveContextWindow_NoMetadataReturnsZero(t *testing.T) {
+	resetModelsDevClient(t)
+
+	cfg := &types.Config{ModelsDevEnabled: false}
+	ctxWindow := ResolveContextWindow("openai", "nonexistent-model", cfg)
+	if ctxWindow != 0 {
+		t.Errorf("expected 0 for unknown model, got %d", ctxWindow)
+	}
+}
+
+func TestResolveContextWindow_NormalizedGoogleModelID(t *testing.T) {
+	resetModelsDevClient(t)
+
+	catalog := ModelsDevCatalog{
+		"google": {
+			ID:   "google",
+			Name: "Google",
+			Models: map[string]ModelsDevModel{
+				"gemini-3.7-flash": {
+					ID:   "gemini-3.7-flash",
+					Name: "Gemini 3.7 Flash",
+					Limit: &ModelsDevLimit{
+						Context: 1000000,
+					},
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	cfg := &types.Config{ModelsDevEnabled: false}
+	ctxWindow := ResolveContextWindow("google", "models/gemini-3.7-flash", cfg)
+	if ctxWindow != 1000000 {
+		t.Errorf("expected 1000000 for normalized Google ID, got %d", ctxWindow)
+	}
+}
+
+func TestResolveContextWindow_TogetherAlias(t *testing.T) {
+	resetModelsDevClient(t)
+
+	catalog := ModelsDevCatalog{
+		"togetherai": {
+			ID:   "togetherai",
+			Name: "Together AI",
+			Models: map[string]ModelsDevModel{
+				"meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+					ID:   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+					Name: "Llama 3.3 70B",
+					Limit: &ModelsDevLimit{
+						Context: 128000,
+					},
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	cfg := &types.Config{
+		ModelsDevEnabled: false,
+		Platforms: map[string]types.Platform{
+			"together": {Name: "together", ModelsDevProvider: "togetherai"},
+		},
+	}
+	ctxWindow := ResolveContextWindow("together", "meta-llama/Llama-3.3-70B-Instruct-Turbo", cfg)
+	if ctxWindow != 128000 {
+		t.Errorf("expected 128000 for together alias, got %d", ctxWindow)
+	}
+}
+
+func TestResolveContextWindow_NilLimitReturnsZero(t *testing.T) {
+	resetModelsDevClient(t)
+
+	catalog := ModelsDevCatalog{
+		"openai": {
+			ID:   "openai",
+			Name: "OpenAI",
+			Models: map[string]ModelsDevModel{
+				"gpt-no-limit": {
+					ID:   "gpt-no-limit",
+					Name: "GPT No Limit",
+					// No Limit field set
+				},
+			},
+		},
+	}
+	writeCacheFile(t, catalog)
+
+	cfg := &types.Config{ModelsDevEnabled: false}
+	ctxWindow := ResolveContextWindow("openai", "gpt-no-limit", cfg)
+	if ctxWindow != 0 {
+		t.Errorf("expected 0 when Limit is nil, got %d", ctxWindow)
+	}
+}
