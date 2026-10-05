@@ -475,6 +475,69 @@ func runWithPreparedHomeDir(t *testing.T, binPath string, home string, dir strin
 	return string(out)
 }
 
+func TestPrintSessionHistory(t *testing.T) {
+	history := []types.ChatHistory{
+		{User: "system prompt"},
+		{User: "Loaded: current.json", Context: "full file contents"},
+		{User: "Loaded: legacy.json"},
+		{User: "Loaded from ./src: main.go"},
+		{User: "Codedump loaded", Context: "full codedump"},
+		{User: "pending user prompt"},
+		{User: "Loaded: is this a status?", Bot: "No, this is a question."},
+		{User: "summarize this", Context: "prompt plus file", Bot: "Summary"},
+		{Bot: "standalone response"},
+	}
+	out := captureStdout(t, func() {
+		printSessionHistory(history, "system prompt")
+	})
+	want := "\033[93mLoaded: current.json\033[0m\n" +
+		"\033[93mLoaded: legacy.json\033[0m\n" +
+		"\033[93mLoaded from ./src: main.go\033[0m\n" +
+		"\033[93mCodedump loaded\033[0m\n" +
+		"\033[94muser:\033[0m pending user prompt\n" +
+		"\033[94muser:\033[0m Loaded: is this a status?\n" +
+		"\033[92mNo, this is a question.\033[0m\n" +
+		"\033[94muser:\033[0m summarize this\n" +
+		"\033[92mSummary\033[0m\n" +
+		"\033[92mstandalone response\033[0m\n"
+	if out != want {
+		t.Fatalf("unexpected session history output:\ngot: %q\nwant: %q", out, want)
+	}
+}
+
+func TestSessionFlagsLoadSummary(t *testing.T) {
+	for _, flag := range []string{"-f", "--fetch", "-c", "--continue"} {
+		t.Run(flag, func(t *testing.T) {
+			home := t.TempDir()
+			writeChConfig(t, home, map[string]interface{}{
+				"enable_session_save": true,
+			})
+			session := types.SessionFile{
+				Timestamp: 1783804936,
+				Platform:  "openai",
+				Model:     "gpt-5.4-mini",
+				ChatHistory: []types.ChatHistory{
+					{User: "Loaded: ch_session_1753435166.json"},
+					{User: "Loaded: notes.txt", Context: "notes content"},
+					{User: "hello", Bot: "Hello!"},
+				},
+			}
+			filename := "ch_session_1783804936.json"
+			writeSessionFile(t, home, filename, session)
+			path := filepath.Join(home, ".ch", "tmp", filename)
+			out := runWithPreparedHome(t, testBinPath, home, flag, path)
+			for _, summary := range []string{"Loaded: ch_session_1753435166.json", "Loaded: notes.txt"} {
+				if !strings.Contains(out, "\033[93m"+summary+"\033[0m\n") {
+					t.Fatalf("expected standalone load summary %q, got:\n%s", summary, out)
+				}
+			}
+			if !strings.Contains(out, "\033[94muser:\033[0m hello\n") {
+				t.Fatalf("expected user prompt to retain its label, got:\n%s", out)
+			}
+		})
+	}
+}
+
 func TestFetchFlagBareName(t *testing.T) {
 	binPath := testBinPath
 	home := t.TempDir()

@@ -227,19 +227,7 @@ func main() {
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
 		// Print the entire conversation history
-		for _, entry := range session.ChatHistory {
-			if entry.User == state.Config.SystemPrompt {
-				continue // Skip system prompt
-			}
-			// Print user message
-			if entry.User != "" {
-				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
-			}
-			// Print bot response
-			if entry.Bot != "" {
-				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
-			}
-		}
+		printSessionHistory(session.ChatHistory, state.Config.SystemPrompt)
 
 		return
 	}
@@ -563,17 +551,7 @@ func main() {
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
 		// Print the entire conversation history.
-		for _, entry := range session.ChatHistory {
-			if entry.User == state.Config.SystemPrompt {
-				continue // Skip system prompt
-			}
-			if entry.User != "" {
-				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
-			}
-			if entry.Bot != "" {
-				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
-			}
-		}
+		printSessionHistory(session.ChatHistory, state.Config.SystemPrompt)
 	}
 
 	// Handle continue flag BEFORE platform initialization
@@ -642,19 +620,7 @@ func main() {
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
 		// Print the entire conversation history
-		for _, entry := range session.ChatHistory {
-			if entry.User == state.Config.SystemPrompt {
-				continue // Skip system prompt
-			}
-			// Print user message
-			if entry.User != "" {
-				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
-			}
-			// Print bot response
-			if entry.Bot != "" {
-				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
-			}
-		}
+		printSessionHistory(session.ChatHistory, state.Config.SystemPrompt)
 
 	}
 
@@ -1407,19 +1373,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
 
 		// Print the entire conversation history
-		for _, entry := range session.ChatHistory {
-			if entry.User == state.Config.SystemPrompt {
-				continue // Skip system prompt
-			}
-			// Print user message
-			if entry.User != "" {
-				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
-			}
-			// Print bot response
-			if entry.Bot != "" {
-				fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
-			}
-		}
+		printSessionHistory(session.ChatHistory, state.Config.SystemPrompt)
 
 		return true
 
@@ -1619,6 +1573,29 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	default:
 		return false
+	}
+}
+
+// printSessionHistory distinguishes context-load summaries from user prompts.
+func printSessionHistory(history []types.ChatHistory, systemPrompt string) {
+	for _, entry := range history {
+		if entry.User == systemPrompt {
+			continue
+		}
+		if entry.User != "" {
+			// Older sessions can have file-load summaries without a Context field.
+			isLoadSummary := entry.Bot == "" && (entry.Context != "" ||
+				strings.HasPrefix(entry.User, "Loaded: ") ||
+				strings.HasPrefix(entry.User, "Loaded from "))
+			if isLoadSummary {
+				fmt.Printf("\033[93m%s\033[0m\n", entry.User)
+			} else {
+				fmt.Printf("\033[94muser:\033[0m %s\n", entry.User)
+			}
+		}
+		if entry.Bot != "" {
+			fmt.Printf("\033[92m%s\033[0m\n", entry.Bot)
+		}
 	}
 }
 

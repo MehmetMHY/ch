@@ -387,6 +387,8 @@ ch -f                              # fzf pick from saved sessions (requires save
 ch -f session.json "query"         # load session then send a single query
 ```
 
+When restoring a session, context-load summaries such as `Loaded: notes.txt` appear as standalone status lines. The `user:` label is reserved for user prompts.
+
 ### Interactive Commands
 
 When in interactive mode (`ch`), use these commands:
