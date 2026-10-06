@@ -1,6 +1,96 @@
 package ui
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestScrapeYouTube(t *testing.T) {
+	const fakeYtDlp = `#!/bin/sh
+if [ "$1" = "-j" ]; then
+    if [ "$YOUTUBE_TEST_MODE" = "metadata-error" ]; then
+        printf '%s\n' 'ERROR: Sign in to confirm you are not a bot' >&2
+        exit 1
+    fi
+    printf '%s\n' '{"title": "Test video", "duration": 903}'
+    exit 0
+fi
+while [ "$#" -gt 0 ]; do
+    if [ "$1" = "-o" ]; then
+        shift
+        output="${1%.%(ext)s}.en.srt"
+    fi
+    shift
+done
+case "$YOUTUBE_TEST_MODE" in
+    rate-limit)
+        printf '%s' 'partial download' > "$output.part"
+        printf '%s\n' "ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests" >&2
+        exit 1
+        ;;
+    missing) exit 0 ;;
+    empty) printf '\n' > "$output" ;;
+    unreadable) mkdir "$output" ;;
+    exit-only) exit 1 ;;
+    success)
+        printf '1\n00:00:00,160 --> 00:00:04,880\n>> Hello world.\n' > "$output"
+        printf '%s' 'extra temporary file' > "$output.part"
+        ;;
+esac
+`
+	tests := []struct {
+		mode    string
+		want    string
+		wantErr bool
+	}{
+		{"success", "00:00:00 - 00:00:04\n>> Hello world.", false},
+		{"rate-limit", "HTTP Error 429: Too Many Requests", false},
+		{"missing", "yt-dlp returned no English SRT subtitles", false},
+		{"empty", "the English subtitle file is empty", false},
+		{"unreadable", "failed to read subtitle file", false},
+		{"exit-only", "exit status 1", false},
+		{"metadata-error", "Sign in to confirm you are not a bot", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.mode, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			t.Setenv("YOUTUBE_TEST_MODE", tt.mode)
+			binDir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(binDir, "yt-dlp"), []byte(fakeYtDlp), 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			terminal := &Terminal{}
+			got, err := terminal.scrapeYouTube("https://www.youtube.com/watch?v=OHiKsF0JXPk")
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), tt.want) {
+					t.Fatalf("expected error containing %q, got %v", tt.want, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(got, "title: Test video") || !strings.Contains(got, tt.want) {
+				t.Fatalf("expected metadata and %q, got %q", tt.want, got)
+			}
+			if tt.mode != "success" && !strings.Contains(got, "Subtitles unavailable:") {
+				t.Fatalf("missing subtitle failure diagnostic: %q", got)
+			}
+			entries, err := os.ReadDir(filepath.Join(home, ".ch", "tmp"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != 0 {
+				t.Fatalf("subtitle downloads left temporary files: %v", entries)
+			}
+		})
+	}
+}
 
 func TestCompactSRT(t *testing.T) {
 	tests := []struct {

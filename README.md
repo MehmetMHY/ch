@@ -507,6 +507,8 @@ The `-s` and `-w` flags in the terminal CLI are used for web content interaction
 - Supports scraping normal web pages and YouTube videos.
 - For normal web pages, it fetches and extracts clean text content from the HTML.
 - For YouTube URLs, it uses `yt-dlp` to extract metadata and subtitles. Subtitles are compacted to reduce token usage (cue numbers, milliseconds, and blank lines removed; `>>` speaker markers preserved).
+- Quote YouTube URLs in your shell: `ch -s 'https://www.youtube.com/watch?v=OHiKsF0JXPk'`.
+- If subtitle downloading fails, metadata is still printed with a `Subtitles unavailable` diagnostic from `yt-dlp`. An HTTP 429 means YouTube is rate-limiting requests from your connection; wait before retrying. Missing English SRT subtitles and empty subtitle files are also reported explicitly. Ch does not transcribe the audio when subtitles are unavailable.
 - The scraped content is printed directly to the terminal.
 
 #### `-w` flag (Web Search)

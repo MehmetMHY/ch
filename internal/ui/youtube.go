@@ -1,9 +1,19 @@
 package ui
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
+
+// youtubeCommandError preserves yt-dlp diagnostics instead of only an exit code.
+func youtubeCommandError(err error, stderr string) error {
+	detail := strings.TrimSpace(stderr)
+	if detail == "" {
+		return err
+	}
+	return fmt.Errorf("%w: %s", err, detail)
+}
 
 // compactSRT strips yt-dlp's SRT chrome to cut token usage without altering the
 // transcript text itself. Per cue it:

@@ -18,6 +18,9 @@ Primary entry points:
 - `internal/ui/ui.go` - terminal helpers, file loading, scraping, web search, clipboard, fzf flows (including `FzfSelectWithCustom` for the `>custom` filename picker), and inline prompt helpers.
 - `internal/ui/util.go` - editor launch helper with fallback.
 - `internal/ui/youtube.go` - SRT subtitle compaction for YouTube scrapes (strips cue numbers, milliseconds, blank lines; preserves `>>` speaker markers).
+
+YouTube scraping captures yt-dlp stderr for metadata errors and subtitle failures. Subtitle failures preserve metadata and print `Subtitles unavailable` with the diagnostic (including HTTP 429), rather than silently leaving an empty section. Missing/empty English SRT subtitles are reported explicitly. Subtitle downloads use an isolated temporary subdirectory that is removed on success or failure, including partial files. `internal/ui/youtube_test.go` uses a fake yt-dlp executable and temporary homes to cover these paths without network access.
+
 - `internal/ui/ocr_cgo.go` - Tesseract OCR image-to-text extraction (CGO builds only).
 - `internal/ui/ocr_nocgo.go` - OCR stub for non-CGO builds (e.g., Android).
 - `pkg/types/types.go` - shared config/state/platform types.
@@ -287,6 +290,7 @@ Prefer unit tests that avoid network and real user state.
 Patterns already used:
 
 - `internal/config/config_test.go` uses `t.TempDir()` plus `t.Setenv("HOME", tempHome)` and `t.Setenv("USERPROFILE", tempHome)`.
+- `internal/ui/youtube_test.go` `TestScrapeYouTube` uses a fake yt-dlp executable to cover HTTP 429 diagnostics, metadata failures, missing/empty/unreadable subtitles, successful compaction, and cleanup of partial downloads.
 - `cmd/ch/main_test.go` builds the `ch` binary once in `TestMain` (with `CGO_ENABLED=0`, since the exec-based flag tests never touch the OCR path) and shares it via the package-level `testBinPath`. Tests run it with temp `HOME`/`USERPROFILE`, unsetting `OPENAI_API_KEY` where needed. Do not reintroduce per-test `go build` calls; reuse `testBinPath`.
 - `cmd/ch/main_test.go` `runWithTempHomeStdin` runs the test binary with a given string piped in as stdin, for flags like `-t` that read from piped input (see `TestTokenCountFlag`).
 - `cmd/ch/main_test.go` `TestPrintSessionHistory` and `TestSessionFlagsLoadSummary` cover standalone context-load summaries, legacy file-load entries, and preserved user labels during session replay. The CLI regression runs both short and long fetch/continue flags (`-f`, `--fetch`, `-c`, `--continue`).

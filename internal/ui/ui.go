@@ -1548,12 +1548,14 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	metadataCtx, metadataCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer metadataCancel()
 	metadataCmd := exec.CommandContext(metadataCtx, "yt-dlp", "-j", urlStr) // #nosec G204 -- yt-dlp is intentionally invoked with a user-provided URL as a direct argument, not through a shell.
+	var metadataStderr bytes.Buffer
+	metadataCmd.Stderr = &metadataStderr
 	metadataOutput, err := metadataCmd.Output()
 	if err != nil {
 		if metadataCtx.Err() == context.DeadlineExceeded {
 			return "", fmt.Errorf("failed to get YouTube metadata: command timed out")
 		}
-		return "", fmt.Errorf("failed to get YouTube metadata: %w", err)
+		return "", fmt.Errorf("failed to get YouTube metadata: %w", youtubeCommandError(err, metadataStderr.String()))
 	}
 
 	// Parse key fields from JSON (simple parsing without jq)
@@ -1568,7 +1570,12 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 		return "", fmt.Errorf("failed to get temp directory: %w", err)
 	}
 
-	baseName := filepath.Join(tempDir, fmt.Sprintf("yt_%d", time.Now().UnixNano()))
+	subtitleDir, err := os.MkdirTemp(tempDir, "yt_")
+	if err != nil {
+		return "", fmt.Errorf("failed to create subtitle directory: %w", err)
+	}
+	defer os.RemoveAll(subtitleDir)
+	baseName := filepath.Join(subtitleDir, "subtitles")
 
 	// Download subtitles with 30 second timeout
 	subtitleCtx, subtitleCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1577,21 +1584,35 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 		"--write-auto-subs", "--sub-lang", "en", "--sub-format", "srt",
 		"-o", baseName+".%(ext)s", urlStr)
 
-	err = subtitleCmd.Run()
-	if err == nil {
-		// Find the .srt file
-		pattern := baseName + "*.srt"
-		matches, _ := filepath.Glob(pattern)
-		if len(matches) > 0 {
-			srtContent, readErr := os.ReadFile(matches[0])
-			if readErr == nil {
-				result.WriteString(compactSRT(string(srtContent)))
-			}
-			// Clean up temp files
-			for _, match := range matches {
-				_ = os.Remove(match)
-			}
+	var subtitleStderr bytes.Buffer
+	subtitleCmd.Stderr = &subtitleStderr
+	if err := subtitleCmd.Run(); err != nil {
+		if subtitleCtx.Err() == context.DeadlineExceeded {
+			result.WriteString("Subtitles unavailable: command timed out after 30 seconds.\n")
+		} else {
+			result.WriteString(fmt.Sprintf("Subtitles unavailable: %v\n", youtubeCommandError(err, subtitleStderr.String())))
 		}
+		return result.String(), nil
+	}
+
+	matches, err := filepath.Glob(baseName + "*.srt")
+	if err != nil {
+		return "", fmt.Errorf("failed to find YouTube subtitles: %w", err)
+	}
+	if len(matches) == 0 {
+		result.WriteString("Subtitles unavailable: yt-dlp returned no English SRT subtitles.\n")
+		return result.String(), nil
+	}
+	srtContent, err := os.ReadFile(matches[0])
+	if err != nil {
+		result.WriteString(fmt.Sprintf("Subtitles unavailable: failed to read subtitle file: %v\n", err))
+		return result.String(), nil
+	}
+	transcript := compactSRT(string(srtContent))
+	if strings.TrimSpace(transcript) == "" {
+		result.WriteString("Subtitles unavailable: the English subtitle file is empty.\n")
+	} else {
+		result.WriteString(transcript)
 	}
 
 	return result.String(), nil
