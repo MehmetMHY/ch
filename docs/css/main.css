@@ -140,7 +140,6 @@ p {
   border-radius: 0;
   margin: 15px 0;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border-color);
 }
 
@@ -468,7 +467,6 @@ body.dark-mode .terminal-demo .cmd-copy.copied::after {
   scrollbar-width: none;
   -ms-overflow-style: none;
   position: relative;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .install-command::-webkit-scrollbar {
@@ -544,7 +542,7 @@ body.dark-mode .cmd-url {
 
 .features {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 15px;
   margin: 10px 0;
 }
@@ -553,26 +551,16 @@ body.dark-mode .cmd-url {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  padding: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-left: 3px solid var(--text-color);
-  background: rgba(0, 0, 0, 0.04);
+  padding: 20px;
+  border: 1px solid var(--border-color);
   border-radius: 0;
-}
-
-body.dark-mode .feature {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .feature-title {
   font-weight: bold;
-  margin-bottom: 2px;
+  margin-bottom: 8px;
   font-size: 17px;
   line-height: 1.3;
-  min-height: 2.6em;
-  display: flex;
-  align-items: flex-start;
 }
 
 .feature-desc {
@@ -580,6 +568,17 @@ body.dark-mode .feature {
   color: var(--secondary-text);
   line-height: 1.5;
   flex-grow: 1;
+}
+
+.feature-desc a {
+  text-decoration-color: var(--border-color);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.feature-desc a:hover,
+.feature-desc a:focus-visible {
+  text-decoration-color: currentColor;
 }
 
 .back-to-top-link {
@@ -600,12 +599,6 @@ body.dark-mode .feature {
 .footer-text .separator {
   margin: 0 10px;
   letter-spacing: normal;
-}
-
-@media (max-width: 1024px) {
-  .features {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 @media (max-width: 768px) {
