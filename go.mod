@@ -12,7 +12,7 @@ require (
 	github.com/sashabaranov/go-openai v1.43.0
 	github.com/tealeg/xlsx/v3 v3.3.13
 	github.com/tiktoken-go/tokenizer v0.8.1
-	golang.org/x/net v0.60.0
+	golang.org/x/net v0.61.0
 )
 
 require (
@@ -28,6 +28,6 @@ require (
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/shabbyrobe/xmlwriter v0.0.0-20251128030032-2fcb52763289 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 )
