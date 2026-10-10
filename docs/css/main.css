@@ -540,6 +540,117 @@ body.dark-mode .cmd-url {
   border-color: var(--text-color);
 }
 
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.project-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.2s;
+}
+
+.project-card:hover,
+.project-card:focus-visible {
+  border-color: var(--secondary-text);
+  opacity: 1;
+}
+
+.project-card:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.project-copy,
+.project-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.project-copy {
+  gap: 1px;
+}
+
+.project-name {
+  font-size: 17px;
+  font-weight: bold;
+  line-height: 1.3;
+}
+
+.project-stars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--secondary-text);
+}
+
+.project-star {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.project-side {
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.project-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.project-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-active {
+  color: #1a7f37;
+}
+
+.status-companion {
+  color: var(--accent-color);
+}
+
+.status-legacy {
+  color: var(--secondary-text);
+}
+
+body.dark-mode .status-active {
+  color: #56d364;
+}
+
+.project-desc {
+  color: var(--secondary-text);
+  font-size: 15px;
+  line-height: 1.5;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .features {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -637,9 +748,28 @@ body.dark-mode .cmd-url {
   .footer-text {
     margin-top: 80px;
   }
+
+  .project-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .project-grid:has(> .project-card:nth-child(odd):last-child)
+    > .project-card:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 600px) {
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .project-grid:has(> .project-card:nth-child(odd):last-child)
+    > .project-card:first-child {
+    grid-column: auto;
+  }
+
   .features {
     grid-template-columns: 1fr;
   }

@@ -141,6 +141,8 @@
       <div class="links-container">
         <a class="nav-secondary" href="#vision">vision</a
         ><span class="separator nav-secondary">|</span>
+        <a class="nav-secondary" href="#projects">projects</a
+        ><span class="separator nav-secondary">|</span>
         <a class="nav-secondary" href="#install">install</a
         ><span class="separator nav-secondary">|</span> <a href="#demo">demo</a
         ><span class="separator">|</span>
@@ -167,6 +169,73 @@
         flexible, user-driven interactions without automated decisions or hidden
         costs.
       </p>
+
+      <h2 id="projects">Pursuits</h2>
+      <div class="project-grid">
+        <a
+          class="project-card"
+          href="https://github.com/MehmetMHY/ch"
+          data-repo="MehmetMHY/ch"
+        >
+          <span class="project-copy">
+            <span class="project-name">Ch</span>
+            <span class="project-desc">AI terminal CLI (this project)</span>
+          </span>
+          <span class="project-side">
+            <span class="project-stars" hidden>
+              <svg class="project-star" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="m12 2.75 2.86 5.8 6.4.93-4.63 4.52 1.09 6.38L12 17.37l-5.72 3.01 1.09-6.38-4.63-4.52 6.4-.93L12 2.75Z"
+                />
+              </svg>
+              <span class="project-star-count"></span>
+            </span>
+            <span class="project-status status-active">Active</span>
+          </span>
+        </a>
+        <a
+          class="project-card"
+          href="https://github.com/MehmetMHY/index_ch"
+          data-repo="MehmetMHY/index_ch"
+        >
+          <span class="project-copy">
+            <span class="project-name">index_ch</span>
+            <span class="project-desc">Semantic session search for Ch</span>
+          </span>
+          <span class="project-side">
+            <span class="project-stars" hidden>
+              <svg class="project-star" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="m12 2.75 2.86 5.8 6.4.93-4.63 4.52 1.09 6.38L12 17.37l-5.72 3.01 1.09-6.38-4.63-4.52 6.4-.93L12 2.75Z"
+                />
+              </svg>
+              <span class="project-star-count"></span>
+            </span>
+            <span class="project-status status-companion">Companion</span>
+          </span>
+        </a>
+        <a
+          class="project-card"
+          href="https://github.com/MehmetMHY/cha"
+          data-repo="MehmetMHY/cha"
+        >
+          <span class="project-copy">
+            <span class="project-name">Cha</span>
+            <span class="project-desc">Deprecated predecessor for Ch</span>
+          </span>
+          <span class="project-side">
+            <span class="project-stars" hidden>
+              <svg class="project-star" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="m12 2.75 2.86 5.8 6.4.93-4.63 4.52 1.09 6.38L12 17.37l-5.72 3.01 1.09-6.38-4.63-4.52 6.4-.93L12 2.75Z"
+                />
+              </svg>
+              <span class="project-star-count"></span>
+            </span>
+            <span class="project-status status-legacy">Legacy</span>
+          </span>
+        </a>
+      </div>
 
       <h2 id="install">Installation</h2>
       <div class="copyable">
@@ -341,9 +410,10 @@ loaded latest session and sent follow-up prompt
             outputs from tools like
             <a href="https://github.com/anthropics/claude-code" class="quiet"
               >Claude Code</a
-            >
+            >,
+            <a href="https://github.com/MehmetMHY/kiro" class="quiet">Kiro</a>,
             or
-            <a href="https://github.com/MehmetMHY/kiro" class="quiet">Kiro</a>.
+            <a href="https://opencode.ai/docs/cli/" class="quiet">OpenCode</a>.
           </div>
         </div>
         <div class="feature">
@@ -441,6 +511,7 @@ loaded latest session and sent follow-up prompt
       import { initYouTubeFacades } from "./js/youtube.js";
       import { initializeDocsVisibility, toggleDocs } from "./js/docs.js";
       import { initTerminalDemo } from "./js/terminal-demo.js";
+      import { initProjectStars } from "./js/projects.js";
 
       window.addEventListener("DOMContentLoaded", () => {
         initializeTheme();
@@ -448,6 +519,7 @@ loaded latest session and sent follow-up prompt
         setupCopyables();
         initYouTubeFacades();
         initTerminalDemo();
+        initProjectStars();
 
         const docsToggle = document.getElementById("docs-toggle");
         if (docsToggle) {
