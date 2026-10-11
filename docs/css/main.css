@@ -658,7 +658,7 @@ body.dark-mode .status-active {
 .features {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 15px;
+  gap: 12px;
   margin: 10px 0;
 }
 
@@ -666,7 +666,7 @@ body.dark-mode .status-active {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  padding: 20px;
+  padding: 16px;
   border: 1px solid var(--border-color);
   border-radius: 0;
 }
