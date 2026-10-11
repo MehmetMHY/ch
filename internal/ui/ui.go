@@ -144,7 +144,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Printf("  %-18s %s\n", "-m model", "specify model")
 	fmt.Printf("  %-18s %s\n", "-o platform|model", "specify platform and model")
 	fmt.Printf("  %-18s %s\n", "-r effort", "set reasoning effort (low, medium, high, or default to omit)")
-	fmt.Printf("  %-18s %s\n", "-l file/url", "load file or scrape URL")
+	fmt.Printf("  %-18s %s\n", "-l file/url", "load file or scrape URL; images are sent natively with a prompt")
 	fmt.Printf("  %-18s %s\n", "-w query", "web search")
 	fmt.Printf("  %-18s %s\n", "-s url", "scrape URL")
 	fmt.Printf("  %-18s %s\n", "-e, --export", "export code blocks")
@@ -154,6 +154,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  ch -p \"openai\" -m \"gpt-4.1\" \"goal of life\"")
 	fmt.Println("  cat example.txt | ch \"what does this do?\"")
 	fmt.Println("  ch \"what is AI?\"")
+	fmt.Println("  ch -l screenshot.png \"Explain this screenshot\"")
 	fmt.Println("")
 
 	// Dynamically generate platforms list
@@ -169,6 +170,8 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("")
 	fmt.Println("interactive mode:")
 	fmt.Println("  run 'ch' for interactive. use '!h' for help.")
+	fmt.Printf("  %s [on|off] manages native images; no argument opens the image picker.\n", t.config.ImageControl)
+	fmt.Printf("  loading images with %s off adds OCR text when available.\n", t.config.ImageControl)
 }
 
 // RecordShellSession records the entire shell session and returns the content as a string.
@@ -322,6 +325,7 @@ func (t *Terminal) getCommandList() []string {
 		fmt.Sprintf("%s - switch models", t.config.ModelSwitch),
 		fmt.Sprintf("%s - switch platforms", t.config.PlatformSwitch),
 		fmt.Sprintf("%s [effort] - set reasoning effort", t.config.ReasoningEffortSwitch),
+		fmt.Sprintf("%s [on|off] - manage native images (picker toggles selected images)", t.config.ImageControl),
 		fmt.Sprintf("%s - record shell session", t.config.ShellRecord),
 		fmt.Sprintf("%s - shell session (not recorded)", t.config.ShellRecordSilent),
 		fmt.Sprintf("%s - generate codedump", t.config.CodeDump),
@@ -331,7 +335,7 @@ func (t *Terminal) getCommandList() []string {
 		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
 		fmt.Sprintf("%s [file] - export chat(s)", t.config.ExportChat),
 		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
-		fmt.Sprintf("%s [dir] - load files/dirs", t.config.LoadFiles),
+		fmt.Sprintf("%s [file/dir] - load files/dirs (native images)", t.config.LoadFiles),
 		fmt.Sprintf("%s [url] - scrape URL(s)", t.config.ScrapeURL),
 		fmt.Sprintf("%s [query] - web search", t.config.WebSearch),
 		fmt.Sprintf("%s [filter] - search sessions", t.config.AnswerSearch),

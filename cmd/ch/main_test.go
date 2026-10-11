@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +28,247 @@ import (
 // package. Building it a single time in TestMain avoids the multi-second cost
 // of rebuilding it for every exec-based test.
 var testBinPath string
+
+func TestNativeImageCLIAndContinuation(t *testing.T) {
+	home := t.TempDir()
+	var img bytes.Buffer
+	if err := png.Encode(&img, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, "screenshot.png")
+	if err := os.WriteFile(path, img.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	requests := make(chan []byte, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		requests <- body
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"},\"index\":0}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer server.Close()
+	if err := os.MkdirAll(filepath.Join(home, ".ch"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := map[string]interface{}{"current_platform": "image-test", "default_model": "vision", "models_dev_enabled": false, "enable_session_save": true, "platforms": map[string]interface{}{"image-test": map[string]interface{}{"name": "image-test", "base_url": server.URL + "/v1", "env_name": "IMAGE_CLI_TEST_KEY", "image_input": true}}}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".ch", "config.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command(testBinPath, args...)
+		cmd.Env = filteredEnv(os.Environ(), map[string]string{"HOME": home, "USERPROFILE": home, "CH_DEFAULT_PLATFORM": "image-test", "CH_DEFAULT_MODEL": "vision", "IMAGE_CLI_TEST_KEY": "test-key"}, "OPENAI_API_KEY")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		return string(out)
+	}
+	if out := run("-l", path, "describe the screenshot"); !strings.Contains(out, "hello") {
+		t.Fatalf("native image query failed: %s", out)
+	}
+	first := <-requests
+	want := "data:image/png;base64," + base64.StdEncoding.EncodeToString(img.Bytes())
+	if !bytes.Contains(first, []byte(want)) || !bytes.Contains(first, []byte("describe the screenshot")) {
+		t.Fatalf("image/prompt missing: %s", first)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if out := run("-c", "another question"); !strings.Contains(out, "hello") {
+		t.Fatalf("continuation failed: %s", out)
+	}
+	if body := <-requests; !bytes.Contains(body, []byte(want)) {
+		t.Fatal("continuation depended on original file")
+	}
+	run("-c", "!i off")
+	if err := os.WriteFile(path, img.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// The shared CLI binary is built without CGO: warn, retain the image, and send text only.
+	if out := run("-c", "-l", path, "read the screenshot text"); !strings.Contains(out, "OCR unavailable") {
+		t.Fatalf("paused load did not report unavailable OCR: %s", out)
+	}
+	if body := <-requests; bytes.Contains(body, []byte("image_url")) || bytes.Contains(body, []byte("OCR unavailable")) {
+		t.Fatalf("paused load sent pixels or diagnostics to the model: %s", body)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	run("-c", "continue without images")
+	if body := <-requests; bytes.Contains(body, []byte("image_url")) || bytes.Contains(body, []byte("base64")) {
+		t.Fatal("persisted !i off still sends images")
+	}
+	sessionPath := filepath.Join(home, ".ch", "tmp", "ch_session_latest.json")
+	before, err := os.ReadFile(sessionPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, img.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run("-n", "-l", path, "a temporary image")
+	if body := <-requests; !bytes.Contains(body, []byte(want)) {
+		t.Fatal("no-history query did not send image")
+	}
+	after, err := os.ReadFile(sessionPath)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("-n image query changed saved session")
+	}
+}
+
+func TestImageControlsAndDirectFileLoad(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("OPENAI_API_KEY", "")
+	state := chconfig.InitializeAppState()
+	state.Config.ModelsDevEnabled = false
+	cm := chat.NewManager(state)
+	terminal := ui.NewTerminal(state.Config)
+	var img bytes.Buffer
+	if err := png.Encode(&img, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, "shot.png")
+	if err := os.WriteFile(path, img.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	loadOutput := captureStdout(t, func() { handleFileLoad(cm, terminal, state, path) })
+	if strings.Contains(loadOutput, "image input:") || strings.Contains(loadOutput, "unverified") {
+		t.Fatalf("unexpected capability chatter: %s", loadOutput)
+	}
+	if len(state.Images) != 1 || len(cm.GetMessages()[1].Images) != 1 {
+		t.Fatal("!l file did not attach image")
+	}
+	handleImageControl("off", terminal, state)
+	if len(cm.GetMessages()[1].Images) != 0 {
+		t.Fatal("!i off did not exclude image")
+	}
+	handleImageControl("on", terminal, state)
+	if len(cm.GetMessages()[1].Images) != 1 {
+		t.Fatal("!i on did not restore image")
+	}
+	// A fake fzf selects the first row, without requiring an interactive tty.
+	if err := os.WriteFile(filepath.Join(home, "fzf"), []byte("#!/bin/sh\nIFS= read -r line\nprintf '%s\\n' \"$line\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", home+string(os.PathListSeparator)+os.Getenv("PATH"))
+	handleImageControl("", terminal, state)
+	if !state.Images[0].Disabled || len(cm.GetMessages()[1].Images) != 0 {
+		t.Fatal("image picker did not disable selected image")
+	}
+	handleImageControl("", terminal, state)
+	if state.Images[0].Disabled || len(cm.GetMessages()[1].Images) != 1 {
+		t.Fatal("image picker did not re-enable selected image")
+	}
+	if err := os.WriteFile(filepath.Join(home, "fzf"), []byte("#!/bin/sh\nexit 130\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	handleImageControl("", terminal, state)
+	if state.Images[0].Disabled {
+		t.Fatal("cancelled picker changed image settings")
+	}
+	out := captureStdout(t, func() {
+		if err := handleShowState(cm, terminal, state, true); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "\033[96mimages:\033[0m \033[92m1/1 active") || strings.Contains(out, "sending on") || strings.Contains(out, "image tokens not estimated") {
+		t.Fatalf("state lacks image usage: %s", out)
+	}
+	// Pausing existing images must not retroactively extract text.
+	originalContext := state.ChatHistory[1].Context
+	handleImageControl("off", terminal, state)
+	if state.ChatHistory[1].Context != originalContext || strings.Contains(originalContext, "OCR") {
+		t.Fatal("pausing modified the original image context")
+	}
+	t.Setenv("PATH", home) // No Tesseract, even in CGO-enabled package tests.
+	out = captureStdout(t, func() { handleFileLoad(cm, terminal, state, path) })
+	if !strings.Contains(out, "OCR unavailable for shot.png") || len(state.Images) != 2 || len(cm.GetMessages()[2].Images) != 0 {
+		t.Fatalf("paused interactive load did not retain image and warn: %s", out)
+	}
+	handleImageControl("on", terminal, state)
+	if len(cm.GetMessages()[2].Images) != 1 {
+		t.Fatal("paused image could not be resumed after OCR failure")
+	}
+}
+
+func TestImageStatusFormatting(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("OPENAI_API_KEY", "")
+	state := chconfig.InitializeAppState()
+	state.Config.ModelsDevEnabled = false
+	state.Images = []types.ImageAttachment{{Name: "shot.png", Data: make([]byte, 150215)}}
+	cm := chat.NewManager(state)
+	terminal := ui.NewTerminal(state.Config)
+	for _, piped := range []bool{false, true} {
+		state.Config.IsPipedOutput = piped
+		for _, off := range []bool{false, true} {
+			state.ImagesOff = off
+			active, size := 1, "0.15"
+			if off {
+				active, size = 0, "0"
+			}
+			want := fmt.Sprintf("\033[96mimages:\033[0m \033[92m%d/1 active (%s MB)\033[0m\n", active, size)
+			if piped {
+				want = fmt.Sprintf("images: %d/1 active (%s MB)\n", active, size)
+			}
+			out := captureStdout(t, func() {
+				if err := handleShowState(cm, terminal, state, true); err != nil {
+					t.Fatal(err)
+				}
+			})
+			if !strings.Contains(out, want) || strings.Contains(out, ", sending ") || strings.Contains(out, "image tokens not estimated") {
+				t.Fatalf("piped=%v off=%v, unexpected image status: %q", piped, off, out)
+			}
+			if piped && strings.Contains(out, "\033[") {
+				t.Fatalf("piped output contains colors: %q", out)
+			}
+		}
+	}
+	state.Config.IsPipedOutput = true
+	state.ImagesOff = false
+	for _, tc := range []struct {
+		bytes int
+		want  string
+	}{
+		{1, "0.01"},
+		{4999, "0.01"},
+		{10000, "0.01"},
+		{100000, "0.1"},
+		{1000000, "1"},
+		{1234000, "1.23"},
+	} {
+		state.Images[0].Data = make([]byte, tc.bytes)
+		out := captureStdout(t, func() {
+			if err := handleShowState(cm, terminal, state, true); err != nil {
+				t.Fatal(err)
+			}
+		})
+		if !strings.Contains(out, "images: 1/1 active ("+tc.want+" MB)\n") {
+			t.Fatalf("size %d bytes: unexpected output %q", tc.bytes, out)
+		}
+	}
+	state.Config.IsPipedOutput = false
+	state.ImagesOff = true
+	loaded := types.LoadedContent{Images: state.Images}
+	out := captureStdout(t, func() { printImageLoadStatus(loaded, terminal, state) })
+	if !strings.Contains(out, "\033[91mimage sending is off (set !i to resume)\033[0m\n") || strings.Contains(out, "image input:") {
+		t.Fatalf("unexpected paused image notice: %q", out)
+	}
+	state.Config.IsPipedOutput = true
+	out = captureStdout(t, func() { printImageLoadStatus(loaded, terminal, state) })
+	if out != "" {
+		t.Fatalf("piped output contains image notices: %q", out)
+	}
+}
 
 func TestMain(m *testing.M) {
 	tmpDir, err := os.MkdirTemp("", "ch-test-bin")

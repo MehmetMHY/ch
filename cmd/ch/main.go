@@ -728,45 +728,25 @@ func main() {
 	if *loadFileFlag != "" {
 		files := splitByDelimiters(*loadFileFlag)
 		prompt := strings.Join(flag.Args(), " ")
-
-		// Load content from all specified files
-		var allContent []string
-		for _, file := range files {
-			// Check if it's a URL
-			if terminal.IsURL(file) {
-				content, err := terminal.LoadFileContent([]string{file})
-				if err != nil {
-					terminal.PrintError(fmt.Sprintf("error loading URL '%s': %v", file, err))
-					continue
-				}
-				allContent = append(allContent, content)
-			} else {
-				// Check if file exists
-				if _, err := os.Stat(file); os.IsNotExist(err) {
-					terminal.PrintError(fmt.Sprintf("file does not exist: %s", file))
-					continue
-				}
-
-				// Load file content
-				content, err := terminal.LoadFileContent([]string{file})
-				if err != nil {
-					terminal.PrintError(fmt.Sprintf("error loading file '%s': %v", file, err))
-					continue
-				}
-				allContent = append(allContent, content)
-			}
-		}
-
-		combinedContent := strings.Join(allContent, "\n\n---\n\n")
-
-		// If no prompt, just display content
-		if prompt == "" {
-			fmt.Println(strings.TrimSpace(combinedContent))
+		loaded, err := terminal.LoadChatContent(files, state.ImagesOff)
+		if err != nil {
+			terminal.PrintError(fmt.Sprintf("error loading content: %v", err))
 			return
 		}
-
-		// If prompt provided, send to AI with context
-		err := handleFlagWithPrompt(chatManager, platformManager, terminal, state, combinedContent, prompt, *noHistoryFlag)
+		printImageLoadWarnings(loaded, terminal)
+		if len(loaded.Images) == 0 {
+			err = handleFlagWithPrompt(chatManager, platformManager, terminal, state, loaded.Text, prompt, *noHistoryFlag)
+		} else {
+			err = chatManager.AddLoadedContent("Loaded: "+strings.Join(files, ", ")+" [image]", loaded)
+			if err == nil {
+				if state.Config.EnableSessionSave && !*noHistoryFlag {
+					err = chatManager.SaveSessionState()
+				}
+				if err == nil {
+					err = processDirectQuery(prompt, chatManager, platformManager, terminal, state, *exportCodeFlag, *noHistoryFlag)
+				}
+			}
+		}
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("error: %v", err))
 		}
@@ -1176,6 +1156,15 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 	case strings.HasPrefix(input, config.ReasoningEffortSwitch+" "):
 		arg := strings.TrimSpace(strings.TrimPrefix(input, config.ReasoningEffortSwitch+" "))
 		return handleReasoningEffort(arg, chatManager, platformManager, terminal, state)
+
+	case config.ImageControl != "" && (input == config.ImageControl || strings.HasPrefix(input, config.ImageControl+" ")):
+		handled := handleImageControl(strings.TrimSpace(strings.TrimPrefix(input, config.ImageControl)), terminal, state)
+		if state.Config.EnableSessionSave && !noHistory {
+			if err := chatManager.SaveSessionState(); err != nil {
+				terminal.PrintError(fmt.Sprintf("failed to save image settings: %v", err))
+			}
+		}
+		return handled
 
 	case input == config.LoadFiles:
 		return handleFileLoad(chatManager, terminal, state, "")
@@ -1600,6 +1589,21 @@ func printSessionHistory(history []types.ChatHistory, systemPrompt string) {
 }
 
 func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *types.AppState, dirPath string) bool {
+	dirPath = strings.Trim(strings.TrimSpace(dirPath), "\"'")
+	if dirPath != "" {
+		if info, err := os.Stat(dirPath); err == nil && !info.IsDir() {
+			loaded, err := terminal.LoadChatContent([]string{dirPath}, state.ImagesOff)
+			if err == nil {
+				err = chatManager.AddLoadedContent("Loaded: "+dirPath, loaded)
+			}
+			if err != nil {
+				terminal.PrintError(err.Error())
+			} else {
+				printImageLoadStatus(loaded, terminal, state)
+			}
+			return true
+		}
+	}
 	var files []string
 	var err error
 	var targetPath string
@@ -1659,23 +1663,92 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 		fullPaths = selections
 	}
 
-	content, err := terminal.LoadFileContent(fullPaths)
+	loaded, err := terminal.LoadChatContent(fullPaths, state.ImagesOff)
 	if err != nil {
 		terminal.PrintError(fmt.Sprintf("error loading content: %v", err))
 		return true
 	}
 
-	if content != "" {
-		chatManager.AddUserMessage(content)
+	if loaded.Text != "" || len(loaded.Images) != 0 {
+		var historySummary string
 		if dirPath != "" {
-			historySummary := fmt.Sprintf("Loaded from %s: %s", dirPath, strings.Join(selections, ", "))
-			chatManager.AddToHistoryWithContext(historySummary, "", content)
+			historySummary = fmt.Sprintf("Loaded from %s: %s", dirPath, strings.Join(selections, ", "))
 		} else {
-			historySummary := fmt.Sprintf("Loaded: %s", strings.Join(selections, ", "))
-			chatManager.AddToHistoryWithContext(historySummary, "", content)
+			historySummary = fmt.Sprintf("Loaded: %s", strings.Join(selections, ", "))
+		}
+		if err := chatManager.AddLoadedContent(historySummary, loaded); err != nil {
+			terminal.PrintError(err.Error())
+		} else {
+			printImageLoadStatus(loaded, terminal, state)
 		}
 	}
 
+	return true
+}
+
+func printImageLoadStatus(loaded types.LoadedContent, terminal *ui.Terminal, state *types.AppState) {
+	printImageLoadWarnings(loaded, terminal)
+	for _, img := range loaded.Images {
+		terminal.PrintInfo(fmt.Sprintf("Loaded: %s [image, %d bytes]", img.Name, len(img.Data)))
+	}
+	if len(loaded.Images) != 0 {
+		printImageSendingOff(terminal, state)
+	}
+}
+
+func printImageLoadWarnings(loaded types.LoadedContent, terminal *ui.Terminal) {
+	for _, warning := range loaded.Warnings {
+		terminal.PrintError(warning)
+	}
+}
+
+func printImageSendingOff(terminal *ui.Terminal, state *types.AppState) {
+	if state.ImagesOff && !state.Config.IsPipedOutput {
+		terminal.PrintError("image sending is off (set " + state.Config.ImageControl + " to resume)")
+	}
+}
+
+func handleImageControl(arg string, terminal *ui.Terminal, state *types.AppState) bool {
+	switch arg {
+	case "off", "on":
+		state.ImagesOff = arg == "off"
+		terminal.PrintInfo("image sending: " + arg)
+		return true
+	case "":
+	default:
+		terminal.PrintError("usage: " + state.Config.ImageControl + " [on|off]")
+		return true
+	}
+	if len(state.Images) == 0 {
+		terminal.PrintInfo("no images loaded")
+		return true
+	}
+	printImageSendingOff(terminal, state)
+	var options []string
+	for i, img := range state.Images {
+		label := "enabled"
+		if img.Disabled {
+			label = "disabled"
+		}
+		options = append(options, fmt.Sprintf("%d [%s] %s (%d bytes)", i+1, label, img.Name, len(img.Data)))
+	}
+	selected, err := terminal.FzfMultiSelect(options, "toggle images (tab=multi): ")
+	if err != nil {
+		terminal.PrintError(err.Error())
+		return true
+	}
+	for _, selection := range selected {
+		for i, option := range options {
+			if selection == option {
+				state.Images[i].Disabled = !state.Images[i].Disabled
+				label := "enabled"
+				if state.Images[i].Disabled {
+					label = "disabled"
+				}
+				terminal.PrintInfo(state.Images[i].Name + ": " + label)
+			}
+		}
+	}
 	return true
 }
 
@@ -1948,6 +2021,25 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 		fmt.Printf("\033[96m%s\033[0m \033[91m%d\033[0m\n", "tokens:", tokenCount)
 	}
 
+	if len(state.Images) != 0 || state.ImagesOff {
+		active, bytes := 0, 0
+		for _, img := range state.Images {
+			if !state.ImagesOff && !img.Disabled {
+				active++
+				bytes += len(img.Data)
+			}
+		}
+		sizeMB := float64(bytes) / 1_000_000
+		if bytes > 0 && sizeMB < 0.01 {
+			sizeMB = 0.01
+		}
+		size := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", sizeMB), "0"), ".")
+		if state.Config.IsPipedOutput {
+			fmt.Printf("images: %d/%d active (%s MB)\n", active, len(state.Images), size)
+		} else {
+			fmt.Printf("\033[96mimages:\033[0m \033[92m%d/%d active (%s MB)\033[0m\n", active, len(state.Images), size)
+		}
+	}
 	return nil
 }
 

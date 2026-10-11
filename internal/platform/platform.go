@@ -172,23 +172,18 @@ func (m *Manager) SendSilentChatRequestWithContext(ctx context.Context, messages
 
 // SendChatRequest sends a chat request to the current platform
 func (m *Manager) SendChatRequest(messages []types.ChatMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
-	var openaiMessages []openai.ChatCompletionMessage
-
-	// Merge consecutive user messages to handle cases like file loading + follow-up question
-	mergedMessages := m.mergeConsecutiveUserMessages(messages)
-
-	for _, msg := range mergedMessages {
-		openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
-		})
+	openaiMessages, err := m.buildChatMessages(messages, model)
+	if err != nil {
+		return "", err
 	}
 
 	if m.IsReasoningModel(model) {
-		return m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+		response, err := m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+		return response, m.imageRequestError(messages, err)
 	}
 
-	return m.sendStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+	response, err := m.sendStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+	return response, m.imageRequestError(messages, err)
 }
 
 // mergeConsecutiveUserMessages combines consecutive user messages into one
@@ -200,18 +195,26 @@ func (m *Manager) mergeConsecutiveUserMessages(messages []types.ChatMessage) []t
 
 	var result []types.ChatMessage
 	var lastUserContent []string
+	var lastUserImages []types.ImageAttachment
+	var lastUserImageIDs []string
 
 	for _, msg := range messages {
 		if msg.Role == "user" {
 			lastUserContent = append(lastUserContent, msg.Content)
+			lastUserImages = append(lastUserImages, msg.Images...)
+			lastUserImageIDs = append(lastUserImageIDs, msg.ImageIDs...)
 		} else {
 			// Non-user message: flush any accumulated user messages
 			if len(lastUserContent) > 0 {
 				result = append(result, types.ChatMessage{
-					Role:    "user",
-					Content: strings.Join(lastUserContent, "\n\n"),
+					Role:     "user",
+					Content:  strings.Join(lastUserContent, "\n\n"),
+					Images:   lastUserImages,
+					ImageIDs: lastUserImageIDs,
 				})
 				lastUserContent = nil
+				lastUserImages = nil
+				lastUserImageIDs = nil
 			}
 			result = append(result, msg)
 		}
@@ -220,8 +223,10 @@ func (m *Manager) mergeConsecutiveUserMessages(messages []types.ChatMessage) []t
 	// Flush any remaining user messages
 	if len(lastUserContent) > 0 {
 		result = append(result, types.ChatMessage{
-			Role:    "user",
-			Content: strings.Join(lastUserContent, "\n\n"),
+			Role:     "user",
+			Content:  strings.Join(lastUserContent, "\n\n"),
+			Images:   lastUserImages,
+			ImageIDs: lastUserImageIDs,
 		})
 	}
 

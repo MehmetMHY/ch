@@ -12,6 +12,14 @@ import (
 
 // extractTextFromImage uses Tesseract OCR to extract text from an image
 func (t *Terminal) extractTextFromImage(filePath string) (string, error) {
+	return t.extractImageText(func(client *gosseract.Client) error { return client.SetImage(filePath) })
+}
+
+func (t *Terminal) extractTextFromImageBytes(data []byte) (string, error) {
+	return t.extractImageText(func(client *gosseract.Client) error { return client.SetImageFromBytes(data) })
+}
+
+func (t *Terminal) extractImageText(setImage func(*gosseract.Client) error) (string, error) {
 	// Check if tesseract is installed
 	if _, err := exec.LookPath("tesseract"); err != nil {
 		return "", fmt.Errorf("tesseract OCR is not installed. Please install it to enable image-to-text extraction")
@@ -29,7 +37,7 @@ func (t *Terminal) extractTextFromImage(filePath string) (string, error) {
 	}
 
 	// Set image source
-	err = client.SetImage(filePath)
+	err = setImage(client)
 	if err != nil {
 		return "", fmt.Errorf("failed to set image source: %w", err)
 	}

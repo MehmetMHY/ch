@@ -40,12 +40,40 @@ type ModelsDevProvider struct {
 // ModelsDevModel is a provider-served model record from api.json.
 // Only fields Ch trusts for capability decisions are parsed.
 type ModelsDevModel struct {
-	ID               string            `json:"id"`
-	Name             string            `json:"name"`
-	Reasoning        bool              `json:"reasoning"`
-	ReasoningOptions []ModelsDevOption `json:"reasoning_options"`
-	Cost             *ModelsDevCost    `json:"cost,omitempty"`
-	Limit            *ModelsDevLimit   `json:"limit,omitempty"`
+	ID               string               `json:"id"`
+	Name             string               `json:"name"`
+	Reasoning        bool                 `json:"reasoning"`
+	ReasoningOptions []ModelsDevOption    `json:"reasoning_options"`
+	Cost             *ModelsDevCost       `json:"cost,omitempty"`
+	Limit            *ModelsDevLimit      `json:"limit,omitempty"`
+	Modalities       *ModelsDevModalities `json:"modalities,omitempty"`
+}
+
+type ModelsDevModalities struct {
+	Input []string `json:"input"`
+}
+
+// ResolveImageCapability only uses advertised input modalities. Missing metadata
+// is unknown, including old caches that predate modality parsing.
+func ResolveImageCapability(platformKey, modelID string, cfg *types.Config) string {
+	catalog := getModelsDevClient().catalogForConfig(cfg)
+	provider, ok := catalog[resolveModelsDevProvider(platformKey, cfg)]
+	if !ok {
+		return CapStatusUnknown
+	}
+	model, ok := provider.Models[modelID]
+	if !ok {
+		model, ok = provider.Models[normalizeModelIDForLookup(modelID)]
+	}
+	if !ok || model.Modalities == nil || len(model.Modalities.Input) == 0 {
+		return CapStatusUnknown
+	}
+	for _, modality := range model.Modalities.Input {
+		if modality == "image" {
+			return CapStatusSupported
+		}
+	}
+	return CapStatusUnsupported
 }
 
 // ModelsDevOption describes a reasoning control option.

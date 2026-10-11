@@ -92,7 +92,8 @@ ch "What are the key features of Go programming language?"
 - **Interactive & Direct Modes**: Chat interactively or run single queries
 - **Unix Piping**: Pipe any command output or file content directly to Ch
 - **Seamless Pipe Output**: Automatically suppresses colors and UI elements when output is piped, perfect for shell pipelines and automation
-- **Smart File Handling**: Load text files, PDFs, Word docs (DOCX/ODT/RTF), spreadsheets (XLSX/CSV), images (with OCR text extraction), and directories
+- **Smart File Handling**: Load text files, PDFs, Word docs (DOCX/ODT/RTF), spreadsheets (XLSX/CSV), and directories. Images are sent natively to vision models; loading with image sending off or in print-only mode supports OCR text extraction
+- **Native Image Input**: Attach PNG, JPEG, GIF, and WebP images through `!l` or `-l` with a prompt. Manage individual images with `!i`, or pause/resume image sending with `!i off` / `!i on`
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration, with custom filename support (`>custom`) across all export and codedump flows
 - **AI-Suggested Filenames**: When exporting, the current model proposes short snake_case filenames based on chat context. Configurable and fully optional, with a graceful fallback to the deterministic hash-based names.
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
@@ -264,7 +265,10 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `ai_name_prompt` - Instruction sent to the model when generating filename suggestions. Use `{count}` as a placeholder for `ai_name_count`. The default asks for output as a single fenced `text` code block.
 - `reasoning_effort` - Default reasoning effort sent as root-level `reasoning_effort` in chat-completions requests (default: empty, which omits the parameter and preserves the provider default). Supported values are model-specific and discovered from [Models.dev](https://models.dev/) metadata. Example: `"high"`
 - `reasoning_effort_switch` - Interactive command key for reasoning effort selection (default: `!r`)
-- `models_dev_enabled` - Enable/disable [Models.dev](https://models.dev/) metadata lookups for reasoning-effort filtering (default: true). When false, `!r` shows generic unverified values instead of model-specific supported values
+- `image_control` - Interactive command key for managing native images (default: `!i`)
+- `image_max_size_mb` - Maximum size per native image in MiB (default: 10)
+- `image_max_total_size_mb` - Maximum total native image bytes in MiB per session and per request (default: 40). Session storage counts disabled images too; requests count only images being sent
+- `models_dev_enabled` - Enable/disable network lookups to [Models.dev](https://models.dev/) for reasoning-effort and image-input capabilities (default: true). With no available metadata, reasoning values and image capabilities are unverified. Existing cached metadata may still be used when network lookups are disabled
 - `models_dev_refresh_hours` - Cache refresh interval in hours for the Models.dev catalog (default: 24). Set to 168 for weekly refresh
 - `compress_history` - Interactive command key for compressing conversation history (default: `!z`)
 - `compress_min_tokens` - Minimum token count in the active context before `!z` will fire (default: 4000). Below this threshold compression is skipped
@@ -341,6 +345,10 @@ ch -l document.docx  # or .odt, .rtf
 ch -l spreadsheet.xlsx
 ch -l screenshot.png
 
+# send the actual image to a vision model (no Tesseract required)
+ch -l screenshot.png "Explain this screenshot"
+ch -l "diagram.png,reference.jpg" "Compare these images"
+
 # scrape web content
 ch -l https://example.com
 ch -l https://youtube.com/watch?v=example
@@ -396,7 +404,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!q`** - exit interface
 - **`!h`** - help page
 - **`>state`** - help page option that shows current state. When session saving is active, it includes the session filename.
-- **`!c`** - clear chat history
+- **`!c`** - clear chat history and loaded images, preserving the current `!i on/off` image-sending setting
 - **`!b`** - backtrack messages
 - **`!t [buff]`** - text editor mode
 - **`\`** - multi-line mode (exit with `\`)
@@ -404,7 +412,8 @@ When in interactive mode (`ch`), use these commands:
 - **`!o`** - select from all models
 - **`!p`** - switch platforms
 - **`!r [effort]`** - set reasoning effort (or fzf pick if no argument). Use `default` to omit the parameter. Supported values are filtered per model using Models.dev metadata
-- **`!l [dir]`** - load files/dirs
+- **`!l [file/dir]`** - load files/dirs. A file path loads directly; a directory opens the file picker. Images are loaded as native attachments; with `!i off`, OCR text is also added when available
+- **`!i [on|off]`** - manage images. With no argument, use fzf to select images to toggle enabled/disabled (Tab selects multiple, Enter toggles selected entries). `off` pauses all image sending; `on` resumes sending individually enabled images
 - **`!a [filter]`** - search and load sessions (filters: 1d, 1w, 1m, 1y, exact, <epoch>, <range>). With `save_all_sessions=true`, new messages after `!a` are saved to a new forked session file instead of overwriting the loaded one.
 - **`!x`** / **`!`** - record shell session; run a command with `!x cmd`, `! cmd`, or `!cmd` (no space)
 - **`!!x`** / **`!!`** - record shell session (output not saved to history); run a command with `!!x cmd`, `!! cmd`, or `!!cmd` (no space)
@@ -419,6 +428,42 @@ When in interactive mode (`ch`), use these commands:
 - **`ctrl+d`** - exit completely
 
 ### Advanced Features
+
+**Native Images (`!l`, `-l`, and `!i`):**
+
+```text
+!l screenshot.png
+What is wrong with this layout?
+!i off
+!m a-text-only-model
+Continue using our earlier discussion.
+!m a-vision-model
+!i on
+Look at the screenshot again.
+```
+
+- PNG, JPEG, GIF, and WebP files are captured when loaded. Limits default to 10 MiB per image and 40 MiB total per session/request, configurable with `image_max_size_mb` and `image_max_total_size_mb` in `~/.ch/config.json`. Use positive whole numbers; omitted options or `0` use the defaults. MiB means 1,048,576 bytes. File contents determine the MIME type. Convert BMP/TIFF images to a supported format for native input. Providers may impose stricter size, format, or animation restrictions.
+- `!l` and `ch -l image.png "prompt"` send the actual image bytes. Native image input works without Tesseract and in non-CGO builds. `ch -l image.png` without a prompt continues to print metadata/OCR text and does not make an AI request.
+- Set `!i off` before loading an image to add its OCR text to context while keeping the native attachment for later `!i on`. OCR requires a CGO-enabled build with Tesseract available. If OCR is unavailable or fails, Ch warns and retains the image without extracted text; images with no detected text still load normally. Pausing images already loaded does not extract text retroactively: reload them with sending off to run OCR. Extracted text remains in context after image sending resumes and is preserved in saved sessions. This also applies to `-l` with a prompt when continuing a session saved with image sending off.
+- Other documents retain their existing text-extraction behavior. Image URLs are not native attachments; URL loading retains its existing scraping behavior.
+- Images remain in context for follow-up questions and are resent with subsequent requests until disabled, backtracked past their load, or cleared. `!i off` pauses sending without deleting images; `!i on` respects each image's individual enabled/disabled setting. The picker changes individual settings even while global sending is off.
+- `!c` removes loaded images and conversation history but preserves the global image-sending setting. After `!i off`, clearing history and loading another image keeps image sending off until you use `!i on`.
+- Known text-only models are rejected before sending enabled images, with instructions to use `!i off` or switch models. Missing capability metadata permits an unverified image attempt on supported transports. Provider errors preserve loaded images, so you can change settings and retry. There is no automatic OCR fallback or model switching.
+- Image transport is enabled for Ch's OpenAI, OpenRouter, Groq, Anthropic, xAI, Ollama, Together, Google, and Mistral chat-completions endpoints, subject to the selected model's capabilities. DeepSeek, Amazon Bedrock, and custom platforms are not enabled by default. For a compatible custom endpoint, set `"image_input": true` in that platform's configuration; `false` disables image transport. This override controls the endpoint transport, not the model's advertised capabilities.
+- With session saving enabled, captured image bytes are stored once in the session JSON, alongside references from history. Continued sessions work even if the original file moves or is deleted. Global and individual image settings persist. `-n` / `--no-history` prevents session saving for the run.
+- `!z` compresses textual context while retaining original image attachments. The text summarizer is explicitly told that image pixels are not part of its transcript. Disabling an image removes its payload from future requests, but does not erase information already present in replies or summaries.
+- `>state` shows active/total image counts and active image size, for example `images: 1/1 active (0.15 MB)`. Size uses decimal MB (1,000,000 bytes), rounded to at most two decimal places with trailing zeros removed. Positive sizes display at least `0.01 MB`; no active image bytes display `0 MB`. Text-token estimates do not include image token usage. Text exports include image filenames/markers, not binary payloads. Auxiliary filename-suggestion requests remain text-only.
+
+For example, to raise Ch's limits to 20 MiB per image and 80 MiB total, add these settings to `~/.ch/config.json` and start a new Ch process:
+
+```json
+{
+  "image_max_size_mb": 20,
+  "image_max_total_size_mb": 80
+}
+```
+
+These limits also apply when sending images restored from sessions. Changing them does not delete saved images; disable images with `!i` or raise the limits if a continued session exceeds the configured sending limits.
 
 **Code Export (`-e` flag):**
 
@@ -823,7 +868,7 @@ If you want to safely remove all Ch temporary files without uninstalling the app
 
 This is useful for reclaiming disk space if temporary files from shell sessions, file loads, or other operations have accumulated.
 
-The Models.dev metadata cache is stored at `~/.ch/cache/` and can be safely removed if needed. Ch will re-fetch it on the next `!r` or `-r` action:
+The Models.dev metadata cache is stored at `~/.ch/cache/` and can be safely removed if needed. Ch will re-fetch it on the next reasoning-effort or native-image capability lookup:
 
 ```bash
 [ -d "${HOME}/.ch/cache/" ] && rm -rf "${HOME}/.ch/cache/"

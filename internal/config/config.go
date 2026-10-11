@@ -125,6 +125,15 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.LoadFiles != "" {
 		defaultConfig.LoadFiles = userConfig.LoadFiles
 	}
+	if userConfig.ImageControl != "" {
+		defaultConfig.ImageControl = userConfig.ImageControl
+	}
+	if userConfig.ImageMaxSizeMB != 0 {
+		defaultConfig.ImageMaxSizeMB = userConfig.ImageMaxSizeMB
+	}
+	if userConfig.ImageMaxTotalSizeMB != 0 {
+		defaultConfig.ImageMaxTotalSizeMB = userConfig.ImageMaxTotalSizeMB
+	}
 	if userConfig.AnswerSearch != "" {
 		defaultConfig.AnswerSearch = userConfig.AnswerSearch
 	}
@@ -262,40 +271,43 @@ func DefaultConfig() *types.Config {
 
 	// Start with hardcoded defaults
 	defaultConfig := &types.Config{
-		OpenAIAPIKey:      "", // API keys are fetched per-platform in Initialize()
-		DefaultModel:      "gpt-5.4-mini",
-		CurrentModel:      "gpt-5.4-mini",
-		SystemPrompt:      "You are a helpful assistant powered by Ch who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. Do NOT use em dashes (—) characters ever. But still, do NOT go crazy long with your response if you DON'T HAVE TO. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
-		ExitKey:           "!q",
-		ModelSwitch:       "!m",
-		EditorInput:       "!t",
-		ClearHistory:      "!c",
-		HelpKey:           "!h",
-		ExportChat:        "!e",
-		Backtrack:         "!b",
-		WebSearch:         "!w",
-		ShowSearchResults: true,
-		NumSearchResults:  5,
-		SearchCountry:     "us",
-		SearchLang:        "en",
-		ScrapeURL:         "!s",
-		CopyToClipboard:   "!y",
-		QuickCopyLatest:   "cc",
-		LoadFiles:         "!l",
-		AnswerSearch:      "!a",
-		PlatformSwitch:    "!p",
-		AllModels:         "!o",
-		CodeDump:          "!d",
-		ShellRecord:       "!x",
-		ShellOption:       "!",
-		ShellRecordSilent: "!!x",
-		MultiLine:         "\\",
-		PreferredEditor:   "vim",
-		CurrentPlatform:   "openai",
-		MuteNotifications: false,
-		ShowThinking:      true,
-		EnableSessionSave: false,
-		ShallowLoadDirs:   shallowDirs,
+		OpenAIAPIKey:        "", // API keys are fetched per-platform in Initialize()
+		DefaultModel:        "gpt-5.4-mini",
+		CurrentModel:        "gpt-5.4-mini",
+		SystemPrompt:        "You are a helpful assistant powered by Ch who provides concise, clear, and accurate answers. Be brief, but ensure the response fully addresses the question without leaving out important details. Do NOT use em dashes (—) characters ever. But still, do NOT go crazy long with your response if you DON'T HAVE TO. Always return any code or file output in a Markdown code fence, with syntax ```<language or filetype>\n...``` so it can be parsed automatically. Only do this when needed, no need to do this for responses just code segments and/or when directly asked to do so from the user.",
+		ExitKey:             "!q",
+		ModelSwitch:         "!m",
+		EditorInput:         "!t",
+		ClearHistory:        "!c",
+		HelpKey:             "!h",
+		ExportChat:          "!e",
+		Backtrack:           "!b",
+		WebSearch:           "!w",
+		ShowSearchResults:   true,
+		NumSearchResults:    5,
+		SearchCountry:       "us",
+		SearchLang:          "en",
+		ScrapeURL:           "!s",
+		CopyToClipboard:     "!y",
+		QuickCopyLatest:     "cc",
+		LoadFiles:           "!l",
+		ImageControl:        "!i",
+		ImageMaxSizeMB:      types.DefaultImageMaxSizeMB,
+		ImageMaxTotalSizeMB: types.DefaultImageMaxTotalSizeMB,
+		AnswerSearch:        "!a",
+		PlatformSwitch:      "!p",
+		AllModels:           "!o",
+		CodeDump:            "!d",
+		ShellRecord:         "!x",
+		ShellOption:         "!",
+		ShellRecordSilent:   "!!x",
+		MultiLine:           "\\",
+		PreferredEditor:     "vim",
+		CurrentPlatform:     "openai",
+		MuteNotifications:   false,
+		ShowThinking:        true,
+		EnableSessionSave:   false,
+		ShallowLoadDirs:     shallowDirs,
 
 		AINameEnable:         false,
 		AINameCharThreshold:  500,

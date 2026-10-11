@@ -212,7 +212,7 @@ func (m *Manager) RemovePendingUserMessage(content string) bool {
 	return true
 }
 
-// ClearHistory clears the chat history
+// ClearHistory clears conversation content and attachments, preserving runtime settings.
 func (m *Manager) ClearHistory() {
 	m.state.Messages = []types.ChatMessage{
 		{Role: "system", Content: m.state.Config.SystemPrompt},
@@ -221,6 +221,7 @@ func (m *Manager) ClearHistory() {
 		{Time: time.Now().Unix(), User: m.state.Config.SystemPrompt, Bot: "", Platform: m.state.Config.CurrentPlatform, Model: m.state.Config.CurrentModel},
 	}
 	m.state.Compressions = nil
+	m.state.Images = nil
 }
 
 // ExportFullHistory exports the entire chat history to a JSON file.
@@ -327,6 +328,8 @@ func (m *Manager) SaveSessionState() error {
 		ChatHistory:     m.state.ChatHistory,
 		ReasoningEffort: m.state.ReasoningEffort,
 		Compressions:    m.state.Compressions,
+		Images:          m.state.Images,
+		ImagesOff:       m.state.ImagesOff,
 	}
 
 	// Marshal to JSON
@@ -478,6 +481,8 @@ func (m *Manager) sessionSaveFingerprint() string {
 		ChatHistory:     m.state.ChatHistory,
 		ReasoningEffort: m.state.ReasoningEffort,
 		Compressions:    m.state.Compressions,
+		Images:          m.state.Images,
+		ImagesOff:       m.state.ImagesOff,
 	}
 
 	data, err := json.Marshal(session)
@@ -613,6 +618,8 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 	m.state.SessionFilePath = session.SourceFile
 	m.state.ReasoningEffort = session.ReasoningEffort
 	m.state.Compressions = session.Compressions
+	m.state.Images = session.Images
+	m.state.ImagesOff = session.ImagesOff
 
 	m.rebuildMessages()
 }
@@ -624,6 +631,7 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 // through_index. When no compression is active, Messages is rebuilt from
 // the full ChatHistory exactly as before.
 func (m *Manager) rebuildMessages() {
+	m.pruneImages()
 	m.state.Messages = []types.ChatMessage{
 		{Role: "system", Content: m.state.Config.SystemPrompt},
 	}
@@ -632,17 +640,22 @@ func (m *Manager) rebuildMessages() {
 
 	active := m.activeCompression()
 	if active != nil {
+		var imageIDs []string
+		for _, entry := range m.state.ChatHistory[:active.ThroughIndex+1] {
+			imageIDs = append(imageIDs, entry.ImageIDs...)
+		}
 		m.state.Messages = append(m.state.Messages, types.ChatMessage{
-			Role:    "user",
-			Content: fmt.Sprintf("Compressed conversation summary:\n\n%s", active.Summary),
+			Role:     "user",
+			Content:  fmt.Sprintf("Compressed conversation summary:\n\n%s", active.Summary),
+			ImageIDs: imageIDs,
 		})
 		startIndex = active.ThroughIndex + 1
 	}
 
 	for i := startIndex; i < len(m.state.ChatHistory); i++ {
 		entry := m.state.ChatHistory[i]
-		if entry.User != "" || entry.Context != "" {
-			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: EffectiveUserContent(entry)})
+		if entry.User != "" || entry.Context != "" || len(entry.ImageIDs) != 0 {
+			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "user", Content: EffectiveUserContent(entry), ImageIDs: entry.ImageIDs})
 		}
 		if entry.Bot != "" {
 			m.state.Messages = append(m.state.Messages, types.ChatMessage{Role: "assistant", Content: entry.Bot})
@@ -1098,6 +1111,9 @@ func (m *Manager) buildCompressionTranscript() string {
 			role = "ASSISTANT"
 		}
 		b.WriteString(role + ": " + msg.Content + "\n\n")
+		if len(msg.ImageIDs) != 0 {
+			b.WriteString("[Original images are retained separately. Their visual contents are not included in this text transcript.]\n\n")
+		}
 	}
 	return b.String()
 }
@@ -1486,7 +1502,7 @@ func (m *Manager) HandleTerminalInput() (string, error) {
 
 // GetMessages returns the current messages
 func (m *Manager) GetMessages() []types.ChatMessage {
-	return m.state.Messages
+	return m.resolveMessageImages()
 }
 
 // GetChatHistory returns the current chat history

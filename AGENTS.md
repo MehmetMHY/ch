@@ -12,7 +12,7 @@ Primary entry points:
 - `internal/config/config.go` - default config, config file loading, environment overrides.
 - `internal/config/util.go` - config utility helpers (temp dir, cache dir, shallow load dir checks).
 - `internal/platform/platform.go` - provider client initialization, model listing, streaming/non-streaming requests, reasoning-effort resolution.
-- `internal/platform/modelsdev.go` - Models.dev metadata client: fetches and caches `api.json` under `~/.ch/cache/`, resolves provider/model capability for reasoning-effort filtering. On-demand only, never fetched during normal prompts.
+- `internal/platform/modelsdev.go` - Models.dev metadata client: fetches and caches `api.json` under `~/.ch/cache/`, resolves provider/model capabilities for reasoning, native images, and compression context limits. On-demand only.
 - `internal/chat/chat.go` - chat history, sessions, export logic (including `selectExportFilename` and `SelectExportFilename` for the `>custom` filename picker), backtracking.
 - `internal/chat/util.go` - chat utility helpers (hashing, content manipulation, `SanitizeCustomFilename`).
 - `internal/ui/ui.go` - terminal helpers, file loading, scraping, web search, clipboard, fzf flows (including `FzfSelectWithCustom` for the `>custom` filename picker), and inline prompt helpers.
@@ -23,6 +23,10 @@ YouTube scraping captures yt-dlp stderr for metadata errors and subtitle failure
 
 - `internal/ui/ocr_cgo.go` - Tesseract OCR image-to-text extraction (CGO builds only).
 - `internal/ui/ocr_nocgo.go` - OCR stub for non-CGO builds (e.g., Android).
+- `internal/ui/images.go` - structured chat loading: native local image capture, bounded reads, OCR from captured bytes when image sending is off, and existing text extraction for other formats. Print-only utilities still use `LoadFileContent` and OCR.
+- `internal/chat/images.go` - image context loads, request-time resolution of enabled images, and pruning images after backtracking.
+- `internal/platform/images.go` - endpoint image transport checks and multipart chat-completions request construction.
+- `pkg/types/images.go` - captured image records, MIME/size validation, and structured load results.
 - `pkg/types/types.go` - shared config/state/platform types.
 - `install.sh` - install/build/test/version maintenance script.
 - `.install_test.sh` - self-contained script that tests the real `curl | bash` installer on a clean Ubuntu image via Docker (embedded Dockerfile, no build context).
@@ -143,6 +147,8 @@ Notable config fields beyond the basics:
 - `ai_name_enable`, `ai_name_char_threshold`, `ai_name_count`, `ai_name_timeout_seconds`, `ai_name_prompt` - control AI-generated filename suggestions in the `!e` export flow.
 - `reasoning_effort` - default reasoning effort sent as root-level `reasoning_effort` in chat-completions requests (default: empty, which omits the parameter and preserves the provider default). Supported values are model-specific and discovered from Models.dev metadata.
 - `reasoning_effort_switch` - interactive command key for reasoning effort selection (default: `!r`).
+- `image_control` - interactive command key for image management (default: `!i`).
+- `image_max_size_mb`, `image_max_total_size_mb` - configurable native image limits in MiB (defaults: 10 per image, 40 total per session/request). Positive whole numbers override defaults; omitted/zero values preserve defaults. Invalid negative or overflowing values produce errors when images are loaded or sent.
 - `models_dev_enabled` - enable/disable Models.dev metadata lookups (default: true). When false, Ch uses no metadata and `!r` shows generic unverified values.
 - `models_dev_refresh_hours` - cache refresh interval in hours (default: 24). Set to 168 for weekly.
 - `compress_history` - interactive command key for compressing conversation history (default: `!z`). When fired, Ch summarizes the active Messages into a dense continuation summary that replaces the runtime context. The full ChatHistory is never mutated.
@@ -159,6 +165,7 @@ Key design boundaries:
 - Multiple compressions compose: each new compression summarizes the current active context (which already includes the previous summary plus newer turns), producing a progressively deeper summary.
 - `CompressionRecord.ThroughIndex` marks the last `ChatHistory` entry included in the summary. On backtrack, compression records past the new history length are pruned via `pruneCompressions()`.
 - `ClearHistory` clears both `ChatHistory` and `Compressions`.
+- Native images referenced by compressed history remain attached to the summary message. Compression summarizes text only and explicitly notes that image pixels are excluded from its transcript. It must never silently discard original images.
 - `SaveSessionState` persists `Compressions` as a top-level `compressions` array in the session JSON. Old sessions without `compressions` load and behave exactly like before (no migration, no pre-population).
 - index_ch reads `raw["messages"]` and ignores `compressions`, so the field is backward compatible.
 
@@ -172,7 +179,7 @@ Map-reduce chunking for oversized conversations:
 - Progress is printed as `compressing: N/total` instead of a spinner, so the user can see how far along a large compression is.
 - Ctrl+C cancels the parent context, which cancels all in-flight chunk requests and prevents queued chunks from starting. No state is mutated on cancellation.
 
-Ch uses `https://models.dev/api.json` as an optional, on-demand metadata source for reasoning-effort capability filtering. The catalog is fetched only when a metadata-dependent action occurs (`!r` or `-r`), never during normal prompts.
+Ch uses `https://models.dev/api.json` as an optional, on-demand metadata source for reasoning-effort and image-input capability filtering. Requests containing enabled native images may fetch metadata. Image loading and the `!i` picker do not fetch metadata or print capability status; unsupported inputs are reported at request time. Ordinary text-only prompts with no explicit reasoning effort do not fetch it.
 
 Key design boundaries:
 
@@ -181,7 +188,7 @@ Key design boundaries:
 - On fetch failure, the last valid cache is retained and used (even if stale).
 - When no cache exists and fetch fails, Ch continues normally with metadata unavailable.
 - `models_dev_enabled: false` disables all network fetches; only existing on-disk cache is used.
-- Ch never uses remote API URLs, headers, or request-body definitions from the catalog. Only `reasoning` and `reasoning_options` fields are trusted for capability decisions. `cost` fields are retained in the cache for future pricing features but are not displayed or calculated.
+- Ch never uses remote API URLs, headers, or request-body definitions from the catalog. `reasoning`, `reasoning_options`, input `modalities`, and context `limit` fields are used for capability/context decisions. `cost` fields are retained in the cache for future pricing features but are not displayed or calculated.
 - `reasoning: true` in Models.dev does not mean slow, non-streaming, or large. It must not change Ch's loading-animation behavior (that is controlled by `slow_model_patterns`).
 
 Provider name aliases (Ch platform key to Models.dev provider ID):
@@ -224,6 +231,7 @@ Important current behavior:
 
 - Print-only `-l`, `-s`, and `-w` must not initialize an AI provider or require `OPENAI_API_KEY`.
 - `-l`, `-s`, and `-w` with an additional prompt should initialize the selected provider and send loaded context plus prompt to the model.
+- `-l` with a prompt loads local images natively via `LoadChatContent`; without a prompt it retains metadata/OCR output. Native image loads are separate history entries so the prompt and image references survive session reconstruction.
 - `-e` and `--export` with a prompt send the prompt first, then export code blocks from the response.
 - `-e` and `--export` without a prompt export code blocks from existing chat history.
 - Every export filename picker (turn, block, manual, and `-e`/`--export` code blocks) supports custom naming via a `>custom` sentinel at the top of the fzf list; selecting it prompts for a name with a short-lived readline prompt. Pressing Enter selects/overwrites the highlighted list item (existing directory files are shown with `[w]` overwrite markers). A query that matches nothing cancels the export, so new filenames are entered only through `>custom` (the old type-to-create path was removed because fzf's fuzzy match almost always matched something, making it impossible to reliably create a new name). Blank filename input, Ctrl+C, and Ctrl+D cancel the export without exiting interactive mode. Custom names are sanitized by stripping `/` only; no extension is auto-appended. `ExportCodeBlocks` also shows existing directory files (with `[w]` overwrite markers) for consistency with the other export modes.
@@ -265,7 +273,8 @@ These are the default key bindings (configurable in `~/.ch/config.json`):
 | `!p [platform]` | Switch platform (or fzf pick if no argument)                                                                        |
 | `!o`            | Pick from all models across all platforms                                                                           |
 | `!r [effort]`   | Set reasoning effort (or fzf pick if no argument). Use `default` to omit the parameter                              |
-| `!l [dir]`      | Load files from current or specified directory                                                                      |
+| `!l [file/dir]` | Load a file directly or pick files from current/specified directory; local images are native attachments            |
+| `!i [on/off]`   | Toggle selected images with fzf, or pause/resume all native image sending                                           |
 | `!d`            | Generate codedump and load into context                                                                             |
 | `!z`            | Compress conversation history into a dense summary (reduces token usage; full transcript preserved)                 |
 | `!x [cmd]`      | Run a shell command and add output to context                                                                       |
@@ -285,6 +294,18 @@ These are the default key bindings (configurable in `~/.ch/config.json`):
 Terminal resize handling: the main interactive readline instance uses a custom `FuncOnWidthChanged` (`makeResizeHandler` in `cmd/ch/main.go`) instead of `chzyer/readline`'s default. The default only updates the stored width and never redraws the on-screen input line, so after a resize the next keystroke erased the line using the new width while it was rendered at the old width, scrolling the terminal up and wiping chat history to the top. The custom handler erases the stale rendering at the old width (`rl.Clean()`) before the library updates the width (`cb()`), then reprints at the new width (`rl.Refresh()`), gated on `IsReading()` so it only redraws while the prompt is on screen. The short-lived multi-line readline instances use a no-op `FuncOnWidthChanged` so they do not register their own `SIGWINCH` handler (the library's default uses a global `sync.Once` and would hijack the main instance's handler).
 
 ## Tests
+
+Native image boundaries:
+
+- `ImageAttachment` stores captured bytes once in the session's top-level `images` array; `ChatHistory.ImageIDs` and runtime message IDs reference them. `GetMessages` resolves only enabled images, without mutating raw state, and marks disabled/unavailable images as not sent.
+- Sessions persist `images_off` and each image's `disabled` state. Image-control changes participate in the session fork fingerprint. Clear removes images/references but preserves the global `ImagesOff` setting, just as it preserves model and reasoning settings. Newly loaded images respect this setting after a clear; saved cleared sessions restore it. Message reconstruction prunes images no longer referenced by history. `TestClearHistoryPreservesImageSendingPreference` covers on/off, reload, and persistence.
+- New chats currently start with image sending on. There is no configurable startup default yet; `image_sending_enabled` has been discussed as a future option but is not implemented. Continued sessions restore their saved image settings.
+- `LoadChatContent` takes the current `ImagesOff` setting. When true, validated captured bytes also pass through Tesseract OCR and extracted text becomes ordinary context, alongside the retained native attachment. Empty OCR output leaves just the image marker. OCR errors produce non-fatal `LoadedContent.Warnings`, displayed by CLI and interactive loaders but excluded from model context and session data. CGO-disabled builds warn without losing the attachment. Turning sending off after loading does not run OCR retroactively; reloading while off does. Resuming sends original pixels and keeps extracted text. No capability-based OCR fallback is performed.
+- Image loads print filename/byte information without capability-status chatter. When global image sending is off, loading or managing images prints the red notice `image sending is off (set !i to resume)` (using the configured command key). `>state` prints `images: N/total active (X MB)` with the standard cyan label and green value in interactive output, plain text when piped. Displayed size uses decimal MB (1,000,000 bytes), at most two decimal places with trailing zeros removed, and a minimum of `0.01 MB` for positive active bytes (`0 MB` when none are active); configured limits still use MiB. It does not append sending-mode or token-estimate notes; image tokens are still excluded from text estimates.
+- Default limits are 10 MiB per image and 40 MiB per session/request, configurable via `image_max_size_mb` and `image_max_total_size_mb`. `types.ResolveImageLimits` centralizes defaults, MiB conversion, and validation; loading, session accumulation, and outbound requests all enforce current config limits. Bounded image reads respect both per-image and remaining total capacity. Stored disabled images count toward the session limit; only sent images count toward the request limit. Supported native MIME types are PNG, JPEG, GIF, and WebP. All image bytes remain outside text content, exports, token estimates, and auxiliary requests. Native input requires no OCR or CGO.
+- `Platform.ImageInput` is an optional endpoint override (`image_input`); nil uses built-in transport support. DeepSeek, Amazon, and custom platforms default to disabled. Known model input modalities without `image` block native requests; missing modalities remain unknown and permit explicit image attempts on enabled transports. No implicit fallback, retry, or model switch occurs.
+- `internal/ui/images_test.go` covers native/mixed/directory loads, byte capture, preserved print-only OCR, and rejected image inputs. Paused OCR tests inject an extractor into the private `loadChatContent` helper to verify success, empty output, failures, and no OCR while sending is on, without Tesseract dependency. `internal/chat/images_test.go` covers controls, session round-trips (including OCR text), legacy restores, compression retention, rollback, backtrack pruning, limits, and fork fingerprints. `internal/platform/images_test.go` verifies multipart streaming/non-streaming payloads, text-only auxiliary calls, and capability/transport rejection using fake endpoints. `cmd/ch/main_test.go` covers real CLI image loading/continuation after source deletion and persisted `!i off`, plus direct interactive file loading, state output, and non-fatal OCR warnings for paused loads in non-CGO/missing-Tesseract paths.
+- Image-limit tests cover raised/lowered caps in UI loading, atomic cumulative session rejection, and outbound requests. `pkg/types/images_test.go` checks defaults, overrides, negative values, and overflow; `internal/config/config_test.go` loads image-limit overrides from a temporary home's config JSON.
 
 Prefer unit tests that avoid network and real user state.
 

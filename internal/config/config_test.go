@@ -11,6 +11,34 @@ import (
 
 // ---- mergeConfigs ----
 
+func TestImageControlConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	if got := DefaultConfig().ImageControl; got != "!i" {
+		t.Fatalf("default image control: %q", got)
+	}
+	if cfg := DefaultConfig(); cfg.ImageMaxSizeMB != 10 || cfg.ImageMaxTotalSizeMB != 40 {
+		t.Fatalf("unexpected default image limits: %d/%d", cfg.ImageMaxSizeMB, cfg.ImageMaxTotalSizeMB)
+	}
+	if err := os.MkdirAll(filepath.Join(home, ".ch"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".ch", "config.json"), []byte(`{"image_control":"!images","image_max_size_mb":20,"image_max_total_size_mb":80,"platforms":{"vision-test":{"image_input":false}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultConfig()
+	if cfg.ImageControl != "!images" {
+		t.Fatalf("override ignored: %q", cfg.ImageControl)
+	}
+	if cfg.ImageMaxSizeMB != 20 || cfg.ImageMaxTotalSizeMB != 80 {
+		t.Fatalf("image limit overrides ignored: %d/%d", cfg.ImageMaxSizeMB, cfg.ImageMaxTotalSizeMB)
+	}
+	if override := cfg.Platforms["vision-test"].ImageInput; override == nil || *override {
+		t.Fatal("explicit false endpoint override lost")
+	}
+}
+
 func TestMergeConfigs_BasicOverrides(t *testing.T) {
 	def := &types.Config{
 		DefaultModel:    "gpt-5.4-mini",
