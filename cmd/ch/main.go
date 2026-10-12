@@ -1689,7 +1689,7 @@ func handleFileLoad(chatManager *chat.Manager, terminal *ui.Terminal, state *typ
 func printImageLoadStatus(loaded types.LoadedContent, terminal *ui.Terminal, state *types.AppState) {
 	printImageLoadWarnings(loaded, terminal)
 	for _, img := range loaded.Images {
-		terminal.PrintInfo(fmt.Sprintf("Loaded: %s [image, %d bytes]", img.Name, len(img.Data)))
+		terminal.PrintInfo(fmt.Sprintf("Loaded: %s (%d bytes)", img.Name, len(img.Data)))
 	}
 	if len(loaded.Images) != 0 {
 		printImageSendingOff(terminal, state)

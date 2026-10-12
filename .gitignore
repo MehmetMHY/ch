@@ -105,6 +105,7 @@ cha-go
 ch
 !cmd/ch/
 !cmd/ch/main_test.go
+!cmd/ch/installer_test.go
 *.jpg
 *.jpeg
 *.srt

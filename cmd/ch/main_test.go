@@ -268,6 +268,12 @@ func TestImageStatusFormatting(t *testing.T) {
 	if out != "" {
 		t.Fatalf("piped output contains image notices: %q", out)
 	}
+	state.Config.IsPipedOutput = false
+	state.ImagesOff = false
+	out = captureStdout(t, func() { printImageLoadStatus(loaded, terminal, state) })
+	if !strings.Contains(out, "Loaded: shot.png (1234000 bytes)") || strings.Contains(out, "[image,") {
+		t.Fatalf("unexpected image load status: %q", out)
+	}
 }
 
 func TestMain(m *testing.M) {

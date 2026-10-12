@@ -929,7 +929,10 @@ main() {
 	local refresh_deps_flag=false
 	local is_remote_install=false
 
-	if [[ ! -t 0 ]] || [[ "${BASH_SOURCE[0]}" == "" ]]; then
+	# Local scripts may have redirected stdin in automation. The caller's
+	# source filename is absent when the script is read from stdin. Use the
+	# caller entry because some Bash versions report "main" at index 0.
+	if [[ -z "${BASH_SOURCE[1]:-}" ]]; then
 		is_remote_install=true
 	fi
 

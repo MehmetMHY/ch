@@ -1972,6 +1972,9 @@ func TestSplitTranscript_EmptyTranscript(t *testing.T) {
 // ---- Compression: resolveMaxChunkChars ----
 
 func TestResolveMaxChunkChars_DefaultWhenNoMetadata(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	cfg := &types.Config{
 		CurrentPlatform: "openai",
 		CurrentModel:    "gpt-4o",
@@ -1988,10 +1991,14 @@ func TestResolveMaxChunkChars_DefaultWhenNoMetadata(t *testing.T) {
 }
 
 func TestResolveMaxChunkChars_FloorsAt1000(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	// Even with a tiny context window, chunk size should not go below 1000.
 	cfg := &types.Config{
-		CurrentPlatform: "openai",
-		CurrentModel:    "gpt-4o",
+		CurrentPlatform:  "openai",
+		CurrentModel:     "gpt-4o",
+		ModelsDevEnabled: false,
 	}
 	state := &types.AppState{Config: cfg}
 	m := NewManager(state)

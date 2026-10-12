@@ -8,6 +8,17 @@ IMAGE_NAME="ch-install-test"
 GO_VERSION="1.26.5"
 INSTALL_URL="https://raw.githubusercontent.com/MehmetMHY/ch/main/install.sh"
 
+print_result() {
+	local result="$1" border heading=" RESULT " left right
+	printf -v border '%*s' "${#result}" ''
+	border=${border// /=}
+	left=$(((${#result} - ${#heading}) / 2))
+	right=$((${#result} - ${#heading} - left))
+	echo "${border:0:$left}${heading}${border:0:$right}"
+	echo "$result"
+	echo "$border"
+}
+
 echo "==> Building fresh-machine test image..."
 if ! docker build -t "$IMAGE_NAME" - <<DOCKERFILE; then
 FROM ubuntu:24.04
@@ -37,7 +48,7 @@ WORKDIR /root
 CMD ["bash"]
 DOCKERFILE
 	echo
-	echo "FAIL: docker build failed"
+	print_result "FAIL: docker build failed"
 	exit 1
 fi
 echo "OK: image built"
@@ -65,12 +76,11 @@ output=$(<"$OUTPUT_FILE")
 echo "----------------------------------------------------------"
 echo
 
-echo "================ RESULT ================"
 if [[ $status -eq 0 ]] && echo "$output" | grep -q "installation/update complete" && echo "$output" | grep -q "/usr/local/bin/ch"; then
-	echo "PASS: install.sh completed and ch is runnable from a clean container"
+	result="PASS: install.sh completed and ch is runnable from a clean container"
 else
-	echo "FAIL: install or verification step failed (exit code $status)"
+	result="FAIL: install or verification step failed (exit code $status)"
 fi
-echo "=========================================="
+print_result "$result"
 
 exit $status

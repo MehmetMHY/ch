@@ -756,6 +756,25 @@ The previous heavy pre-commit checks (unit tests, `gosec`, working-tree Gitleaks
 
 This runs `gosec`, `gitleaks` (committed history + working tree), and `govulncheck` in sequence and prints a combined pass/fail summary.
 
+Local maintenance commands also work with redirected stdin or from automation. Maintenance flags remain unavailable when the installer script itself is piped into Bash.
+
+After upgrading Go, if a scanner reports unsupported export data or a Go version mismatch, rebuild the tools with the current Go version:
+
+```bash
+go install github.com/securego/gosec/v2/cmd/gosec@latest
+go install golang.org/x/vuln/cmd/govulncheck@latest
+```
+
+These commands replace the scanner binaries in `GOBIN` (or `GOPATH/bin` by default) without changing Ch's module dependencies. If the latest tools still do not support the new Go release, use a supported Go toolchain for scanning until the tools add support. A scanner compatibility failure means the scan is incomplete.
+
+Use the latest security-patched release of the supported Go branch. Currently, `gosec` v2.29.0 cannot read Go 1.27 export data, while the full gate passes with Go 1.26.9:
+
+```bash
+GOTOOLCHAIN=go1.26.9 bash install.sh -k
+```
+
+This selects Go only for that command, downloading the toolchain if needed. It does not change your default Go installation or pin the project. Avoid falling back to Go 1.26.5: current vulnerability checks flag standard-library issues fixed in later patches.
+
 Git hooks are local Git configuration, so they are not activated just by cloning the repository. Run `./install.sh --dev-setup` (or `make install-hooks`) once in each checkout where you want commits to be blocked by the fast security gate.
 
 For secret testing, stage the file first and run the staged scanner:

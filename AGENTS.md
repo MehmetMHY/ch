@@ -30,6 +30,7 @@ YouTube scraping captures yt-dlp stderr for metadata errors and subtitle failure
 - `pkg/types/types.go` - shared config/state/platform types.
 - `install.sh` - install/build/test/version maintenance script.
 - `.install_test.sh` - self-contained script that tests the real `curl | bash` installer on a clean Ubuntu image via Docker (embedded Dockerfile, no build context).
+- The install test's `print_result` helper sizes both borders to the full PASS/FAIL message width and centers the heading, including Docker build failures and install/verification failures.
 - `docs/` - static website files (HTML, CSS, JS, assets).
 - `docs/run.py` - local static website server with browser launch and Ctrl+C/Ctrl+D cleanup handling.
 - `docs/js/terminal-demo.js` - animated multi-scene terminal preview on the landing page.
@@ -54,7 +55,7 @@ HOME="$tmp_home" USERPROFILE="$tmp_home" env -u OPENAI_API_KEY ./bin/ch -l READM
 
 ## Build And Test
 
-Use Go 1.26.5 or newer for local builds and vulnerability checks. The module declares `go 1.26.0`, but `govulncheck` reports reachable standard-library vulnerabilities when using Go 1.26.0.
+Use a current security-patched Go release for local builds and vulnerability checks. The module declares `go 1.26.0` and the installer accepts Go 1.26.5+, but current `govulncheck` flags standard-library vulnerabilities through Go 1.26.5. The full security gate passes with Go 1.26.9. `gosec` v2.29.0 cannot read Go 1.27 export data; use `GOTOOLCHAIN=go1.26.9 bash install.sh -k` as an explicit per-command compatibility fallback until the scanner supports it.
 
 Common checks:
 
@@ -327,6 +328,7 @@ Patterns already used:
 - `internal/chat/chat_test.go` reasoning-effort tests verify per-turn history capture, session save/restore with effort, legacy session compat, and export metadata.
 - `internal/chat/chat_test.go` compression tests verify `rebuildMessages` with/without compression, multiple compressions, `activeCompression` selection, `RestoreSessionState` with compressions, legacy session compat (no `compressions` field), save/load round-trip, backtrack pruning via `pruneCompressions`, `ClearHistory` clearing compressions, transcript building, `splitTranscript` chunking, `looksLikeContextLengthError` detection, and retry halving math.
 - `internal/platform/modelsdev_test.go` covers `ResolveContextWindow` from Models.dev metadata including provider aliases, Google ID normalization, nil-limit fallback, and no-metadata return.
+- Compression chunk-limit tests isolate `HOME` and `USERPROFILE` and disable Models.dev network fetches so the user's cache cannot change their results.
 - `cmd/ch/main_test.go` `TestCompressHistoryConfigDefault`, `TestCompressHistoryLowTokens`, and `TestCompressHistoryNoPlatformManager` verify the `!z` config defaults, token threshold gate, and nil platform manager guard.
 
 If a test needs a config file, write it under the test temp home:
@@ -356,6 +358,8 @@ Important expectations:
 - Local `./install.sh -b` builds should ensure dev security tools are available because `make build` runs `gosec`; the script installs missing `gosec` via `go install` and handles Gitleaks as a local security dependency (used by the fast pre-commit hook and `--security`).
 - `./install.sh --dev-setup` (`-d`) installs the full dev security toolchain (`gosec`, `gitleaks`, `govulncheck`) and activates the fast pre-commit hook (fmt-check + staged gitleaks only). It is local-repo only and guarded against remote/piped installs like `-b`, `-c`, `-r`, and `-v`. `install_dev_security_tools` now also installs `govulncheck` via `ensure_govulncheck`.
 - `./install.sh --security` (or `-k`) is the on-demand deep security gate. It runs gosec, Gitleaks committed-history + working-tree scans, and govulncheck with a combined pass/fail summary. Local-repo only, guarded against remote/piped installs.
+- Local maintenance flags work with redirected/non-interactive stdin. Remote detection uses the absence of a Bash source filename, not stdin's TTY status. `cmd/ch/installer_test.go` covers security execution, failure propagation, and rejection of piped maintenance flags using fake Go/make commands and temporary homes; its Go version comes from the running toolchain rather than a hardcoded release.
+- After a Go upgrade, rebuild installed gosec/govulncheck binaries with the current Go version if source-processing or export-data mismatches occur. If the latest scanners lack support, scan with a supported toolchain. Compatibility failures are incomplete scans, not application vulnerability findings.
 - `./.install_test.sh` builds a minimal Ubuntu + Go image (Dockerfile embedded in the script) and runs the real `curl | bash` install from README `main` inside a throwaway container, streaming installer progress while retaining it for the final PASS/FAIL checks. Use it to verify installer changes end-to-end without touching the host. `ensure_govulncheck` is non-fatal on failure since govulncheck is not needed to build and `make security-vuln` falls back to `go run`.
 - `--safe-uninstall` prompts first, but it still removes `~/.ch` including config/history/sessions/temp files.
 - `--uninstall` removes immediately without confirmation.
