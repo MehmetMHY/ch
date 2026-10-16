@@ -355,6 +355,7 @@ Avoid tests that depend on:
 Important expectations:
 
 - Local repository installs should use the current checkout as-is and should not run `git pull` automatically.
+- macOS installer and Makefile builds default `MACOSX_DEPLOYMENT_TARGET` to `sw_vers -productVersion`, preserving explicit overrides, so local Homebrew libraries do not conflict with the compiler's older default target. Older deployment targets require compatible native libraries. Installer regression tests stub macOS detection and build commands to cover Intel/Apple Silicon and direct/Makefile paths without installing anything.
 - Local `./install.sh -b` builds should ensure dev security tools are available because `make build` runs `gosec`; the script installs missing `gosec` via `go install` and handles Gitleaks as a local security dependency (used by the fast pre-commit hook and `--security`).
 - `./install.sh --dev-setup` (`-d`) installs the full dev security toolchain (`gosec`, `gitleaks`, `govulncheck`) and activates the fast pre-commit hook (fmt-check + staged gitleaks only). It is local-repo only and guarded against remote/piped installs like `-b`, `-c`, `-r`, and `-v`. `install_dev_security_tools` now also installs `govulncheck` via `ensure_govulncheck`.
 - `./install.sh --security` (or `-k`) is the on-demand deep security gate. It runs gosec, Gitleaks committed-history + working-tree scans, and govulncheck with a combined pass/fail summary. Local-repo only, guarded against remote/piped installs.

@@ -12,7 +12,7 @@ CMD_DIR=./cmd/ch
 MAIN_FILE=$(CMD_DIR)/main.go
 
 # Build information
-VERSION?=v5.6.1
+VERSION?=v5.6.2
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)"
@@ -29,6 +29,11 @@ GOVET=$(GOCMD) vet
 GOSEC?=$(shell if command -v gosec >/dev/null 2>&1; then command -v gosec; else printf "%s/bin/gosec" "$$(go env GOPATH 2>/dev/null)"; fi)
 GITLEAKS?=$(shell command -v gitleaks 2>/dev/null)
 GOVULNCHECK?=$(shell if command -v govulncheck >/dev/null 2>&1; then command -v govulncheck; else printf "%s/bin/govulncheck" "$$(go env GOPATH 2>/dev/null)"; fi)
+
+# Match local Homebrew libraries while allowing explicit deployment targets.
+ifeq ($(shell uname -s),Darwin)
+export MACOSX_DEPLOYMENT_TARGET ?= $(shell sw_vers -productVersion)
+endif
 
 # Default target
 all: build

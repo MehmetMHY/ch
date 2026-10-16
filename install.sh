@@ -457,6 +457,13 @@ execute_build() {
 	local ldflags
 	ldflags=$(compute_ldflags)
 
+	# Local macOS builds link against libraries installed for this host, which
+	# may require a newer OS than the compiler's default deployment target.
+	if [[ "$os" == "macos" ]] && [[ -z "${MACOSX_DEPLOYMENT_TARGET:-}" ]]; then
+		export MACOSX_DEPLOYMENT_TARGET
+		MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion)
+	fi
+
 	if [[ "$os" == "android" ]]; then
 		if [[ "$build_method" == "direct" ]]; then
 			log "Building for Android (disabling CGO)..."

@@ -153,6 +153,7 @@ The installer automatically:
 - If the symlink creation fails due to permissions, it will automatically install to `~/.ch/bin` and provide instructions to add it to your `PATH`.
 - Gracefully handles missing tesseract development libraries by building without OCR support. If tesseract dev headers are missing, the app will still install and work normally, image-to-text extraction will simply be disabled.
 - When run from an existing local checkout, uses the current checkout as-is and does not run `git pull` automatically.
+- On macOS, installer and Makefile builds default `MACOSX_DEPLOYMENT_TARGET` to the running macOS version to match local libraries such as Homebrew Tesseract. An explicitly set target is preserved. These are local builds; targeting an older macOS also requires libraries compatible with that older version.
 
 ## Configuration
 
