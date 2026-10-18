@@ -407,7 +407,7 @@ When in interactive mode (`ch`), use these commands:
 - **`>state`** - help page option that shows current state. When session saving is active, it includes the session filename.
 - **`!c`** - clear chat history and loaded images, preserving the current `!i on/off` image-sending setting
 - **`!b`** - backtrack messages
-- **`!t [buff]`** - text editor mode
+- **`!t [buff]`** - text editor mode; recall saved text with the Up arrow
 - **`\`** - multi-line mode (exit with `\`)
 - **`!m`** - switch models
 - **`!o`** - select from all models
@@ -427,6 +427,8 @@ When in interactive mode (`ch`), use these commands:
 - **`cc`** - quick copy latest response
 - **`ctrl+c`** - clear prompt input. At a custom export filename prompt, cancels the export and returns to interactive mode.
 - **`ctrl+d`** - exit completely
+
+After saving and exiting `!t`, the complete prompt is added to the current run's input history as one entry, preserving line breaks. Press the Up arrow at `user:` to recall, edit, or resend it, including after a failed or cancelled request or after changing settings with `!r` or `!m`. Multiline prompts remain editable inline, with newline-aware redraws when editing or navigating history. `!t buff` also remembers its saved text, while only loading it into context. Input recall works with session saving disabled and with `-n`; it does not require a successful response. Empty input or an editor error adds no text to input history.
 
 ### Advanced Features
 

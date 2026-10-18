@@ -3,8 +3,10 @@ module github.com/MehmetMHY/ch
 go 1.26.0
 
 require (
-	github.com/chzyer/readline v1.5.1
+	github.com/creack/pty v1.1.24
+	github.com/ergochat/readline v0.1.3
 	github.com/google/uuid v1.6.0
+	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0
 	github.com/lu4p/cat v0.1.5
 	github.com/otiai10/gosseract/v2 v2.4.1

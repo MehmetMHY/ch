@@ -22,12 +22,222 @@ import (
 	"github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
+	"github.com/ergochat/readline"
 )
 
 // testBinPath is the path to the ch binary compiled once for the whole test
 // package. Building it a single time in TestMain avoids the multi-second cost
 // of rebuilding it for every exec-based test.
 var testBinPath string
+
+func TestEditorInputHistory(t *testing.T) {
+	const prompt = "See this site:\n```\nhttps://www.usinflationcalculator.com/\n```\n\n  Preserve indentation, café, and 日本語.\nWhere does its data come from?"
+	for _, tc := range []struct {
+		name            string
+		outcome         string
+		nonStreaming    bool
+		buffer          bool
+		customCommand   bool
+		empty           bool
+		editorFails     bool
+		withoutReadline bool
+	}{
+		{name: "streaming success"},
+		{name: "streaming provider error", outcome: "error"},
+		{name: "streaming cancelled", outcome: "cancel"},
+		{name: "non-streaming success", nonStreaming: true},
+		{name: "non-streaming provider error", nonStreaming: true, outcome: "error"},
+		{name: "non-streaming cancelled", nonStreaming: true, outcome: "cancel"},
+		{name: "buffer only", buffer: true},
+		{name: "configured editor command", customCommand: true},
+		{name: "empty editor", empty: true},
+		{name: "failed editor", editorFails: true},
+		{name: "direct mode without readline", withoutReadline: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			t.Setenv("OPENAI_API_KEY", "")
+			editor := filepath.Join(home, "fake editor")
+			pathRecord := filepath.Join(home, "editor-path")
+			script := "#!/bin/sh\nprintf '%s' \"$CH_TEST_EDITOR_CONTENT\" > \"$1\"\nprintf '%s' \"$1\" > \"$CH_TEST_EDITOR_PATH\"\n"
+			if tc.editorFails {
+				script += "exit 1\n"
+			}
+			if err := os.WriteFile(editor, []byte(script), 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("EDITOR", editor)
+			t.Setenv("PATH", home) // Prevent fallback to a real interactive editor.
+			t.Setenv("CH_TEST_EDITOR_PATH", pathRecord)
+			content := prompt
+			if tc.empty {
+				content = " \n\t\n"
+			}
+			t.Setenv("CH_TEST_EDITOR_CONTENT", content)
+
+			cfg := chconfig.DefaultConfig()
+			cfg.PreferredEditor = editor
+			cfg.CurrentPlatform = "ollama"
+			cfg.CurrentModel = "test-model"
+			cfg.ModelsDevEnabled = false
+			cfg.IsPipedOutput = true
+			cfg.EnableSessionSave = true
+			if tc.customCommand {
+				cfg.EditorInput = "!edit"
+			}
+			if tc.nonStreaming {
+				cfg.SlowModelPatterns = []string{".*"}
+			}
+			state := &types.AppState{
+				Config:      cfg,
+				Messages:    []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+				ChatHistory: []types.ChatHistory{{User: cfg.SystemPrompt}},
+			}
+			requests := make(chan []types.ChatMessage, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var payload struct {
+					Messages []types.ChatMessage `json:"messages"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Errorf("decode request: %v", err)
+				}
+				requests <- payload.Messages
+				switch tc.outcome {
+				case "error":
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprint(w, `{"error":{"message":"Unrecognized request argument supplied: reasoning_effort","type":"invalid_request_error"}}`)
+				case "cancel":
+					cancel := state.StreamingCancel
+					cancel()
+					<-r.Context().Done()
+				default:
+					if tc.nonStreaming {
+						w.Header().Set("Content-Type", "application/json")
+						fmt.Fprint(w, `{"choices":[{"message":{"role":"assistant","content":"answer"}}]}`)
+					} else {
+						w.Header().Set("Content-Type", "text/event-stream")
+						fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"answer\"},\"index\":0}]}\n\ndata: [DONE]\n\n")
+					}
+				}
+			}))
+			defer server.Close()
+			cfg.Platforms["ollama"] = types.Platform{Name: "ollama", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}}
+			cm := chat.NewManager(state)
+			pm := platform.NewManager(cfg)
+			if err := pm.Initialize(); err != nil {
+				t.Fatal(err)
+			}
+			command := cfg.EditorInput
+			if tc.buffer {
+				command += " buff"
+			}
+			valid := !tc.empty && !tc.editorFails
+			wantHistory := []string{"!r default", command, "older prompt"}
+			keys := "\x1b[A\x03\x1b[A\x1b[A\x03\x1b[A\x1b[A\x1b[A\r"
+			if valid {
+				wantHistory = append(wantHistory, prompt)
+				keys = "\x1b[A\x03\x1b[A\x1b[A\x1b[A\x03\x1b[A\x1b[A\x1b[A\x1b[A\x03\x1b[A\x1b[A\r"
+			}
+			var rl *readline.Instance
+			var recalled string
+			if !tc.withoutReadline {
+				// Exercise actual Up-arrow escape sequences, without a terminal or history file.
+				var err error
+				rl, err = readline.NewEx(&readline.Config{
+					Stdin:                  strings.NewReader("\x1b[1;1R" + strings.ReplaceAll(keys, "\x03", "\x03\x1b[1;1R")),
+					Stdout:                 io.Discard,
+					Stderr:                 io.Discard,
+					DisableAutoSaveHistory: true,
+					FuncIsTerminal:         func() bool { return true },
+					FuncGetSize:            func() (int, int) { return 80, 24 },
+					FuncMakeRaw:            func() error { return nil },
+					FuncExitRaw:            func() error { return nil },
+					FuncOnWidthChanged:     func(func()) {},
+					Listener: func(line []rune, _ int, key rune) ([]rune, int, bool) {
+						if key != 0 {
+							recalled = string(line)
+						}
+						return nil, 0, false
+					},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer rl.Close()
+				for _, entry := range []string{"older prompt", command} {
+					if err := rl.SaveToHistory(entry); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			output := captureStdout(t, func() {
+				stderr := os.Stderr
+				os.Stderr = os.Stdout
+				defer func() { os.Stderr = stderr }()
+				// -n disables session persistence, not in-memory prompt recall.
+				if !handleSpecialCommands(command, cm, pm, ui.NewTerminal(cfg), state, true, rl) {
+					t.Error("editor command was not handled")
+				}
+			})
+			wantRequest := valid && !tc.buffer
+			select {
+			case messages := <-requests:
+				if !wantRequest || len(messages) != 2 || messages[1].Content != prompt {
+					t.Fatalf("unexpected request messages: %+v", messages)
+				}
+			default:
+				if wantRequest {
+					t.Fatal("editor prompt was not sent")
+				}
+			}
+			if tc.outcome == "error" && !strings.Contains(output, "Unrecognized request argument") {
+				t.Fatalf("provider error missing: %s", output)
+			}
+			if tc.empty && !strings.Contains(output, "no input provided") {
+				t.Fatalf("empty editor error missing: %s", output)
+			}
+			if tc.editorFails && !strings.Contains(output, "error running editor") {
+				t.Fatalf("editor error missing: %s", output)
+			}
+			if valid && tc.outcome == "" {
+				if len(state.ChatHistory) != 2 {
+					t.Fatalf("editor input not recorded in conversation: %+v", state.ChatHistory)
+				}
+			} else if len(state.Messages) != 1 || len(state.ChatHistory) != 1 {
+				t.Fatal("failed input left a pending message or conversation turn")
+			}
+			path, err := os.ReadFile(pathRecord)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(string(path)); !os.IsNotExist(err) {
+				t.Fatalf("temporary editor file not removed: %v", err)
+			}
+			if rl != nil {
+				if err := rl.SaveToHistory("!r default"); err != nil {
+					t.Fatal(err)
+				}
+				for i, want := range wantHistory {
+					// Ctrl+C resets navigation between lookups; Enter submits the final prompt.
+					wantErr := readline.ErrInterrupt
+					if i == len(wantHistory)-1 {
+						wantErr = nil
+					}
+					got, err := rl.Readline()
+					if err == readline.ErrInterrupt {
+						got = recalled
+					}
+					if err != wantErr || got != want {
+						t.Fatalf("history entry %d: got %q, %v; want %q", i, got, err, want)
+					}
+				}
+			}
+		})
+	}
+}
 
 func TestNativeImageCLIAndContinuation(t *testing.T) {
 	home := t.TempDir()
@@ -277,6 +487,13 @@ func TestImageStatusFormatting(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
+	// PTY tests run the actual CLI entry point inside this test executable so
+	// go test -race also instruments the interactive child process.
+	if os.Getenv("CH_TEST_TERMINAL_HELPER") == "1" {
+		main()
+		os.Exit(0)
+	}
+
 	tmpDir, err := os.MkdirTemp("", "ch-test-bin")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create temp dir for test binary: %v\n", err)

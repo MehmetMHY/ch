@@ -334,7 +334,7 @@ func (t *Terminal) getCommandList() []string {
 		fmt.Sprintf("%s - quick copy latest response", t.config.QuickCopyLatest),
 		fmt.Sprintf("%s - multi-line input mode", t.config.MultiLine),
 		fmt.Sprintf("%s [file] - export chat(s)", t.config.ExportChat),
-		fmt.Sprintf("%s [buff] - text editor mode", t.config.EditorInput),
+		fmt.Sprintf("%s [buff] - text editor mode (saved text: Up to recall)", t.config.EditorInput),
 		fmt.Sprintf("%s [file/dir] - load files/dirs (native images)", t.config.LoadFiles),
 		fmt.Sprintf("%s [url] - scrape URL(s)", t.config.ScrapeURL),
 		fmt.Sprintf("%s [query] - web search", t.config.WebSearch),

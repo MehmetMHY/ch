@@ -21,7 +21,7 @@ import (
 	"github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
-	"github.com/chzyer/readline"
+	"github.com/ergochat/readline"
 	"github.com/google/uuid"
 	"github.com/tiktoken-go/tokenizer"
 )

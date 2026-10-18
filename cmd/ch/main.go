@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	platformpkg "github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/internal/ui"
 	"github.com/MehmetMHY/ch/pkg/types"
-	"github.com/chzyer/readline"
+	"github.com/ergochat/readline"
 	"github.com/google/uuid"
 	"github.com/tiktoken-go/tokenizer"
 )
@@ -848,40 +849,46 @@ func processDirectQuery(query string, chatManager *chat.Manager, platformManager
 	return nil
 }
 
-// makeResizeHandler returns a readline FuncOnWidthChanged that redraws the
-// current input line correctly when the terminal is resized.
-//
-// chzyer/readline's default handler only updates the stored terminal width; it
-// never redraws the input line already on screen. On the next keystroke the
-// library erases that line using the NEW width while it was rendered at the OLD
-// width, so the cursor is moved up too many lines and the terminal scrolls,
-// wiping chat history up to the top. Hitting Enter resets readline's model,
-// which is why later prompts work again.
-//
-// We instead erase the stale rendering at the old width (rl.Clean) before the
-// library updates the width (cb), then reprint at the new width (rl.Refresh).
-// This only runs while readline is actively reading (the prompt is on screen);
-// otherwise we just update the width silently, matching the default behavior.
-func makeResizeHandler(rlp **readline.Instance, stop <-chan struct{}) func(func()) {
+// resizeWriter updates readline's dimensions between erasing the old rendering
+// and drawing the new one. A zero-length wrapped write provides that hook;
+// ordinary output must not consume the pending size update.
+type resizeWriter struct {
+	io.Writer
+	mu     sync.Mutex
+	resize func()
+}
+
+func (w *resizeWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		w.mu.Lock()
+		resize := w.resize
+		w.resize = nil
+		w.mu.Unlock()
+		if resize != nil {
+			resize()
+		}
+	}
+	return w.Writer.Write(p)
+}
+
+// Readline serializes wrapped writes with prompt rendering. While prompting,
+// Write(nil) erases at the old width, updates dimensions through resizeWriter,
+// and redraws at the new width. Between prompts it only updates dimensions.
+func makeResizeHandler(rl *readline.Instance, output *resizeWriter, stop <-chan struct{}) func(func()) {
 	return func(cb func()) {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGWINCH)
 		go func() {
 			defer signal.Stop(ch)
-			defer func() { _ = recover() }()
 			for {
 				select {
 				case <-stop:
 					return
 				case <-ch:
-					rl := *rlp
-					if rl == nil || rl.Terminal == nil || !rl.Terminal.IsReading() {
-						cb()
-						continue
-					}
-					rl.Clean()
-					cb()
-					rl.Refresh()
+					output.mu.Lock()
+					output.resize = cb
+					output.mu.Unlock()
+					_, _ = rl.Write(nil)
 				}
 			}
 		}()
@@ -889,18 +896,21 @@ func makeResizeHandler(rlp **readline.Instance, stop <-chan struct{}) func(func(
 }
 
 func runInteractiveMode(chatManager *chat.Manager, platformManager *platformpkg.Manager, terminal *ui.Terminal, state *types.AppState, noHistory bool) {
-	var mainRL *readline.Instance
+	var resizeCallback func()
+	output := &resizeWriter{Writer: os.Stdout}
 	resizeStop := make(chan struct{})
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:             "\033[94muser: \033[0m",
-		InterruptPrompt:    "", // Don't show ^C when Ctrl+C is pressed
-		EOFPrompt:          "exit",
-		FuncOnWidthChanged: makeResizeHandler(&mainRL, resizeStop),
+		Prompt:                 "\033[94muser: \033[0m",
+		InterruptPrompt:        "", // Don't show ^C when Ctrl+C is pressed
+		EOFPrompt:              "exit",
+		DisableAutoSaveHistory: true,
+		Stdout:                 output,
+		FuncOnWidthChanged:     func(cb func()) { resizeCallback = cb },
 	})
 	if err != nil {
 		panic(err)
 	}
-	mainRL = rl
+	makeResizeHandler(rl, output, resizeStop)(resizeCallback)
 	defer rl.Close()
 	defer close(resizeStop)
 
@@ -927,6 +937,8 @@ func runInteractiveMode(chatManager *chat.Manager, platformManager *platformpkg.
 			// io.EOF (Ctrl+D) or other errors - exit
 			break
 		}
+		// Save the command before handling it so editor text follows it in history.
+		_ = rl.SaveToHistory(line)
 		input := strings.TrimSpace(line)
 
 		if input == "" {
@@ -1227,7 +1239,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		arg := strings.TrimSpace(strings.TrimPrefix(input, config.EditorInput+" "))
 
 		if fromHelp {
-			fmt.Printf("\033[93m%s [buff] - text editor mode\033[0m\n", config.EditorInput)
+			fmt.Printf("\033[93m%s [buff] - text editor mode (saved text: Up to recall)\033[0m\n", config.EditorInput)
 			return true
 		}
 
@@ -1237,6 +1249,11 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 			if err != nil {
 				terminal.PrintError(fmt.Sprintf("%v", err))
 				return true
+			}
+
+			// Editor text bypasses Readline, so remember it explicitly for Up-arrow recall.
+			if rl != nil {
+				_ = rl.SaveToHistory(userInput)
 			}
 
 			fmt.Printf("\033[94m> %s\033[0m\n", strings.ReplaceAll(userInput, "\n", "\n> "))
@@ -1252,7 +1269,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 
 	case input == config.EditorInput:
 		if fromHelp {
-			fmt.Printf("\033[93m%s [buff] - text editor mode\033[0m\n", config.EditorInput)
+			fmt.Printf("\033[93m%s [buff] - text editor mode (saved text: Up to recall)\033[0m\n", config.EditorInput)
 			return true
 		}
 
@@ -1260,6 +1277,11 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("%v", err))
 			return true
+		}
+
+		// Remember the complete prompt before sending, including on failure or cancellation.
+		if rl != nil {
+			_ = rl.SaveToHistory(userInput)
 		}
 
 		fmt.Printf("\033[94m> %s\033[0m\n", strings.ReplaceAll(userInput, "\n", "\n> "))
@@ -1346,7 +1368,7 @@ func handleSpecialCommandsInternal(input string, chatManager *chat.Manager, plat
 		if rl != nil {
 			for _, entry := range session.ChatHistory {
 				if entry.User != "" && entry.User != state.Config.SystemPrompt {
-					_ = rl.SaveHistory(entry.User)
+					_ = rl.SaveToHistory(entry.User)
 				}
 			}
 		}
