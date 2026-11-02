@@ -566,8 +566,16 @@ The `-s` and `-w` flags in the terminal CLI are used for web content interaction
 - For normal web pages, it fetches and extracts clean text content from the HTML.
 - For YouTube URLs, it uses `yt-dlp` to extract metadata and subtitles. Subtitles are compacted to reduce token usage (cue numbers, milliseconds, and blank lines removed; `>>` speaker markers preserved).
 - Quote YouTube URLs in your shell: `ch -s 'https://www.youtube.com/watch?v=OHiKsF0JXPk'`.
-- If subtitle downloading fails, metadata is still printed with a `Subtitles unavailable` diagnostic from `yt-dlp`. An HTTP 429 means YouTube is rate-limiting requests from your connection; wait before retrying. Missing English SRT subtitles and empty subtitle files are also reported explicitly. Ch does not transcribe the audio when subtitles are unavailable.
+- If subtitle downloading fails, metadata is still printed with a `Subtitles unavailable` diagnostic from `yt-dlp`. Missing English SRT subtitles and empty subtitle files are also reported explicitly. See [YouTube subtitle troubleshooting](#youtube-subtitle-troubleshooting) for rate-limit and JavaScript-runtime guidance.
 - The scraped content is printed directly to the terminal.
+
+##### YouTube subtitle troubleshooting
+
+Ch asks `yt-dlp` for video metadata and English auto-generated subtitles in separate requests. YouTube may allow metadata but rate-limit the subtitle request with HTTP 429. Ch retains the metadata and reports `Subtitles unavailable`, but there is no transcript. Ch does not transcribe the video's audio as a fallback. Wait before retrying and avoid repeated requests. A 429 does not by itself indicate a malformed URL, and installing Deno does not bypass YouTube's rate limits.
+
+YouTube (Google) regularly changes its site and restrictions on automated access, so `yt-dlp` must continually adapt and scraping may temporarily stop working or become unreliable. If you use Ch's video scraping feature, keeping `yt-dlp` and any required JavaScript runtime up to date is your responsibility.
+
+Recent `yt-dlp` releases may require a JavaScript runtime for some YouTube extraction steps. [Deno](https://docs.deno.com/runtime/getting_started/installation/) is one supported option; make sure it is on `PATH` when starting Ch. `yt-dlp` may also report that its EJS challenge-solver components were skipped. That is a separate warning from HTTP 429; follow the current [`yt-dlp` EJS guidance](https://github.com/yt-dlp/yt-dlp/wiki/EJS) for its setup.
 
 #### `-w` flag (Web Search)
 

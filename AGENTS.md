@@ -21,6 +21,8 @@ Primary entry points:
 
 YouTube scraping captures yt-dlp stderr for metadata errors and subtitle failures. Subtitle failures preserve metadata and print `Subtitles unavailable` with the diagnostic (including HTTP 429), rather than silently leaving an empty section. Missing/empty English SRT subtitles are reported explicitly. Subtitle downloads use an isolated temporary subdirectory that is removed on success or failure, including partial files. `internal/ui/youtube_test.go` uses a fake yt-dlp executable and temporary homes to cover these paths without network access.
 
+YouTube troubleshooting: metadata and English auto-subtitles are requested separately, so metadata can succeed while subtitle retrieval is rate-limited with HTTP 429. Deno can provide a JavaScript runtime for yt-dlp, but it does not bypass rate limits. yt-dlp may separately report skipped EJS challenge-solver components; distinguish that warning from a subtitle 429. Ch invokes yt-dlp directly and does not add yt-dlp's `--remote-components` option. The README documents this as troubleshooting guidance.
+
 - `internal/ui/ocr_cgo.go` - Tesseract OCR image-to-text extraction (CGO builds only).
 - `internal/ui/ocr_nocgo.go` - OCR stub for non-CGO builds (e.g., Android).
 - `internal/ui/images.go` - structured chat loading: native local image capture, bounded reads, OCR from captured bytes when image sending is off, and existing text extraction for other formats. Print-only utilities still use `LoadFileContent` and OCR.
