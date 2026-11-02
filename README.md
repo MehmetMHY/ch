@@ -95,6 +95,7 @@ ch "What are the key features of Go programming language?"
 - **Smart File Handling**: Load text files, PDFs, Word docs (DOCX/ODT/RTF), spreadsheets (XLSX/CSV), and directories. Images are sent natively to vision models; loading with image sending off or in print-only mode supports OCR text extraction
 - **Native Image Input**: Attach PNG, JPEG, GIF, and WebP images through `!l` or `-l` with a prompt. Manage individual images with `!i`, or pause/resume image sending with `!i off` / `!i on`
 - **Advanced Export**: Interactive chat export with fzf selection and editor integration, with custom filename support (`>custom`) across all export and codedump flows
+- **Raw Session Export**: Choose **raw export** in `!e` to save the current chat as resumable session JSON in the current directory, keeping its session filename or using a name supplied with `!e snapshot.json`
 - **AI-Suggested Filenames**: When exporting, the current model proposes short snake_case filenames based on chat context. Configurable and fully optional, with a graceful fallback to the deterministic hash-based names.
 - **Code Block Export**: Extract and save markdown code blocks with proper file extensions
 - **Session State Viewer**: Check current session details like model, platform, session file, and token usage
@@ -259,7 +260,7 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `show_thinking` - Show/hide model thinking/reasoning tokens (default: true). When enabled, thinking content is displayed in gray before the response. Supports `reasoning_content`, `reasoning` (Ollama), and `<think>` tag formats. In streaming mode, thinking is display-only and is stripped from the saved final assistant response.
 - `slow_model_patterns` - List of regex patterns for models that should use non-streaming mode with a loading animation (default: empty). Example: `["^o\\d+", "^gpt-5$"]`
 - `shallow_load_dirs` - Directories to load with only 1-level depth for `!l` and `!e` operations (default: major system directories like `/`, `/home/`, `/usr/`, `$HOME`, etc.). Set to `[]` to disable.
-- `ai_name_enable` - Enable AI-suggested filenames in `!e` export modes (default: false). When true, the current model is asked to propose short snake_case filenames before each export filename prompt.
+- `ai_name_enable` - Enable AI-suggested filenames in `!e` turn, block, and manual export modes (default: false). When true, the current model is asked to propose short snake_case filenames before each export filename prompt.
 - `ai_name_char_threshold` - Minimum non-system chat content (in characters) before AI-suggested filenames are generated (default: 500). Below this, the AI naming step is skipped.
 - `ai_name_count` - Number of AI-suggested filename candidates to request per export (default: 8).
 - `ai_name_timeout_seconds` - Cancel the AI naming request after this many seconds and fall back to the hash list (default: 15).
@@ -422,7 +423,7 @@ When in interactive mode (`ch`), use these commands:
 - **`!w [query]`** - web search or from history
 - **`!d`** - generate codedump
 - **`!z`** - compress conversation history. Summarizes the active context into a dense continuation summary, reducing token usage for future prompts while preserving the full transcript for exports, search, and session files. Uses map-reduce chunking for oversized conversations with parallel summarization. Ctrl+C cancels safely without mutating state
-- **`!e [file]`** - export chat(s). Surrounding quotes (`"`/`'`) are stripped, so `!e "hi.txt"` saves as `hi.txt`
+- **`!e [file]`** - export chat(s) using turn, block, manual, or raw session JSON export. Surrounding quotes (`"`/`'`) are stripped, so `!e "hi.txt"` saves as `hi.txt`
 - **`!y`** - add to clipboard
 - **`cc`** - quick copy latest response
 - **`ctrl+c`** - clear prompt input. At a custom export filename prompt, cancels the export and returns to interactive mode.
@@ -476,13 +477,22 @@ These limits also apply when sending images restored from sessions. Changing the
 
 **Interactive Export (`!e` and `!e [file]`):**
 
-Offers three modes for exporting chat history:
+Offers four modes for exporting chat history:
 
 1.  **turn export**: Select individual user prompts and bot responses to export. Uses `>all` option to quickly select everything. Opens editor for final review before saving.
 2.  **block export**: Extracts all code blocks from your entire chat history. Lets you save each snippet individually, intelligently suggesting file names and extensions based on the code's language and content. Presents a prioritized list of suggested new names and existing files (marked with `[w]` for overwrite).
 3.  **manual export**: Allows you to select specific chat entries, which are then combined into a single file for you to edit and save manually. Also benefits from the smart file-saving interface.
+4.  **raw export**: Saves the complete current chat in Ch's resumable session JSON format directly to the directory where you launched Ch. Keeps the current session's filename (for example, `ch_session_1793508174.json` or `ch_session_latest.json`); if the chat has no session filename yet, uses `ch_session_<timestamp>.json`. No editor, filename picker, or AI naming request is involved.
 
 Optional: Provide a filename (`!e output.txt`) to skip the file selection step and save directly to that file.
+
+**Raw Session JSON:**
+
+Use `!e` and select **raw export** as a shortcut for copying your session out of `~/.ch/tmp/`. To choose a different name, enter `!e snapshot.json` and select **raw export**. The snapshot includes the full history, loaded context, model/platform/base URL, reasoning effort, compression summaries, captured images, and image settings. It reflects the current chat, including changes since the last automatic save.
+
+On success, Ch prints `exported to <full path>` in yellow, matching the other interactive export confirmations.
+
+Raw export also works with automatic session saving disabled or with `-n` / `--no-history`: it writes only the explicitly requested export, without saving to `~/.ch/tmp/`, changing the active session file, or triggering a session fork. An existing destination file is overwritten, except that exporting onto the active session file itself is rejected; supply a different filename in that case. Resume the exported chat with `ch -f snapshot.json` (`enable_session_save=true` is required for session loading).
 
 **Custom Filenames:**
 
@@ -495,7 +505,7 @@ New filenames are entered only through `>custom`; typing a query that matches no
 
 **AI-Suggested Filenames:**
 
-When you reach a filename selection step in any `!e` export mode, Ch asks the currently selected model to propose a few short, `snake_case` filenames that summarize what's being saved. The model receives the full chat history plus the content being exported, so the suggestions are context-aware. AI suggestions appear at the top of the fzf list (always with a `.txt` extension), followed by the regular `ch_<hash>.<ext>` options and existing files in the directory.
+When you reach a filename selection step in `!e` turn, block, or manual export, Ch asks the currently selected model to propose a few short, `snake_case` filenames that summarize what's being saved. The model receives the full chat history plus the content being exported, so the suggestions are context-aware. AI suggestions appear at the top of the fzf list (always with a `.txt` extension), followed by the regular `ch_<hash>.<ext>` options and existing files in the directory.
 
 Behavior notes:
 
@@ -770,13 +780,13 @@ go install golang.org/x/vuln/cmd/govulncheck@latest
 
 These commands replace the scanner binaries in `GOBIN` (or `GOPATH/bin` by default) without changing Ch's module dependencies. If the latest tools still do not support the new Go release, use a supported Go toolchain for scanning until the tools add support. A scanner compatibility failure means the scan is incomplete.
 
-Use the latest security-patched release of the supported Go branch. Currently, `gosec` v2.29.0 cannot read Go 1.27 export data, while the full gate passes with Go 1.26.9:
+Use the latest security-patched release of the supported Go branch. Currently, `gosec` v2.29.0 cannot read Go 1.27 export data; use Go 1.26.10 for the supported fallback:
 
 ```bash
-GOTOOLCHAIN=go1.26.9 bash install.sh -k
+GOTOOLCHAIN=go1.26.10 bash install.sh -k
 ```
 
-This selects Go only for that command, downloading the toolchain if needed. It does not change your default Go installation or pin the project. Avoid falling back to Go 1.26.5: current vulnerability checks flag standard-library issues fixed in later patches.
+This selects Go only for that command, downloading the toolchain if needed. It does not change your default Go installation or pin the project. Avoid falling back to Go 1.26.9 or earlier: current vulnerability checks flag standard-library issues fixed in Go 1.26.10.
 
 Git hooks are local Git configuration, so they are not activated just by cloning the repository. Run `./install.sh --dev-setup` (or `make install-hooks`) once in each checkout where you want commits to be blocked by the fast security gate.
 

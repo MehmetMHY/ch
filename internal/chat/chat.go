@@ -319,21 +319,8 @@ func (m *Manager) SaveSessionState() error {
 		return err
 	}
 
-	// Create SessionFile with current state
-	session := types.SessionFile{
-		Timestamp:       time.Now().Unix(),
-		Platform:        m.state.Config.CurrentPlatform,
-		Model:           m.state.Config.CurrentModel,
-		BaseURL:         m.state.Config.CurrentBaseURL,
-		ChatHistory:     m.state.ChatHistory,
-		ReasoningEffort: m.state.ReasoningEffort,
-		Compressions:    m.state.Compressions,
-		Images:          m.state.Images,
-		ImagesOff:       m.state.ImagesOff,
-	}
-
 	// Marshal to JSON
-	jsonData, err := json.MarshalIndent(session, "", "  ")
+	jsonData, err := json.MarshalIndent(m.currentSession(), "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal session: %v", err)
 	}
@@ -357,6 +344,21 @@ func (m *Manager) SaveSessionState() error {
 	}
 
 	return nil
+}
+
+// currentSession captures the resumable state shared by automatic saving and raw export.
+func (m *Manager) currentSession() types.SessionFile {
+	return types.SessionFile{
+		Timestamp:       time.Now().Unix(),
+		Platform:        m.state.Config.CurrentPlatform,
+		Model:           m.state.Config.CurrentModel,
+		BaseURL:         m.state.Config.CurrentBaseURL,
+		ChatHistory:     m.state.ChatHistory,
+		ReasoningEffort: m.state.ReasoningEffort,
+		Compressions:    m.state.Compressions,
+		Images:          m.state.Images,
+		ImagesOff:       m.state.ImagesOff,
+	}
 }
 
 func writeLatestSessionPointer(tmpDir, filename string) error {
@@ -474,16 +476,8 @@ func (m *Manager) ForkSessionOnNextSave() {
 }
 
 func (m *Manager) sessionSaveFingerprint() string {
-	session := types.SessionFile{
-		Platform:        m.state.Config.CurrentPlatform,
-		Model:           m.state.Config.CurrentModel,
-		BaseURL:         m.state.Config.CurrentBaseURL,
-		ChatHistory:     m.state.ChatHistory,
-		ReasoningEffort: m.state.ReasoningEffort,
-		Compressions:    m.state.Compressions,
-		Images:          m.state.Images,
-		ImagesOff:       m.state.ImagesOff,
-	}
+	session := m.currentSession()
+	session.Timestamp = 0
 
 	data, err := json.Marshal(session)
 	if err != nil {
@@ -1596,14 +1590,14 @@ func (m *Manager) ExportCodeBlocks(terminal *ui.Terminal) ([]string, error) {
 	return filePaths, nil
 }
 
-// ExportChatInteractive allows user to select chat entries via fzf, edit in text editor, and save
+// ExportChatInteractive offers text/code exports and a resumable raw session export.
 func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string) (string, error) {
 	if len(m.state.ChatHistory) <= 1 {
 		return "", fmt.Errorf("no chat history to export")
 	}
 
 	// Ask for edit mode
-	editMode, err := terminal.FzfSelect([]string{"turn export", "block export", "manual export"}, "select export mode: ")
+	editMode, err := terminal.FzfSelect([]string{"turn export", "block export", "manual export", "raw export"}, "select export mode: ")
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled or failed: %v", err)
 	}
@@ -1614,6 +1608,18 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 
 	if editMode == "block export" {
 		return m.ExportChatBlock(terminal, targetFile)
+	}
+
+	if editMode == "raw export" {
+		filePath, err := m.ExportChatRaw(targetFile)
+		if err != nil {
+			return "", err
+		}
+		if m.state.Config.IsPipedOutput {
+			return filePath, nil
+		}
+		terminal.PrintInfo(fmt.Sprintf("exported to %s", filePath))
+		return "", nil
 	}
 
 	if editMode == "" {
@@ -1767,6 +1773,57 @@ func (m *Manager) ExportChatInteractive(terminal *ui.Terminal, targetFile string
 	terminal.PrintInfo(fmt.Sprintf("exported to %s", filename))
 
 	return "", nil
+}
+
+// ExportChatRaw writes the current session JSON to cwd without changing automatic
+// saving, the active session path, or a restored session's pending fork.
+func (m *Manager) ExportChatRaw(targetFile string) (string, error) {
+	if len(m.state.ChatHistory) <= 1 {
+		return "", fmt.Errorf("no chat history to export")
+	}
+
+	filename := targetFile
+	if filename == "" {
+		filename = m.CurrentSessionFileName()
+		if filename == "" {
+			started := m.state.SessionStartTime
+			if started == 0 {
+				started = time.Now().Unix()
+			}
+			filename = fmt.Sprintf("ch_session_%d.json", started)
+		}
+	}
+	filename, err := SanitizeCustomFilename(filename)
+	if err != nil {
+		return "", err
+	}
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+	fullPath := filepath.Join(currentDir, filename)
+	if m.state.SessionFilePath != "" {
+		sourcePath, err := filepath.Abs(m.state.SessionFilePath)
+		if err != nil {
+			return "", err
+		}
+		sourceInfo, sourceErr := os.Stat(sourcePath)
+		targetInfo, targetErr := os.Stat(fullPath)
+		if sourcePath == fullPath || (sourceErr == nil && targetErr == nil && os.SameFile(sourceInfo, targetInfo)) {
+			return "", fmt.Errorf("raw export would overwrite the active session file; provide a different filename")
+		}
+	}
+
+	jsonData, err := json.MarshalIndent(m.currentSession(), "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal session: %w", err)
+	}
+	if err := os.WriteFile(fullPath, jsonData, 0600); err != nil {
+		return "", fmt.Errorf("failed to write raw export: %w", err)
+	}
+	m.AddRecentlyCreatedFile(fullPath)
+	return fullPath, nil
 }
 
 // ExportChatBlock allows user to extract and save code blocks from chat history

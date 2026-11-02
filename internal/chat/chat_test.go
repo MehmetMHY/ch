@@ -259,6 +259,185 @@ func TestManager_RestoreSessionState(t *testing.T) {
 
 // ---- SaveSessionState / LoadLatestSessionState ----
 
+func TestExportChatRaw(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		saved      bool
+		all        bool
+		fork       bool
+		removeFile bool
+	}{
+		{name: "timestamped session", saved: true, all: true},
+		{name: "latest session", saved: true},
+		{name: "saving disabled"},
+		{name: "restored session pending fork", saved: true, all: true, fork: true},
+		{name: "missing saved file", saved: true, all: true, removeFile: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, state, img := imageTestState(t)
+			t.Chdir(t.TempDir())
+			cwd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			state.Config.EnableSessionSave = tc.saved
+			state.Config.SaveAllSessions = tc.all
+			state.SessionStartTime = 1793508174
+			if err := m.AddLoadedContent("Loaded: shot.png", types.LoadedContent{Text: "image context and OCR text", Images: []types.ImageAttachment{img}}); err != nil {
+				t.Fatal(err)
+			}
+			var sourceData, pointerData []byte
+			if tc.saved {
+				if err := m.SaveSessionState(); err != nil {
+					t.Fatal(err)
+				}
+				sourceData, err = os.ReadFile(state.SessionFilePath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if tc.all {
+					pointerData, err = os.ReadFile(filepath.Join(filepath.Dir(state.SessionFilePath), latestSessionPointerFilename))
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				if tc.removeFile {
+					if err := os.Remove(state.SessionFilePath); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if tc.fork {
+				m.ForkSessionOnNextSave()
+			}
+			baseline := m.forkSessionBaseline
+			sourcePath, started := state.SessionFilePath, state.SessionStartTime
+
+			// Changes made since the last automatic save must be included.
+			state.Config.CurrentModel = "new-vision-model"
+			state.Config.CurrentBaseURL = "http://localhost:11434/v1"
+			state.ReasoningEffort = "high"
+			state.ImagesOff = true
+			state.Images[0].Disabled = true
+			m.AddToHistory("describe", "a screenshot")
+			state.Compressions = []types.CompressionRecord{{ThroughIndex: 2, Summary: "discussed screenshot"}}
+			m.rebuildMessages()
+			want := types.SessionFile{
+				Platform: state.Config.CurrentPlatform, Model: state.Config.CurrentModel,
+				BaseURL: state.Config.CurrentBaseURL, ReasoningEffort: "high",
+				ChatHistory: state.ChatHistory, Compressions: state.Compressions,
+				Images: state.Images, ImagesOff: true,
+			}
+
+			path, err := m.ExportChatRaw("")
+			if err != nil {
+				t.Fatal(err)
+			}
+			filename := "ch_session_1793508174.json"
+			if sourcePath != "" {
+				filename = filepath.Base(sourcePath)
+			}
+			if path != filepath.Join(cwd, filename) {
+				t.Fatalf("export path = %q, want cwd/%s", path, filename)
+			}
+			session, err := m.LoadCustomHistoryFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if session.Timestamp <= 0 {
+				t.Fatal("export has no timestamp")
+			}
+			session.Timestamp, session.SourceFile = 0, ""
+			if !reflect.DeepEqual(*session, want) {
+				t.Fatalf("raw export lost session state: got %+v, want %+v", *session, want)
+			}
+			restoredConfig := *state.Config
+			restored := NewManager(&types.AppState{Config: &restoredConfig})
+			restored.RestoreSessionState(session)
+			if !reflect.DeepEqual(restored.state.Messages, state.Messages) {
+				t.Fatal("raw export did not restore the active compressed context")
+			}
+			if state.SessionFilePath != sourcePath || state.SessionStartTime != started || m.forkSessionOnSave != tc.fork || m.forkSessionBaseline != baseline {
+				t.Fatal("export changed automatic saving or pending fork state")
+			}
+			info, err := os.Stat(path)
+			if err != nil || info.Mode().Perm() != 0600 {
+				t.Fatalf("export permissions: info=%v, err=%v", info, err)
+			}
+			if len(state.RecentlyCreatedFiles) == 0 || state.RecentlyCreatedFiles[0] != filename {
+				t.Fatal("export not tracked as a recently created file")
+			}
+			if tc.saved {
+				data, err := os.ReadFile(sourcePath)
+				if tc.removeFile {
+					if !os.IsNotExist(err) {
+						t.Fatal("export recreated the missing session file")
+					}
+				} else if err != nil || string(data) != string(sourceData) {
+					t.Fatal("export modified the original session file")
+				}
+				if tc.all {
+					data, err := os.ReadFile(filepath.Join(filepath.Dir(sourcePath), latestSessionPointerFilename))
+					if err != nil || string(data) != string(pointerData) {
+						t.Fatal("export modified the latest-session pointer")
+					}
+				}
+			} else if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), ".ch")); !os.IsNotExist(err) {
+				t.Fatal("explicit raw export created automatic session storage")
+			}
+		})
+	}
+}
+
+func TestExportChatRawFilenamesAndErrors(t *testing.T) {
+	m, state, _ := imageTestState(t)
+	t.Chdir(t.TempDir())
+	if _, err := m.ExportChatRaw(""); err == nil {
+		t.Fatal("expected an error for empty history")
+	}
+	m.AddToHistory("hello", "hi")
+	path, err := m.ExportChatRaw("")
+	if err != nil || !isTimestampedSessionFilename(filepath.Base(path)) {
+		t.Fatalf("unsaved session filename: path=%q, err=%v", path, err)
+	}
+	path, err = m.ExportChatRaw("../My Snapshot.json")
+	if err != nil || filepath.Base(path) != "..My Snapshot.json" {
+		t.Fatalf("custom filename: path=%q, err=%v", path, err)
+	}
+	if _, err := m.ExportChatRaw("/"); err == nil {
+		t.Fatal("expected an invalid filename error")
+	}
+	if err := os.Mkdir("directory.json", 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.ExportChatRaw("directory.json"); err == nil {
+		t.Fatal("expected a write error for a directory destination")
+	}
+	state.SessionFilePath = path
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.AddToHistory("unsaved change", "new answer")
+	for _, name := range []string{filepath.Base(path), "alias.json"} {
+		if name == "alias.json" {
+			if err := os.Symlink(path, name); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := m.ExportChatRaw(name); err == nil {
+			t.Fatalf("export overwrote its source via %q", name)
+		}
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || string(after) != string(before) {
+		t.Fatal("source session was modified")
+	}
+	if _, err := m.ExportChatRaw("another.json"); err != nil {
+		t.Fatalf("export with a different filename failed: %v", err)
+	}
+}
+
 func TestManager_SaveAndLoadSession_Latest(t *testing.T) {
 	tempHome := t.TempDir()
 	t.Setenv("HOME", tempHome)

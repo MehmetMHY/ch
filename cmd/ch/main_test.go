@@ -408,6 +408,79 @@ func TestImageControlsAndDirectFileLoad(t *testing.T) {
 	}
 }
 
+func TestRawExportCommand(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		command   string
+		argument  string
+		noHistory bool
+		cancel    bool
+		piped     bool
+	}{
+		{name: "default name", command: "!e"},
+		{name: "custom name with no history", command: "!e", argument: ` "My Snapshot.json"`, noHistory: true},
+		{name: "configured command", command: "!save", argument: " snapshot.json"},
+		{name: "piped output", command: "!e", piped: true},
+		{name: "cancelled picker", command: "!e", cancel: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			t.Setenv("OPENAI_API_KEY", "")
+			t.Chdir(t.TempDir())
+			// Select only a menu containing raw export. Further picker/editor calls fail.
+			script := "#!/bin/sh\nwhile IFS= read -r line || [ -n \"$line\" ]; do\n  if [ \"$line\" = 'raw export' ]; then\n    printf '%s\\n' \"$line\"\n    exit 0\n  fi\ndone\nexit 2\n"
+			if tc.cancel {
+				script = "#!/bin/sh\nexit 130\n"
+			}
+			if err := os.WriteFile(filepath.Join(home, "fzf"), []byte(script), 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", home+string(os.PathListSeparator)+os.Getenv("PATH"))
+			cfg := &types.Config{ExportChat: tc.command, EnableSessionSave: true, IsPipedOutput: tc.piped}
+			state := &types.AppState{Config: cfg, SessionStartTime: 1793508174, ChatHistory: []types.ChatHistory{{User: "system"}, {User: "hello", Bot: "hi"}}}
+			cm := chat.NewManager(state)
+			out := captureStdout(t, func() {
+				if !handleSpecialCommands(tc.command+tc.argument, cm, nil, ui.NewTerminal(cfg), state, tc.noHistory, nil) {
+					t.Fatal("export command not handled")
+				}
+			})
+			files, err := os.ReadDir(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.cancel {
+				if len(files) != 0 || out != "" {
+					t.Fatalf("cancelled export created output: %v, %q", files, out)
+				}
+				return
+			}
+			filename := "ch_session_1793508174.json"
+			if tc.argument != "" {
+				filename = strings.Trim(strings.TrimSpace(tc.argument), `"`)
+			}
+			fullPath, err := filepath.Abs(filename)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantOutput := fmt.Sprintf("\033[93mexported to %s\033[0m\n", fullPath)
+			if tc.piped {
+				wantOutput = fullPath + "\n"
+			}
+			if len(files) != 1 || files[0].Name() != filename || out != wantOutput {
+				t.Fatalf("unexpected export files/output: %v, %q", files, out)
+			}
+			if _, err := cm.LoadCustomHistoryFile(filename); err != nil {
+				t.Fatalf("raw export is not resumable: %v", err)
+			}
+			if _, err := os.Stat(filepath.Join(home, ".ch")); !os.IsNotExist(err) {
+				t.Fatal("raw export wrote automatic session storage")
+			}
+		})
+	}
+}
+
 func TestImageStatusFormatting(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -172,6 +172,7 @@ func (t *Terminal) ShowHelp() {
 	fmt.Println("  run 'ch' for interactive. use '!h' for help.")
 	fmt.Printf("  %s [on|off] manages native images; no argument opens the image picker.\n", t.config.ImageControl)
 	fmt.Printf("  loading images with %s off adds OCR text when available.\n", t.config.ImageControl)
+	fmt.Printf("  %s offers turn, block, manual, and raw session JSON export.\n", t.config.ExportChat)
 }
 
 // RecordShellSession records the entire shell session and returns the content as a string.

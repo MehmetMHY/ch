@@ -20,7 +20,7 @@ print_result() {
 }
 
 echo "==> Building fresh-machine test image..."
-if ! docker build -t "$IMAGE_NAME" - <<DOCKERFILE; then
+if ! docker build -t "$IMAGE_NAME" - <<DOCKERFILE
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \\
@@ -47,6 +47,7 @@ RUN set -eux; \\
 WORKDIR /root
 CMD ["bash"]
 DOCKERFILE
+then
 	echo
 	print_result "FAIL: docker build failed"
 	exit 1
