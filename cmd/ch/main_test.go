@@ -1368,6 +1368,36 @@ func TestStateOutputIncludesReasoning(t *testing.T) {
 	}
 }
 
+func TestStateOutputUsesModelReasoningEffortOverride(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+
+	state := &types.AppState{
+		Config: &types.Config{
+			CurrentPlatform: "openai",
+			CurrentModel:    "legacy-model",
+			SystemPrompt:    "S",
+			IsPipedOutput:   true,
+			ReasoningEffortOverrides: []types.ReasoningEffortOverride{
+				{Pattern: `^legacy-`, Effort: "default"},
+			},
+		},
+		Messages:        []types.ChatMessage{{Role: "system", Content: "S"}},
+		ChatHistory:     []types.ChatHistory{{User: "S"}},
+		ReasoningEffort: "high",
+	}
+	chatManager := chat.NewManager(state)
+	terminal := ui.NewTerminal(state.Config)
+
+	out := captureStdout(t, func() {
+		_ = handleShowState(chatManager, terminal, state, true)
+	})
+	if !strings.Contains(out, "reasoning: default") {
+		t.Fatalf("expected model-specific default reasoning in state output, got:\n%s", out)
+	}
+}
+
 // TestStateOutputIncludesReasoningEffort verifies that >state shows the
 // active reasoning effort when set.
 func TestStateOutputIncludesReasoningEffort(t *testing.T) {

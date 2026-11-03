@@ -219,6 +219,9 @@ func mergeConfigs(defaultConfig, userConfig *types.Config) *types.Config {
 	if userConfig.ReasoningEffortSwitch != "" {
 		defaultConfig.ReasoningEffortSwitch = userConfig.ReasoningEffortSwitch
 	}
+	if userConfig.ReasoningEffortOverrides != nil {
+		defaultConfig.ReasoningEffortOverrides = userConfig.ReasoningEffortOverrides
+	}
 
 	// Compression controls.
 	if userConfig.CompressHistory != "" {

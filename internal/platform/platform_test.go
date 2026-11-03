@@ -759,7 +759,7 @@ func TestStreamingResponseFiltersGranitePrefilledThinking(t *testing.T) {
 	}
 }
 
-func TestRequestOmitsReasoningEffortWhenEmpty(t *testing.T) {
+func TestModelOverrideDefaultOmitsReasoningEffort(t *testing.T) {
 	resetModelsDevClient(t)
 	t.Setenv("TESTPLAT_API_KEY", "test-key")
 	catalog := ModelsDevCatalog{
@@ -786,13 +786,16 @@ func TestRequestOmitsReasoningEffortWhenEmpty(t *testing.T) {
 		CurrentPlatform:   "testplat",
 		ModelsDevEnabled:  false,
 		SlowModelPatterns: []string{".*"},
+		ReasoningEffortOverrides: []types.ReasoningEffortOverride{
+			{Pattern: `^test-model$`, Effort: "default"},
+		},
 		Platforms: map[string]types.Platform{
 			"testplat": {Name: "testplat", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}, EnvName: "TESTPLAT_API_KEY"},
 		},
 	}
 
 	m := NewManager(cfg)
-	m.SetReasoningEffort("") // empty = omit
+	m.SetReasoningEffortPreference("high", false)
 	if err := m.Initialize(); err != nil {
 		t.Fatalf("Initialize error: %v", err)
 	}
@@ -810,7 +813,7 @@ func TestRequestOmitsReasoningEffortWhenEmpty(t *testing.T) {
 	}
 
 	if _, ok := payload["reasoning_effort"]; ok {
-		t.Error("expected reasoning_effort to be omitted when empty")
+		t.Error("expected reasoning_effort to be omitted by the matching default override")
 	}
 }
 
@@ -877,6 +880,9 @@ func TestRequestSendsUnverifiedEffortWithoutMetadata(t *testing.T) {
 		CurrentPlatform:   "testplat",
 		ModelsDevEnabled:  false,
 		SlowModelPatterns: []string{".*"},
+		ReasoningEffortOverrides: []types.ReasoningEffortOverride{
+			{Pattern: `^unknown-model$`, Effort: "default"},
+		},
 		Platforms: map[string]types.Platform{
 			"testplat": {Name: "testplat", BaseURL: types.BaseURLValue{Single: server.URL + "/v1"}, EnvName: "TESTPLAT_API_KEY"},
 		},
@@ -983,6 +989,58 @@ func TestGetSetReasoningEffort(t *testing.T) {
 	m.SetReasoningEffort("")
 	if m.GetReasoningEffort() != "" {
 		t.Error("expected empty after clear")
+	}
+}
+
+func TestReasoningEffortOverridesUseFirstMatchUnlessExplicit(t *testing.T) {
+	cfg := &types.Config{
+		ReasoningEffortOverrides: []types.ReasoningEffortOverride{
+			{Pattern: `^legacy-`, Effort: "default"},
+			{Pattern: `legacy-model`, Effort: "low"},
+			{Pattern: `^fast-`, Effort: "medium"},
+		},
+	}
+	m := NewManager(cfg)
+	m.SetReasoningEffortPreference("high", false)
+
+	tests := []struct {
+		model string
+		want  string
+	}{
+		{model: "legacy-model", want: ""},
+		{model: "fast-model", want: "medium"},
+		{model: "regular-model", want: "high"},
+	}
+	for _, tt := range tests {
+		if got := m.GetReasoningEffortForModel(tt.model); got != tt.want {
+			t.Errorf("GetReasoningEffortForModel(%q) = %q, want %q", tt.model, got, tt.want)
+		}
+	}
+
+	m.SetReasoningEffort("low")
+	if got := m.GetReasoningEffortForModel("legacy-model"); got != "low" {
+		t.Errorf("explicit effort should override a matching pattern: got %q, want low", got)
+	}
+	if got := m.GetReasoningEffortForModel("regular-model"); got != "low" {
+		t.Errorf("explicit effort should remain active on non-matching models: got %q, want low", got)
+	}
+}
+
+func TestReasoningEffortOverrideInvalidPatternIsIgnored(t *testing.T) {
+	cfg := &types.Config{
+		ReasoningEffortOverrides: []types.ReasoningEffortOverride{
+			{Pattern: "[", Effort: "default"},
+			{Pattern: `^legacy-`, Effort: "default"},
+		},
+	}
+	m := NewManager(cfg)
+	m.SetReasoningEffortPreference("high", false)
+
+	if got := m.GetReasoningEffortForModel("legacy-model"); got != "" {
+		t.Errorf("valid later pattern should still match after an invalid pattern, got %q", got)
+	}
+	if got := m.GetReasoningEffortForModel("other-model"); got != "high" {
+		t.Errorf("invalid pattern should not change fallback effort, got %q", got)
 	}
 }
 

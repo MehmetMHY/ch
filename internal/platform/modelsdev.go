@@ -494,7 +494,7 @@ func DescribeEffortState(effort string, cap CapabilityResult) string {
 	}
 
 	if cap.Status == CapStatusUnknown {
-		return fmt.Sprintf("%s (unverified, metadata unavailable)", effort)
+		return fmt.Sprintf("%s (unverified)", effort)
 	}
 	return effort
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/MehmetMHY/ch/internal/config"
+	"github.com/MehmetMHY/ch/internal/platform"
 	"github.com/MehmetMHY/ch/pkg/types"
 )
 
@@ -1394,6 +1395,37 @@ func TestAddToHistoryCapturesReasoningEffort(t *testing.T) {
 	}
 }
 
+func TestAddToHistoryCapturesModelSpecificReasoningEffort(t *testing.T) {
+	cfg := &types.Config{
+		SystemPrompt:    "S",
+		CurrentPlatform: "openai",
+		CurrentModel:    "legacy-model",
+		ReasoningEffortOverrides: []types.ReasoningEffortOverride{
+			{Pattern: `^legacy-`, Effort: "default"},
+		},
+	}
+	state := &types.AppState{
+		Config:          cfg,
+		ChatHistory:     []types.ChatHistory{{User: "S"}},
+		ReasoningEffort: "high",
+	}
+	manager := NewManager(state)
+	platformManager := platform.NewManager(cfg)
+	platformManager.SetReasoningEffortPreference("high", false)
+	manager.SetPlatformManager(platformManager)
+
+	manager.AddToHistory("question", "answer")
+	if got := state.ChatHistory[1].ReasoningEffort; got != "" {
+		t.Errorf("matched model should record omitted effort, got %q", got)
+	}
+
+	cfg.CurrentModel = "modern-model"
+	manager.AddToHistory("question 2", "answer 2")
+	if got := state.ChatHistory[2].ReasoningEffort; got != "high" {
+		t.Errorf("non-matching model should record configured effort, got %q", got)
+	}
+}
+
 func TestAddToHistoryWithContextCapturesReasoningEffort(t *testing.T) {
 	cfg := &types.Config{
 		SystemPrompt:    "S",
@@ -1429,10 +1461,11 @@ func TestSaveSessionStateIncludesReasoningEffort(t *testing.T) {
 		EnableSessionSave: true,
 	}
 	state := &types.AppState{
-		Config:          cfg,
-		Messages:        []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
-		ChatHistory:     []types.ChatHistory{{User: cfg.SystemPrompt}},
-		ReasoningEffort: "low",
+		Config:                  cfg,
+		Messages:                []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory:             []types.ChatHistory{{User: cfg.SystemPrompt}},
+		ReasoningEffort:         "low",
+		ReasoningEffortExplicit: true,
 	}
 	m := NewManager(state)
 
@@ -1448,6 +1481,9 @@ func TestSaveSessionStateIncludesReasoningEffort(t *testing.T) {
 	if loaded.ReasoningEffort != "low" {
 		t.Errorf("expected loaded reasoning_effort=low, got %q", loaded.ReasoningEffort)
 	}
+	if !loaded.ReasoningEffortExplicit {
+		t.Error("expected explicit reasoning choice to persist in the session")
+	}
 }
 
 func TestRestoreSessionStateRestoresReasoningEffort(t *testing.T) {
@@ -1457,10 +1493,11 @@ func TestRestoreSessionStateRestoresReasoningEffort(t *testing.T) {
 		CurrentModel:    "gpt-5.4",
 	}
 	state := &types.AppState{
-		Config:          cfg,
-		Messages:        []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
-		ChatHistory:     []types.ChatHistory{{User: cfg.SystemPrompt}},
-		ReasoningEffort: "medium",
+		Config:                  cfg,
+		Messages:                []types.ChatMessage{{Role: "system", Content: cfg.SystemPrompt}},
+		ChatHistory:             []types.ChatHistory{{User: cfg.SystemPrompt}},
+		ReasoningEffort:         "medium",
+		ReasoningEffortExplicit: true,
 	}
 	m := NewManager(state)
 
@@ -1471,6 +1508,7 @@ func TestRestoreSessionStateRestoresReasoningEffort(t *testing.T) {
 
 	// Change reasoning effort.
 	state.ReasoningEffort = "high"
+	state.ReasoningEffortExplicit = false
 
 	// Load and restore.
 	loaded, err := m.LoadLatestSessionState()
@@ -1481,6 +1519,9 @@ func TestRestoreSessionStateRestoresReasoningEffort(t *testing.T) {
 
 	if state.ReasoningEffort != "medium" {
 		t.Errorf("expected restored reasoning_effort=medium, got %q", state.ReasoningEffort)
+	}
+	if !state.ReasoningEffortExplicit {
+		t.Error("expected explicit reasoning choice to be restored")
 	}
 }
 
@@ -1524,6 +1565,9 @@ func TestRestoreSessionState_LegacySessionWithoutReasoningEffort(t *testing.T) {
 	// Legacy session without reasoning_effort should restore to empty (provider default).
 	if state.ReasoningEffort != "" {
 		t.Errorf("expected empty reasoning_effort from legacy session, got %q", state.ReasoningEffort)
+	}
+	if state.ReasoningEffortExplicit {
+		t.Error("legacy session should not restore an explicit reasoning override")
 	}
 }
 

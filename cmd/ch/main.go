@@ -215,6 +215,7 @@ func main() {
 
 		// Restore reasoning effort from session
 		state.ReasoningEffort = session.ReasoningEffort
+		state.ReasoningEffortExplicit = session.ReasoningEffortExplicit
 
 		// Re-initialize platform client with restored state
 		err = platformManager.Initialize()
@@ -222,7 +223,7 @@ func main() {
 			terminal.PrintError(fmt.Sprintf("failed to initialize client: %v", err))
 			return
 		}
-		platformManager.SetReasoningEffort(state.ReasoningEffort)
+		platformManager.SetReasoningEffortPreference(state.ReasoningEffort, state.ReasoningEffortExplicit)
 
 		// Print session info and conversation
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
@@ -547,6 +548,7 @@ func main() {
 
 		// Restore reasoning effort from session (unless overridden by CLI later)
 		state.ReasoningEffort = session.ReasoningEffort
+		state.ReasoningEffortExplicit = session.ReasoningEffortExplicit
 
 		// Print session restoration message in red.
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
@@ -616,6 +618,7 @@ func main() {
 
 		// Restore reasoning effort from session (unless overridden by CLI later)
 		state.ReasoningEffort = session.ReasoningEffort
+		state.ReasoningEffortExplicit = session.ReasoningEffortExplicit
 
 		// Print session restoration message in red
 		fmt.Printf("\033[91m%s UTC (%s)\033[0m\n", time.Unix(session.Timestamp, 0).UTC().Format("2006-01-02 15:04:05"), filepath.Base(session.SourceFile))
@@ -657,9 +660,10 @@ func main() {
 	if reasoningFlagProvided {
 		normalized := platformpkg.NormalizeEffort(*reasoningFlag)
 		state.ReasoningEffort = normalized
+		state.ReasoningEffortExplicit = true
 		state.Config.ReasoningEffort = normalized
 	}
-	platformManager.SetReasoningEffort(state.ReasoningEffort)
+	platformManager.SetReasoningEffortPreference(state.ReasoningEffort, state.ReasoningEffortExplicit)
 
 	// handle web search flag
 	if *webSearchFlag != "" {
@@ -2024,7 +2028,8 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 		}
 		fmt.Printf("%s %s\n", "platform:", platformName)
 		fmt.Printf("%s %s\n", "model:", model)
-		reasoningDesc := platformpkg.DescribeEffortState(state.ReasoningEffort,
+		effectiveEffort := platformpkg.ResolveConfiguredReasoningEffort(state.Config, model, state.ReasoningEffort, state.ReasoningEffortExplicit)
+		reasoningDesc := platformpkg.DescribeEffortState(effectiveEffort,
 			platformpkg.ResolveCapability(platformName, model, state.Config))
 		fmt.Printf("%s %s\n", "reasoning:", reasoningDesc)
 		fmt.Printf("%s %d\n", "chats:", chatCount)
@@ -2036,7 +2041,8 @@ func handleShowState(chatManager *chat.Manager, terminal *ui.Terminal, state *ty
 		}
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "platform:", platformName)
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "model:", model)
-		reasoningDesc := platformpkg.DescribeEffortState(state.ReasoningEffort,
+		effectiveEffort := platformpkg.ResolveConfiguredReasoningEffort(state.Config, model, state.ReasoningEffort, state.ReasoningEffortExplicit)
+		reasoningDesc := platformpkg.DescribeEffortState(effectiveEffort,
 			platformpkg.ResolveCapability(platformName, model, state.Config))
 		fmt.Printf("\033[96m%s\033[0m \033[95m%s\033[0m\n", "reasoning:", reasoningDesc)
 		fmt.Printf("\033[96m%s\033[0m \033[92m%d\033[0m\n", "chats:", chatCount)
@@ -2307,6 +2313,7 @@ func handleReasoningEffort(arg string, chatManager *chat.Manager, platformManage
 
 		if platformpkg.IsProviderDefault(normalized) {
 			state.ReasoningEffort = ""
+			state.ReasoningEffortExplicit = true
 			platformManager.SetReasoningEffort("")
 			if !state.Config.MuteNotifications {
 				terminal.PrintInfo("reasoning: default")
@@ -2328,6 +2335,7 @@ func handleReasoningEffort(arg string, chatManager *chat.Manager, platformManage
 		// CapStatusUnknown: allow as unverified user override.
 
 		state.ReasoningEffort = normalized
+		state.ReasoningEffortExplicit = true
 		platformManager.SetReasoningEffort(normalized)
 		if !state.Config.MuteNotifications {
 			label := normalized
@@ -2358,6 +2366,7 @@ func handleReasoningEffort(arg string, chatManager *chat.Manager, platformManage
 
 	effort := platformpkg.LabelToEffort(selected)
 	state.ReasoningEffort = effort
+	state.ReasoningEffortExplicit = true
 	platformManager.SetReasoningEffort(effort)
 
 	if !state.Config.MuteNotifications {

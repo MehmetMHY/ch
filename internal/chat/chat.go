@@ -162,7 +162,7 @@ func (m *Manager) AddToHistory(user, bot string) {
 		Bot:             bot,
 		Platform:        m.state.Config.CurrentPlatform,
 		Model:           m.state.Config.CurrentModel,
-		ReasoningEffort: m.state.ReasoningEffort,
+		ReasoningEffort: m.activeReasoningEffort(),
 	})
 }
 
@@ -176,8 +176,15 @@ func (m *Manager) AddToHistoryWithContext(user, bot, context string) {
 		Platform:        m.state.Config.CurrentPlatform,
 		Model:           m.state.Config.CurrentModel,
 		Context:         context,
-		ReasoningEffort: m.state.ReasoningEffort,
+		ReasoningEffort: m.activeReasoningEffort(),
 	})
+}
+
+func (m *Manager) activeReasoningEffort() string {
+	if m.platformManager != nil {
+		return m.platformManager.GetReasoningEffortForModel(m.state.Config.CurrentModel)
+	}
+	return m.state.ReasoningEffort
 }
 
 // EffectiveUserContent returns Context if set, otherwise User
@@ -349,15 +356,16 @@ func (m *Manager) SaveSessionState() error {
 // currentSession captures the resumable state shared by automatic saving and raw export.
 func (m *Manager) currentSession() types.SessionFile {
 	return types.SessionFile{
-		Timestamp:       time.Now().Unix(),
-		Platform:        m.state.Config.CurrentPlatform,
-		Model:           m.state.Config.CurrentModel,
-		BaseURL:         m.state.Config.CurrentBaseURL,
-		ChatHistory:     m.state.ChatHistory,
-		ReasoningEffort: m.state.ReasoningEffort,
-		Compressions:    m.state.Compressions,
-		Images:          m.state.Images,
-		ImagesOff:       m.state.ImagesOff,
+		Timestamp:               time.Now().Unix(),
+		Platform:                m.state.Config.CurrentPlatform,
+		Model:                   m.state.Config.CurrentModel,
+		BaseURL:                 m.state.Config.CurrentBaseURL,
+		ChatHistory:             m.state.ChatHistory,
+		ReasoningEffort:         m.state.ReasoningEffort,
+		ReasoningEffortExplicit: m.state.ReasoningEffortExplicit,
+		Compressions:            m.state.Compressions,
+		Images:                  m.state.Images,
+		ImagesOff:               m.state.ImagesOff,
 	}
 }
 
@@ -611,6 +619,7 @@ func (m *Manager) RestoreSessionState(session *types.SessionFile) {
 	m.state.ChatHistory = session.ChatHistory
 	m.state.SessionFilePath = session.SourceFile
 	m.state.ReasoningEffort = session.ReasoningEffort
+	m.state.ReasoningEffortExplicit = session.ReasoningEffortExplicit
 	m.state.Compressions = session.Compressions
 	m.state.Images = session.Images
 	m.state.ImagesOff = session.ImagesOff

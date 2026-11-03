@@ -333,7 +333,7 @@ func TestDescribeEffortState(t *testing.T) {
 	}{
 		{"", CapabilityResult{Status: CapStatusSupported}, "default"},
 		{"", CapabilityResult{Status: CapStatusUnsupported}, "default (unsupported by current model)"},
-		{"low", CapabilityResult{Status: CapStatusUnknown}, "low (unverified, metadata unavailable)"},
+		{"low", CapabilityResult{Status: CapStatusUnknown}, "low (unverified)"},
 		{"high", CapabilityResult{Status: CapStatusSupported}, "high"},
 	}
 

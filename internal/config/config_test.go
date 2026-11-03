@@ -462,6 +462,31 @@ func TestMergeConfigs_ReasoningEffort(t *testing.T) {
 	}
 }
 
+func TestReasoningEffortOverridesLoadInOrder(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("USERPROFILE", tempHome)
+	configDir := filepath.Join(tempHome, ".ch")
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	data := `{"reasoning_effort_overrides":[{"pattern":"^legacy-","effort":"default"},{"pattern":"^model-","effort":"low"}]}`
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := DefaultConfig()
+	if len(cfg.ReasoningEffortOverrides) != 2 {
+		t.Fatalf("expected 2 overrides, got %d", len(cfg.ReasoningEffortOverrides))
+	}
+	if got := cfg.ReasoningEffortOverrides[0]; got.Pattern != "^legacy-" || got.Effort != "default" {
+		t.Errorf("first override = %+v, want legacy default rule", got)
+	}
+	if got := cfg.ReasoningEffortOverrides[1]; got.Pattern != "^model-" || got.Effort != "low" {
+		t.Errorf("second override = %+v, want model low rule", got)
+	}
+}
+
 func TestMergeConfigs_ModelsDevEnabled(t *testing.T) {
 	def := &types.Config{
 		ModelsDevEnabled:      true,

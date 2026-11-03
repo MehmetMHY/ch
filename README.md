@@ -239,7 +239,10 @@ For persistent configuration, create `~/.ch/config.json` to override default set
   "search_country": "us",
   "search_lang": "en",
   "system_prompt": "You are a helpful assistant.",
-  "slow_model_patterns": ["^o\\d+", "^gpt-5$"]
+  "slow_model_patterns": ["^o\\d+", "^gpt-5$"],
+  "reasoning_effort_overrides": [
+    { "pattern": "(?i)gpt.*search", "effort": "default" }
+  ]
 }
 ```
 
@@ -266,11 +269,12 @@ For persistent configuration, create `~/.ch/config.json` to override default set
 - `ai_name_timeout_seconds` - Cancel the AI naming request after this many seconds and fall back to the hash list (default: 15).
 - `ai_name_prompt` - Instruction sent to the model when generating filename suggestions. Use `{count}` as a placeholder for `ai_name_count`. The default asks for output as a single fenced `text` code block.
 - `reasoning_effort` - Default reasoning effort sent as root-level `reasoning_effort` in chat-completions requests (default: empty, which omits the parameter and preserves the provider default). Supported values are model-specific and discovered from [Models.dev](https://models.dev/) metadata. Example: `"high"`
+- `reasoning_effort_overrides` - Ordered model-specific reasoning defaults. Each entry has a regex `pattern` and an `effort`; the first matching pattern wins. Use `"default"` to omit `reasoning_effort` for matching models. A CLI `-r` or explicit `!r` choice takes precedence and is saved with the session; otherwise, a match overrides `reasoning_effort` for that model and switching to a non-matching model restores the configured/session preference. For example, `{"pattern":"(?i)gpt.*search","effort":"default"}` matches model IDs containing `gpt` followed by `search`, regardless of case.
 - `reasoning_effort_switch` - Interactive command key for reasoning effort selection (default: `!r`)
 - `image_control` - Interactive command key for managing native images (default: `!i`)
 - `image_max_size_mb` - Maximum size per native image in MiB (default: 10)
 - `image_max_total_size_mb` - Maximum total native image bytes in MiB per session and per request (default: 40). Session storage counts disabled images too; requests count only images being sent
-- `models_dev_enabled` - Enable/disable network lookups to [Models.dev](https://models.dev/) for reasoning-effort and image-input capabilities (default: true). With no available metadata, reasoning values and image capabilities are unverified. Existing cached metadata may still be used when network lookups are disabled
+- `models_dev_enabled` - Enable/disable network lookups to [Models.dev](https://models.dev/) for reasoning-effort and image-input capabilities (default: true). With no available metadata, reasoning values and image capabilities are unverified; `>state` labels an unverified reasoning effort as `high (unverified)`. Existing cached metadata may still be used when network lookups are disabled
 - `models_dev_refresh_hours` - Cache refresh interval in hours for the Models.dev catalog (default: 24). Set to 168 for weekly refresh
 - `compress_history` - Interactive command key for compressing conversation history (default: `!z`)
 - `compress_min_tokens` - Minimum token count in the active context before `!z` will fire (default: 4000). Below this threshold compression is skipped
@@ -873,6 +877,7 @@ make dev
 - Update documentation as needed
 - To add new slow models, add regex patterns to `slow_model_patterns` in `~/.ch/config.json`
 - To set a default reasoning effort, add `reasoning_effort` to `~/.ch/config.json` (e.g. `"reasoning_effort": "high"`)
+- To set model-specific reasoning defaults, add ordered `{ "pattern": "...", "effort": "..." }` entries to `reasoning_effort_overrides`; use `"default"` to omit the request parameter for matching models
 
 ## Uninstall
 

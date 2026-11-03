@@ -21,9 +21,10 @@ import (
 
 // Manager handles AI platform operations
 type Manager struct {
-	client          *openai.Client
-	config          *types.Config
-	reasoningEffort string // current reasoning effort for user-facing requests; "" = omit
+	client                  *openai.Client
+	config                  *types.Config
+	reasoningEffort         string // configured/session preference; "" = omit
+	reasoningEffortExplicit bool   // CLI and !r choices supersede model-pattern defaults
 }
 
 // NewManager creates a new platform manager
@@ -33,15 +34,52 @@ func NewManager(config *types.Config) *Manager {
 	}
 }
 
-// SetReasoningEffort sets the active reasoning effort for subsequent
-// user-facing chat requests. An empty string means omit the parameter.
+// SetReasoningEffort sets a user-selected reasoning effort for subsequent
+// requests. Explicit selections take precedence over model-pattern defaults.
 func (m *Manager) SetReasoningEffort(effort string) {
-	m.reasoningEffort = effort
+	m.SetReasoningEffortPreference(effort, true)
 }
 
-// GetReasoningEffort returns the active reasoning effort.
+// SetReasoningEffortPreference sets the underlying reasoning preference and
+// whether it was explicitly chosen with -r or !r. Non-explicit preferences
+// can be replaced by a matching model-pattern default.
+func (m *Manager) SetReasoningEffortPreference(effort string, explicit bool) {
+	m.reasoningEffort = NormalizeEffort(strings.TrimSpace(effort))
+	m.reasoningEffortExplicit = explicit
+}
+
+// GetReasoningEffort returns the configured/session preference before
+// model-specific overrides are applied.
 func (m *Manager) GetReasoningEffort() string {
 	return m.reasoningEffort
+}
+
+// GetReasoningEffortForModel returns the active preference for model without
+// applying Models.dev capability filtering.
+func (m *Manager) GetReasoningEffortForModel(model string) string {
+	return ResolveConfiguredReasoningEffort(m.config, model, m.reasoningEffort, m.reasoningEffortExplicit)
+}
+
+// ResolveConfiguredReasoningEffort applies the first matching configured
+// model-pattern override unless the user explicitly selected an effort.
+// Invalid or blank patterns are ignored. "default" resolves to an empty
+// value, which means the request must omit reasoning_effort.
+func ResolveConfiguredReasoningEffort(cfg *types.Config, model, preferred string, explicit bool) string {
+	preferred = NormalizeEffort(strings.TrimSpace(preferred))
+	if explicit || cfg == nil {
+		return preferred
+	}
+
+	for _, override := range cfg.ReasoningEffortOverrides {
+		if strings.TrimSpace(override.Pattern) == "" {
+			continue
+		}
+		matched, err := regexp.MatchString(override.Pattern, model)
+		if err == nil && matched {
+			return NormalizeEffort(strings.TrimSpace(override.Effort))
+		}
+	}
+	return preferred
 }
 
 // resolveOutboundEffort determines the reasoning_effort value to send in
@@ -53,17 +91,18 @@ func (m *Manager) GetReasoningEffort() string {
 //   - Non-empty effort with no metadata: send as an unverified user override.
 //   - Non-empty effort but model known to be unsupported: omit silently.
 func (m *Manager) resolveOutboundEffort(model string) string {
-	if m.reasoningEffort == "" {
+	effort := m.GetReasoningEffortForModel(model)
+	if effort == "" {
 		return ""
 	}
 	cap := ResolveCapability(m.config.CurrentPlatform, model, m.config)
 	switch cap.Status {
 	case CapStatusSupported:
-		return m.reasoningEffort
+		return effort
 	case CapStatusUnsupported:
 		return ""
 	default: // CapStatusUnknown
-		return m.reasoningEffort
+		return effort
 	}
 }
 
@@ -125,12 +164,7 @@ func (m *Manager) SendSilentChatRequest(messages []types.ChatMessage, model stri
 		})
 	}
 
-	// Temporarily clear reasoning effort so the silent request omits it.
-	savedEffort := m.reasoningEffort
-	m.reasoningEffort = ""
-	defer func() { m.reasoningEffort = savedEffort }()
-
-	return m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+	return m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming, false)
 }
 
 // SendSilentChatRequestWithContext sends a non-streaming auxiliary request using
@@ -178,7 +212,7 @@ func (m *Manager) SendChatRequest(messages []types.ChatMessage, model string, st
 	}
 
 	if m.IsReasoningModel(model) {
-		response, err := m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming)
+		response, err := m.sendNonStreamingRequest(openaiMessages, model, streamingCancel, isStreaming, true)
 		return response, m.imageRequestError(messages, err)
 	}
 
@@ -623,14 +657,16 @@ func (m *Manager) IsReasoningModel(modelName string) bool {
 	return m.isSlowModel(modelName)
 }
 
-func (m *Manager) sendNonStreamingRequest(openaiMessages []openai.ChatCompletionMessage, model string, streamingCancel *func(), isStreaming *bool) (string, error) {
+func (m *Manager) sendNonStreamingRequest(openaiMessages []openai.ChatCompletionMessage, model string, streamingCancel *func(), isStreaming *bool, applyReasoningEffort bool) (string, error) {
 	req := openai.ChatCompletionRequest{
 		Model:    model,
 		Messages: openaiMessages,
 		Stream:   false,
 	}
-	if effort := m.resolveOutboundEffort(model); effort != "" {
-		req.ReasoningEffort = effort
+	if applyReasoningEffort {
+		if effort := m.resolveOutboundEffort(model); effort != "" {
+			req.ReasoningEffort = effort
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

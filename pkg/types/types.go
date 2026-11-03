@@ -95,6 +95,14 @@ type PlatformModels struct {
 	Headers  map[string]string `json:"headers"`
 }
 
+// ReasoningEffortOverride selects an automatic reasoning effort for models
+// matching Pattern. Rules are evaluated in order; "default" means omit the
+// reasoning_effort request parameter.
+type ReasoningEffortOverride struct {
+	Pattern string `json:"pattern"`
+	Effort  string `json:"effort"`
+}
+
 // Config holds application configuration
 type Config struct {
 	OpenAIAPIKey        string              `json:"openai_api_key,omitempty"`
@@ -151,8 +159,9 @@ type Config struct {
 	// Reasoning effort controls (sent as root-level chat-completions
 	// reasoning_effort when the active model supports it). Empty means
 	// omit the parameter and preserve the provider default.
-	ReasoningEffort       string `json:"reasoning_effort,omitempty"`
-	ReasoningEffortSwitch string `json:"reasoning_effort_switch,omitempty"`
+	ReasoningEffort          string                    `json:"reasoning_effort,omitempty"`
+	ReasoningEffortSwitch    string                    `json:"reasoning_effort_switch,omitempty"`
+	ReasoningEffortOverrides []ReasoningEffortOverride `json:"reasoning_effort_overrides,omitempty"`
 
 	// Compression controls. The interactive command compresses the active
 	// conversation into a summary that replaces the runtime Messages slice
@@ -186,32 +195,34 @@ type ChatExport struct {
 
 // SessionFile represents a persistent session state saved to disk
 type SessionFile struct {
-	Timestamp       int64               `json:"timestamp"`
-	Platform        string              `json:"platform"`
-	Model           string              `json:"model"`
-	BaseURL         string              `json:"base_url"`
-	ChatHistory     []ChatHistory       `json:"messages"`
-	ReasoningEffort string              `json:"reasoning_effort,omitempty"`
-	Compressions    []CompressionRecord `json:"compressions,omitempty"`
-	Images          []ImageAttachment   `json:"images,omitempty"`
-	ImagesOff       bool                `json:"images_off,omitempty"`
-	SourceFile      string              `json:"-"`
+	Timestamp               int64               `json:"timestamp"`
+	Platform                string              `json:"platform"`
+	Model                   string              `json:"model"`
+	BaseURL                 string              `json:"base_url"`
+	ChatHistory             []ChatHistory       `json:"messages"`
+	ReasoningEffort         string              `json:"reasoning_effort,omitempty"`
+	ReasoningEffortExplicit bool                `json:"reasoning_effort_explicit,omitempty"`
+	Compressions            []CompressionRecord `json:"compressions,omitempty"`
+	Images                  []ImageAttachment   `json:"images,omitempty"`
+	ImagesOff               bool                `json:"images_off,omitempty"`
+	SourceFile              string              `json:"-"`
 }
 
 // AppState holds the application's runtime state
 type AppState struct {
-	Config               *Config
-	Messages             []ChatMessage
-	ChatHistory          []ChatHistory
-	RecentlyCreatedFiles []string
-	IsStreaming          bool
-	StreamingCancel      func()
-	IsExecutingCommand   bool
-	CommandCancel        func()
-	SessionStartTime     int64 // Tracks when the current session started for consistent filename
-	SessionFilePath      string
-	ReasoningEffort      string // Active reasoning effort for the current session; "" = omit
-	Compressions         []CompressionRecord
-	Images               []ImageAttachment
-	ImagesOff            bool
+	Config                  *Config
+	Messages                []ChatMessage
+	ChatHistory             []ChatHistory
+	RecentlyCreatedFiles    []string
+	IsStreaming             bool
+	StreamingCancel         func()
+	IsExecutingCommand      bool
+	CommandCancel           func()
+	SessionStartTime        int64 // Tracks when the current session started for consistent filename
+	SessionFilePath         string
+	ReasoningEffort         string // Configured/session preference before per-model overrides; "" = omit
+	ReasoningEffortExplicit bool   // A CLI or !r choice takes precedence over model-pattern defaults
+	Compressions            []CompressionRecord
+	Images                  []ImageAttachment
+	ImagesOff               bool
 }
