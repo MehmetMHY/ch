@@ -156,6 +156,8 @@ The installer automatically:
 - When run from an existing local checkout, uses the current checkout as-is and does not run `git pull` automatically.
 - On macOS, installer and Makefile builds default `MACOSX_DEPLOYMENT_TARGET` to the running macOS version to match local libraries such as Homebrew Tesseract. An explicitly set target is preserved. These are local builds; targeting an older macOS also requires libraries compatible with that older version.
 
+The standard install does not upgrade Go modules or already-installed CLI tools, though it may install missing dependencies. In a local checkout, `./install.sh -r` or `./install.sh --refresh-deps` refreshes Go modules only and prints a warning that CLI tools are not updated. Use `./install.sh -R` or `./install.sh --refresh-all` to refresh Go modules and update installed CLI tools. The two refresh options are mutually exclusive.
+
 ## Configuration
 
 ### API Keys
@@ -682,7 +684,9 @@ cd ch
 ```bash
 # using the install script (local build options)
 ./install.sh -b     # build locally without installing
-./install.sh -r -b  # refresh/update all dependencies and build
+./install.sh -r     # refresh Go module dependencies only
+./install.sh -R     # refresh Go modules and update installed CLI tools, then install
+./install.sh -R -b  # refresh Go modules and update installed CLI tools, then build
 ./install.sh -v     # update version in Makefile interactively
 ./install.sh -c     # run unit tests with a pass/fail summary
 ./install.sh -k     # run gosec, gitleaks, and govulncheck with a pass/fail summary
@@ -860,8 +864,8 @@ git clone https://github.com/MehmetMHY/ch.git
 
 cd ch
 
-# refresh dependencies and build
-./install.sh -r -b
+# refresh dependencies and CLI tools, then build
+./install.sh -R -b
 
 # install security tools and activate the fast pre-commit hook
 ./install.sh --dev-setup

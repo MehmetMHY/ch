@@ -65,7 +65,7 @@ func TestInstallerSecurityNonInteractive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, flag := range []string{"-k", "-b", "-r", "-v", "-c", "-d"} {
+	for _, flag := range []string{"-k", "-b", "-r", "--refresh-deps", "-R", "--refresh-all", "-v", "-c", "-d"} {
 		t.Run("piped="+flag, func(t *testing.T) {
 			cmd := exec.Command("bash", "-s", "--", flag)
 			cmd.Dir = home
@@ -73,6 +73,98 @@ func TestInstallerSecurityNonInteractive(t *testing.T) {
 			out, err := cmd.CombinedOutput()
 			if err == nil || !strings.Contains(string(out), "only available when running locally") || strings.Contains(string(out), "scan:") {
 				t.Fatalf("piped maintenance flag was not rejected: %v\n%s", err, out)
+			}
+		})
+	}
+}
+
+func TestInstallerRefreshFlags(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	content, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definitions := strings.TrimSuffix(string(content), "main \"$@\"\n")
+	if definitions == string(content) {
+		t.Fatal("installer entry point not found")
+	}
+
+	for _, path := range []string{".git", "cmd/ch"} {
+		if err := os.MkdirAll(filepath.Join(home, path), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, path := range []string{"go.mod", "Makefile", "cmd/ch/main.go"} {
+		if err := os.WriteFile(filepath.Join(home, path), nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	script := definitions + `
+	check_go() { printf '%s\n' 'check-go'; }
+	refresh_go_deps() { printf '%s\n' 'go-refresh'; }
+	update_cli_tools() { printf '%s\n' 'cli-update'; }
+	build_only() { printf '%s\n' 'build-only'; }
+	_install_ch_from_repo() { printf '%s\n' 'install-repo'; }
+main "$@"
+`
+	scriptPath := filepath.Join(home, "installer-test.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name          string
+		args          []string
+		want          []string
+		wantGoRefresh bool
+		wantCLIUpdate bool
+		wantWarning   bool
+		wantError     bool
+	}{
+		{name: "Go-only install shorthand", args: []string{"-r"}, want: []string{"WARNING:", "go-refresh", "install-repo"}, wantGoRefresh: true, wantWarning: true},
+		{name: "Go-only install long form", args: []string{"--refresh-deps"}, want: []string{"WARNING:", "go-refresh", "install-repo"}, wantGoRefresh: true, wantWarning: true},
+		{name: "full refresh before install", args: []string{"-R"}, want: []string{"go-refresh", "cli-update", "install-repo"}, wantGoRefresh: true, wantCLIUpdate: true},
+		{name: "full refresh before build", args: []string{"--refresh-all", "-b"}, want: []string{"go-refresh", "cli-update", "build-only"}, wantGoRefresh: true, wantCLIUpdate: true},
+		{name: "Go-only refresh before build", args: []string{"-r", "-b"}, want: []string{"WARNING:", "go-refresh", "build-only"}, wantGoRefresh: true, wantWarning: true},
+		{name: "refresh modes conflict", args: []string{"-r", "-R"}, want: []string{"Cannot combine -r/--refresh-deps with -R/--refresh-all"}, wantError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := exec.Command("bash", append([]string{scriptPath}, tt.args...)...)
+			cmd.Dir = home
+			out, err := cmd.CombinedOutput()
+			if (err != nil) != tt.wantError {
+				t.Fatalf("unexpected exit: %v\n%s", err, out)
+			}
+			output := string(out)
+			lastIndex := -1
+			for _, marker := range tt.want {
+				index := strings.Index(output, marker)
+				if index < 0 {
+					t.Fatalf("missing %q in output:\n%s", marker, output)
+				}
+				if index < lastIndex {
+					t.Fatalf("%q appeared out of order:\n%s", marker, output)
+				}
+				lastIndex = index
+			}
+			if got := strings.Contains(output, "\x1b[93mWARNING:"); got != tt.wantWarning {
+				t.Fatalf("yellow warning = %v, want %v:\n%s", got, tt.wantWarning, output)
+			}
+
+			if got := strings.Contains(output, "go-refresh\n"); got != tt.wantGoRefresh {
+				t.Fatalf("Go dependency refresh = %v, want %v:\n%s", got, tt.wantGoRefresh, output)
+			}
+			if got := strings.Contains(output, "cli-update\n"); got != tt.wantCLIUpdate {
+				t.Fatalf("CLI tool update = %v, want %v:\n%s", got, tt.wantCLIUpdate, output)
+			}
+			if tt.name == "refresh modes conflict" && strings.Contains(output, "install-repo") {
+				t.Fatalf("conflicting refresh options continued installation:\n%s", output)
 			}
 		})
 	}

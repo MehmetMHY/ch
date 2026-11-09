@@ -803,12 +803,15 @@ update_cli_tools() {
 	log "CLI tools update complete"
 }
 
-refresh_deps() {
-	log "Refreshing dependencies..."
-	go get -u ./... || error "Failed to refresh dependencies"
+refresh_go_deps() {
+	log "Refreshing Go dependencies..."
+	go get -u ./... || error "Failed to refresh Go dependencies"
 	go mod tidy || error "Failed to tidy modules"
 	log "Go dependencies refreshed successfully"
+}
 
+refresh_deps() {
+	refresh_go_deps
 	update_cli_tools
 	log "All dependencies refreshed successfully"
 }
@@ -921,7 +924,8 @@ show_help() {
 	echo "  -s, --safe-uninstall  uninstall with confirmation"
 	echo "  -u, --uninstall       uninstall immediately"
 	echo "  -b, --build           build locally"
-	echo "  -r, --refresh-deps    refresh deps before build"
+	echo "  -r, --refresh-deps    update Go module dependencies only"
+	echo "  -R, --refresh-all     update Go modules and CLI tools"
 	echo "  -v, --version         update Makefile version"
 	echo "  -c, --check           run tests with summary"
 	echo "  -k, --security        run security scans with summary"
@@ -933,7 +937,8 @@ show_help() {
 
 main() {
 	local build_only_flag=false
-	local refresh_deps_flag=false
+	local refresh_go_only_flag=false
+	local refresh_all_flag=false
 	local is_remote_install=false
 
 	# Local scripts may have redirected stdin in automation. The caller's
@@ -961,7 +966,13 @@ main() {
 			if [[ "$is_remote_install" == true ]]; then
 				error "Refresh deps option is only available when running locally from the repository"
 			fi
-			refresh_deps_flag=true
+			refresh_go_only_flag=true
+			;;
+		-R | --refresh-all)
+			if [[ "$is_remote_install" == true ]]; then
+				error "Refresh all option is only available when running locally from the repository"
+			fi
+			refresh_all_flag=true
 			;;
 		-v | --version)
 			if [[ "$is_remote_install" == true ]]; then
@@ -1000,12 +1011,22 @@ main() {
 		shift
 	done
 
+	if [[ "$refresh_go_only_flag" == true ]] && [[ "$refresh_all_flag" == true ]]; then
+		error "Cannot combine -r/--refresh-deps with -R/--refresh-all"
+	fi
+
+	if [[ "$refresh_go_only_flag" == true ]]; then
+		echo -e "\033[93mWARNING: Use -R/--refresh-all to update CLI tools\033[0m"
+	fi
+
 	if [[ "$build_only_flag" == true ]]; then
 		if [[ ! -f "go.mod" ]] || [[ ! -f "cmd/ch/main.go" ]]; then
 			error "Build option requires running from the Ch repository root directory"
 		fi
 
-		if [[ "$refresh_deps_flag" == true ]]; then
+		if [[ "$refresh_go_only_flag" == true ]]; then
+			refresh_go_deps
+		elif [[ "$refresh_all_flag" == true ]]; then
 			refresh_deps
 		fi
 
@@ -1016,7 +1037,9 @@ main() {
 	if [ -f "go.mod" ] && [ -f "cmd/ch/main.go" ] && [ -d ".git" ]; then
 		log "Running installer from existing local repository"
 
-		if [[ "$refresh_deps_flag" == true ]]; then
+		if [[ "$refresh_go_only_flag" == true ]]; then
+			refresh_go_deps
+		elif [[ "$refresh_all_flag" == true ]]; then
 			refresh_deps
 		fi
 
