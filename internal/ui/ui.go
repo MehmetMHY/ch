@@ -1547,12 +1547,14 @@ func (t *Terminal) textContentFromHTML(body io.Reader) (string, error) {
 // scrapeYouTube scrapes YouTube videos using yt-dlp
 func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	var result strings.Builder
+	ytDlpJSArgs := []string{"--js-runtimes", "node", "--remote-components", "ejs:github"}
 
 	// Get metadata with 30 second timeout
 	result.WriteString("--- Metadata ---\n")
 	metadataCtx, metadataCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer metadataCancel()
-	metadataCmd := exec.CommandContext(metadataCtx, "yt-dlp", "-j", urlStr) // #nosec G204 -- yt-dlp is intentionally invoked with a user-provided URL as a direct argument, not through a shell.
+	metadataArgs := append(append([]string{}, ytDlpJSArgs...), "-j", urlStr)
+	metadataCmd := exec.CommandContext(metadataCtx, "yt-dlp", metadataArgs...) // #nosec G204 -- yt-dlp is intentionally invoked with a user-provided URL as a direct argument, not through a shell.
 	var metadataStderr bytes.Buffer
 	metadataCmd.Stderr = &metadataStderr
 	metadataOutput, err := metadataCmd.Output()
@@ -1585,9 +1587,10 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	// Download subtitles with 30 second timeout
 	subtitleCtx, subtitleCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer subtitleCancel()
-	subtitleCmd := exec.CommandContext(subtitleCtx, "yt-dlp", "--quiet", "--skip-download", // #nosec G204 -- yt-dlp is intentionally invoked with a user-provided URL as direct arguments, not through a shell.
-		"--write-auto-subs", "--sub-lang", "en", "--sub-format", "srt",
+	subtitleArgs := append(append([]string{}, ytDlpJSArgs...), "--quiet", "--skip-download",
+		"--write-subs", "--write-auto-subs", "--sub-langs", "en.*,en", "--sub-format", "srt",
 		"-o", baseName+".%(ext)s", urlStr)
+	subtitleCmd := exec.CommandContext(subtitleCtx, "yt-dlp", subtitleArgs...) // #nosec G204 -- yt-dlp is intentionally invoked with a user-provided URL as direct arguments, not through a shell.
 
 	var subtitleStderr bytes.Buffer
 	subtitleCmd.Stderr = &subtitleStderr
@@ -1604,11 +1607,12 @@ func (t *Terminal) scrapeYouTube(urlStr string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to find YouTube subtitles: %w", err)
 	}
-	if len(matches) == 0 {
+	subtitlePath := selectEnglishSubtitle(baseName, matches)
+	if subtitlePath == "" {
 		result.WriteString("Subtitles unavailable: yt-dlp returned no English SRT subtitles.\n")
 		return result.String(), nil
 	}
-	srtContent, err := os.ReadFile(matches[0])
+	srtContent, err := os.ReadFile(subtitlePath) // #nosec G304 -- subtitlePath is selected from a glob under Ch's isolated temp directory.
 	if err != nil {
 		result.WriteString(fmt.Sprintf("Subtitles unavailable: failed to read subtitle file: %v\n", err))
 		return result.String(), nil

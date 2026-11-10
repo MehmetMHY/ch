@@ -170,6 +170,263 @@ main "$@"
 	}
 }
 
+func TestInstallerNodeOptionalDependency(t *testing.T) {
+	content, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definitions := strings.TrimSuffix(string(content), "main \"$@\"\n")
+	if definitions == string(content) {
+		t.Fatal("installer entry point not found")
+	}
+
+	tests := []struct {
+		name             string
+		initialVersion   string
+		installedVersion string
+		keepInitial      bool
+		wantWarning      bool
+	}{
+		{name: "installs missing Node 22+", installedVersion: "v22.15.0"},
+		{name: "replaces old Node", initialVersion: "v18.20.0", installedVersion: "v22.15.0"},
+		{name: "warns when package is still too old", initialVersion: "v18.20.0", installedVersion: "v22.15.0", keepInitial: true, wantWarning: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			binDir := filepath.Join(home, "bin")
+			if err := os.MkdirAll(binDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			t.Setenv("PATH", binDir)
+			t.Setenv("INSTALLER_TEST_BIN", binDir)
+			t.Setenv("INSTALLER_TEST_INSTALL_NODE_VERSION", tt.installedVersion)
+			logPath := filepath.Join(home, "brew.log")
+			t.Setenv("INSTALLER_TEST_BREW_LOG", logPath)
+			if tt.keepInitial {
+				t.Setenv("INSTALLER_TEST_KEEP_NODE", "true")
+			} else {
+				t.Setenv("INSTALLER_TEST_KEEP_NODE", "false")
+			}
+
+			for _, name := range []string{"fzf", "yt-dlp", "tesseract"} {
+				stub := "#!/bin/sh\nexit 0\n"
+				if name == "yt-dlp" {
+					stub = "#!/bin/sh\nprintf '%s\\n' '--js-runtimes' '--remote-components'\n"
+				}
+				if err := os.WriteFile(filepath.Join(binDir, name), []byte(stub), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tt.initialVersion != "" {
+				writeNode := "#!/bin/sh\nprintf '%s\\n' '" + tt.initialVersion + "'\n"
+				if err := os.WriteFile(filepath.Join(binDir, "node"), []byte(writeNode), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			brew := `#!/bin/sh
+printf 'brew %s\n' "$*" >> "$INSTALLER_TEST_BREW_LOG"
+if [ "$1" = "install" ] && [ "$2" = "node" ] && [ "$INSTALLER_TEST_KEEP_NODE" != "true" ]; then
+    /bin/cat > "$INSTALLER_TEST_BIN/node" <<'NODE'
+#!/bin/sh
+printf '%s\n' "$INSTALLER_TEST_INSTALL_NODE_VERSION"
+NODE
+    /bin/chmod +x "$INSTALLER_TEST_BIN/node"
+fi
+`
+			if err := os.WriteFile(filepath.Join(binDir, "brew"), []byte(brew), 0700); err != nil {
+				t.Fatal(err)
+			}
+
+			script := definitions + `
+detect_os() { printf 'macos\n'; }
+install_dependencies
+`
+			cmd := exec.Command("/bin/bash", "-s")
+			cmd.Stdin = strings.NewReader(script)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("installer failed: %v\n%s", err, out)
+			}
+			output := string(out)
+			brewOutput, err := os.ReadFile(logPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(brewOutput), "brew install node\n") {
+				t.Fatalf("installer did not install the Node package:\n%s", brewOutput)
+			}
+			if got := strings.Contains(output, "Node.js 22+ is required"); got != tt.wantWarning {
+				t.Fatalf("Node compatibility warning = %v, want %v:\n%s", got, tt.wantWarning, output)
+			}
+		})
+	}
+}
+
+func TestInstallerNodePackageNames(t *testing.T) {
+	content, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definitions := strings.TrimSuffix(string(content), "main \"$@\"\n")
+	if definitions == string(content) {
+		t.Fatal("installer entry point not found")
+	}
+	tests := []struct {
+		name       string
+		os         string
+		manager    string
+		installLog string
+		updateLog  string
+	}{
+		{name: "Linux apt", os: "linux", manager: "apt-get", installLog: "apt-get install -y nodejs", updateLog: "apt-get install --only-upgrade -y nodejs"},
+		{name: "Termux pkg", os: "android", manager: "pkg", installLog: "pkg install -y nodejs", updateLog: "pkg upgrade -y nodejs"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			binDir := filepath.Join(home, "bin")
+			if err := os.MkdirAll(binDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			t.Setenv("PATH", binDir)
+			t.Setenv("INSTALLER_TEST_BIN", binDir)
+			t.Setenv("INSTALLER_TEST_NODE_VERSION", "v22.15.0")
+			logPath := filepath.Join(home, "packages.log")
+			t.Setenv("INSTALLER_TEST_PACKAGE_LOG", logPath)
+
+			for _, name := range []string{"fzf", "tesseract"} {
+				if err := os.WriteFile(filepath.Join(binDir, name), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(binDir, "yt-dlp"), []byte("#!/bin/sh\nprintf '%s\\n' '--js-runtimes' '--remote-components'\n"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			manager := `#!/bin/sh
+printf '%s %s\n' "$INSTALLER_TEST_MANAGER" "$*" >> "$INSTALLER_TEST_PACKAGE_LOG"
+case "$*" in
+    *"install -y nodejs"*)
+        /bin/cat > "$INSTALLER_TEST_BIN/node" <<'NODE'
+#!/bin/sh
+printf '%s\n' "$INSTALLER_TEST_NODE_VERSION"
+NODE
+        /bin/chmod +x "$INSTALLER_TEST_BIN/node"
+        ;;
+esac
+`
+			t.Setenv("INSTALLER_TEST_MANAGER", tt.manager)
+			managerPath := filepath.Join(binDir, tt.manager)
+			if err := os.WriteFile(managerPath, []byte(manager), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if tt.os == "linux" {
+				if err := os.WriteFile(filepath.Join(binDir, "sudo"), []byte("#!/bin/sh\nexec \"$@\"\n"), 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(binDir, "id"), []byte("#!/bin/sh\nprintf '1000\\n'\n"), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			script := definitions + "\ndetect_os() { printf '%s\\n' '" + tt.os + "'; }\ninstall_dependencies\nupdate_cli_tools\n"
+			cmd := exec.Command("/bin/bash", "-s")
+			cmd.Stdin = strings.NewReader(script)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("installer failed: %v\n%s", err, out)
+			}
+			log, err := os.ReadFile(logPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range []string{tt.installLog, tt.updateLog} {
+				if !strings.Contains(string(log), want) {
+					t.Fatalf("missing package operation %q:\n%s\ninstaller output:\n%s", want, log, out)
+				}
+			}
+		})
+	}
+}
+
+func TestInstallerWarnsForUnsupportedYtDlp(t *testing.T) {
+	home := t.TempDir()
+	binDir := filepath.Join(home, "bin")
+	if err := os.MkdirAll(binDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir)
+	if err := os.WriteFile(filepath.Join(binDir, "yt-dlp"), []byte("#!/bin/sh\nprintf 'old yt-dlp help\\n'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definitions := strings.TrimSuffix(string(content), "main \"$@\"\n")
+	if definitions == string(content) {
+		t.Fatal("installer entry point not found")
+	}
+	script := definitions + "\nwarn_yt_dlp_ejs_support\n"
+	cmd := exec.Command("/bin/bash", "-s")
+	cmd.Stdin = strings.NewReader(script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("installer warning check failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "does not advertise the JavaScript runtime/EJS options") || !strings.Contains(string(out), "./install.sh -R") {
+		t.Fatalf("missing actionable yt-dlp warning:\n%s", out)
+	}
+}
+
+func TestInstallerRefreshesNode(t *testing.T) {
+	home := t.TempDir()
+	binDir := filepath.Join(home, "bin")
+	if err := os.MkdirAll(binDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("PATH", binDir)
+	if err := os.WriteFile(filepath.Join(binDir, "node"), []byte("#!/bin/sh\nprintf 'v22.15.0\\n'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	brewLog := filepath.Join(home, "brew.log")
+	if err := os.WriteFile(filepath.Join(binDir, "brew"), []byte("#!/bin/sh\nprintf 'brew %s\\n' \"$*\" >> \""+brewLog+"\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definitions := strings.TrimSuffix(string(content), "main \"$@\"\n")
+	if definitions == string(content) {
+		t.Fatal("installer entry point not found")
+	}
+	script := definitions + `
+detect_os() { printf 'macos\n'; }
+update_cli_tools
+`
+	cmd := exec.Command("/bin/bash", "-s")
+	cmd.Stdin = strings.NewReader(script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("installer update failed: %v\n%s", err, out)
+	}
+	log, err := os.ReadFile(brewLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(log), "brew upgrade node\n") {
+		t.Fatalf("full refresh did not upgrade Node:\n%s", log)
+	}
+}
+
 func TestMacOSBuildDeploymentTarget(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

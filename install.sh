@@ -5,6 +5,7 @@ set -euo pipefail
 CH_HOME="$HOME/.ch"
 BIN_DIR="$CH_HOME/bin"
 REPO_URL="https://github.com/MehmetMHY/ch.git"
+NODE_MIN_MAJOR=22
 
 log() {
 	echo -e "\033[96m$1\033[0m"
@@ -90,6 +91,41 @@ check_go() {
 	go_version=$(go version | cut -d' ' -f3 | sed 's/go//')
 	if ! go version | grep -qE "go(1\.26\.([5-9]|[1-9][0-9]+)|1\.(2[7-9]|[3-9][0-9])|[2-9]\.)"; then
 		error "Go 1.26.5+ is required (found $go_version)"
+	fi
+}
+
+node_runtime_supported() {
+	command -v node >/dev/null 2>&1 || return 1
+
+	local version
+	version=$(node --version 2>/dev/null || true)
+	if [[ ! "$version" =~ ^v?([0-9]+)\. ]]; then
+		return 1
+	fi
+
+	local major="${BASH_REMATCH[1]}"
+	((major >= NODE_MIN_MAJOR))
+}
+
+warn_node_runtime() {
+	if node_runtime_supported; then
+		return
+	fi
+
+	local found="not installed"
+	if command -v node >/dev/null 2>&1; then
+		found=$(node --version 2>/dev/null || echo "unknown version")
+	fi
+	warning "Node.js ${NODE_MIN_MAJOR}+ is required for Ch's YouTube scraping (found $found). Install or upgrade it from https://nodejs.org/"
+}
+
+warn_yt_dlp_ejs_support() {
+	command -v yt-dlp >/dev/null 2>&1 || return 0
+
+	local help_output
+	help_output=$(yt-dlp --help 2>/dev/null || true)
+	if [[ "$help_output" != *"--js-runtimes"* || "$help_output" != *"--remote-components"* ]]; then
+		warning "Installed yt-dlp does not advertise the JavaScript runtime/EJS options Ch uses. Update yt-dlp (for example, with ./install.sh -R) or install the latest release from https://github.com/yt-dlp/yt-dlp"
 	fi
 }
 
@@ -211,7 +247,7 @@ install_dependencies() {
 	log "Checking system dependencies for $os"
 
 	local required_deps=("fzf")
-	local optional_deps=("yt-dlp" "tesseract")
+	local optional_deps=("yt-dlp" "node" "tesseract")
 
 	local missing_required=()
 	local missing_optional=()
@@ -223,13 +259,18 @@ install_dependencies() {
 	done
 
 	for dep in "${optional_deps[@]}"; do
-		if ! command -v "$dep" >/dev/null 2>&1; then
+		if [[ "$dep" == "node" ]]; then
+			if ! node_runtime_supported; then
+				missing_optional+=("$dep")
+			fi
+		elif ! command -v "$dep" >/dev/null 2>&1; then
 			missing_optional+=("$dep")
 		fi
 	done
 
 	if [[ ${#missing_required[@]} -eq 0 ]] && [[ ${#missing_optional[@]} -eq 0 ]]; then
 		log "All dependencies already installed"
+		warn_yt_dlp_ejs_support
 		return
 	fi
 
@@ -241,50 +282,63 @@ install_dependencies() {
 		log "The following optional system dependencies are missing: ${missing_optional[*]}"
 	fi
 
-	for dep in "${missing_optional[@]}"; do
-		if [[ "$dep" == "tesseract" ]]; then
-			warning "Tesseract OCR is not installed. Image-to-text extraction will be disabled"
-			warning "The script will attempt to install it. If it fails, you can install it manually:"
-			warning "  macOS: brew install tesseract"
-			warning "  Debian/Ubuntu: sudo apt-get install tesseract-ocr libtesseract-dev libleptonica-dev"
-			warning "  Arch: sudo pacman -S tesseract leptonica"
-			warning "  Fedora: sudo dnf install tesseract tesseract-devel leptonica-devel"
-		fi
-	done
+	if [[ ${#missing_optional[@]} -gt 0 ]]; then
+		for dep in "${missing_optional[@]}"; do
+			if [[ "$dep" == "tesseract" ]]; then
+				warning "Tesseract OCR is not installed. Image-to-text extraction will be disabled"
+				warning "The script will attempt to install it. If it fails, you can install it manually:"
+				warning "  macOS: brew install tesseract"
+				warning "  Debian/Ubuntu: sudo apt-get install tesseract-ocr libtesseract-dev libleptonica-dev"
+				warning "  Arch: sudo pacman -S tesseract leptonica"
+				warning "  Fedora: sudo dnf install tesseract tesseract-devel leptonica-devel"
+			fi
+		done
+	fi
 
 	case "$os" in
 	"macos")
 		if ! command -v brew >/dev/null 2>&1; then
 			error "Homebrew is required on macOS to install dependencies. Install from https://brew.sh/"
 		fi
-		for dep in "${missing_required[@]}"; do
-			log "Installing required dependency $dep with Homebrew..."
-			brew install "$dep" || error "Failed to install required dependency: $dep. Please install it manually"
-		done
-		for dep in "${missing_optional[@]}"; do
-			log "Installing optional dependency $dep with Homebrew..."
-			brew install "$dep" || warning "Failed to install optional dependency: $dep"
-		done
+		if [[ ${#missing_required[@]} -gt 0 ]]; then
+			for dep in "${missing_required[@]}"; do
+				log "Installing required dependency $dep with Homebrew..."
+				brew install "$dep" || error "Failed to install required dependency: $dep. Please install it manually"
+			done
+		fi
+		if [[ ${#missing_optional[@]} -gt 0 ]]; then
+			for dep in "${missing_optional[@]}"; do
+				local install_name="$dep"
+				log "Installing optional dependency $install_name with Homebrew..."
+				brew install "$install_name" || warning "Failed to install optional dependency: $dep"
+			done
+		fi
 		;;
 	"android")
 		if ! command -v pkg >/dev/null 2>&1; then
 			error "pkg package manager not found. Make sure you're running this in Termux"
 		fi
 		pkg update -y
-		for dep in "${missing_required[@]}"; do
-			log "Installing required dependency $dep with pkg..."
-			pkg install -y "$dep" || error "Failed to install required dependency: $dep. Please install it manually"
-		done
-		for dep in "${missing_optional[@]}"; do
-			local install_name="$dep"
-			local extra_packages=""
-			if [[ "$dep" == "tesseract" ]]; then
-				install_name="tesseract"
-				extra_packages="leptonica"
-			fi
-			log "Installing optional dependency $install_name with pkg..."
-			pkg install -y "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep"
-		done
+		if [[ ${#missing_required[@]} -gt 0 ]]; then
+			for dep in "${missing_required[@]}"; do
+				log "Installing required dependency $dep with pkg..."
+				pkg install -y "$dep" || error "Failed to install required dependency: $dep. Please install it manually"
+			done
+		fi
+		if [[ ${#missing_optional[@]} -gt 0 ]]; then
+			for dep in "${missing_optional[@]}"; do
+				local install_name="$dep"
+				local extra_packages=""
+				if [[ "$dep" == "node" ]]; then
+					install_name="nodejs"
+				elif [[ "$dep" == "tesseract" ]]; then
+					install_name="tesseract"
+					extra_packages="leptonica"
+				fi
+				log "Installing optional dependency $install_name with pkg..."
+				pkg install -y "$install_name" $extra_packages || warning "Failed to install optional dependency: $dep"
+			done
+		fi
 		;;
 	"linux")
 		local has_sudo=true
@@ -342,7 +396,9 @@ install_dependencies() {
 				for dep in "${missing_optional[@]}"; do
 					local install_name="$dep"
 					local extra_packages=""
-					if [[ "$dep" == "tesseract" ]]; then
+					if [[ "$dep" == "node" ]]; then
+						install_name="nodejs"
+					elif [[ "$dep" == "tesseract" ]]; then
 						case "$pkg_manager" in
 						"apt-get")
 							install_name="tesseract-ocr"
@@ -383,6 +439,9 @@ install_dependencies() {
 		fi
 		;;
 	esac
+
+	warn_node_runtime
+	warn_yt_dlp_ejs_support
 }
 
 build_ch() {
@@ -728,7 +787,7 @@ update_cli_tools() {
 	local os
 	os=$(detect_os)
 
-	local system_deps=("fzf" "yt-dlp" "tesseract" "gitleaks")
+	local system_deps=("fzf" "yt-dlp" "node" "tesseract" "gitleaks")
 
 	case "$os" in
 	"macos")
@@ -748,7 +807,11 @@ update_cli_tools() {
 			for dep in "${system_deps[@]}"; do
 				if command -v "$dep" >/dev/null 2>&1; then
 					log "Updating $dep..."
-					pkg upgrade -y "$dep" 2>/dev/null || log "$dep already up to date"
+					local install_name="$dep"
+					if [[ "$dep" == "node" ]]; then
+						install_name="nodejs"
+					fi
+					pkg upgrade -y "$install_name" 2>/dev/null || log "$dep already up to date"
 				fi
 			done
 		fi
@@ -780,7 +843,9 @@ update_cli_tools() {
 			for dep in "${system_deps[@]}"; do
 				if command -v "$dep" >/dev/null 2>&1; then
 					local install_name="$dep"
-					if [[ "$dep" == "tesseract" && "$pkg_manager" == "apt-get" ]]; then
+					if [[ "$dep" == "node" ]]; then
+						install_name="nodejs"
+					elif [[ "$dep" == "tesseract" && "$pkg_manager" == "apt-get" ]]; then
 						install_name="tesseract-ocr"
 					fi
 					log "Updating $dep..."
@@ -800,6 +865,8 @@ update_cli_tools() {
 		;;
 	esac
 
+	warn_node_runtime
+	warn_yt_dlp_ejs_support
 	log "CLI tools update complete"
 }
 

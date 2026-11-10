@@ -9,7 +9,22 @@ import (
 
 func TestScrapeYouTube(t *testing.T) {
 	const fakeYtDlp = `#!/bin/sh
-if [ "$1" = "-j" ]; then
+printf '%s\n' '---CALL---' >> "$YOUTUBE_TEST_ARGS_LOG"
+metadata=0
+output_base=""
+while [ "$#" -gt 0 ]; do
+    printf '%s\n' "$1" >> "$YOUTUBE_TEST_ARGS_LOG"
+    case "$1" in
+        -j) metadata=1 ;;
+        -o)
+            shift
+            printf '%s\n' "$1" >> "$YOUTUBE_TEST_ARGS_LOG"
+            output_base="${1%.%(ext)s}"
+            ;;
+    esac
+    shift
+done
+if [ "$metadata" = 1 ]; then
     if [ "$YOUTUBE_TEST_MODE" = "metadata-error" ]; then
         printf '%s\n' 'ERROR: Sign in to confirm you are not a bot' >&2
         exit 1
@@ -17,13 +32,7 @@ if [ "$1" = "-j" ]; then
     printf '%s\n' '{"title": "Test video", "duration": 903}'
     exit 0
 fi
-while [ "$#" -gt 0 ]; do
-    if [ "$1" = "-o" ]; then
-        shift
-        output="${1%.%(ext)s}.en.srt"
-    fi
-    shift
-done
+output="$output_base.en.srt"
 case "$YOUTUBE_TEST_MODE" in
     rate-limit)
         printf '%s' 'partial download' > "$output.part"
@@ -36,6 +45,7 @@ case "$YOUTUBE_TEST_MODE" in
     exit-only) exit 1 ;;
     success)
         printf '1\n00:00:00,160 --> 00:00:04,880\n>> Hello world.\n' > "$output"
+        printf '1\n00:00:00,160 --> 00:00:04,880\nOriginal English variant.\n' > "$output_base.en-orig.srt"
         printf '%s' 'extra temporary file' > "$output.part"
         ;;
 esac
@@ -59,6 +69,7 @@ esac
 			t.Setenv("HOME", home)
 			t.Setenv("USERPROFILE", home)
 			t.Setenv("YOUTUBE_TEST_MODE", tt.mode)
+			t.Setenv("YOUTUBE_TEST_ARGS_LOG", filepath.Join(home, "yt-dlp-args.log"))
 			binDir := t.TempDir()
 			if err := os.WriteFile(filepath.Join(binDir, "yt-dlp"), []byte(fakeYtDlp), 0700); err != nil {
 				t.Fatal(err)
@@ -81,12 +92,79 @@ esac
 			if tt.mode != "success" && !strings.Contains(got, "Subtitles unavailable:") {
 				t.Fatalf("missing subtitle failure diagnostic: %q", got)
 			}
+			if tt.mode == "success" && strings.Contains(got, "Original English variant.") {
+				t.Fatalf("selected a lower-priority English subtitle variant: %q", got)
+			}
+			args, err := os.ReadFile(os.Getenv("YOUTUBE_TEST_ARGS_LOG"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, flag := range []string{"--js-runtimes\nnode\n", "--remote-components\nejs:github\n"} {
+				if count := strings.Count(string(args), flag); count != 2 {
+					t.Fatalf("expected %q in both yt-dlp calls, found %d times in:\n%s", flag, count, args)
+				}
+			}
+			for _, flag := range []string{"--write-subs\n", "--write-auto-subs\n", "--sub-langs\nen.*,en\n", "--sub-format\nsrt\n"} {
+				if !strings.Contains(string(args), flag) {
+					t.Fatalf("subtitle invocation missing %q:\n%s", flag, args)
+				}
+			}
 			entries, err := os.ReadDir(filepath.Join(home, ".ch", "tmp"))
 			if err != nil {
 				t.Fatal(err)
 			}
 			if len(entries) != 0 {
 				t.Fatalf("subtitle downloads left temporary files: %v", entries)
+			}
+		})
+	}
+}
+
+func TestSelectEnglishSubtitle(t *testing.T) {
+	baseName := filepath.Join("tmp", "subtitles")
+	tests := []struct {
+		name    string
+		matches []string
+		want    string
+	}{
+		{name: "no matches"},
+		{
+			name: "exact English before original and regional variants",
+			matches: []string{
+				filepath.Join("tmp", "subtitles.en-US.srt"),
+				filepath.Join("tmp", "subtitles.en-orig.srt"),
+				filepath.Join("tmp", "subtitles.en.srt"),
+			},
+			want: filepath.Join("tmp", "subtitles.en.srt"),
+		},
+		{
+			name: "original before regional English",
+			matches: []string{
+				filepath.Join("tmp", "subtitles.en-GB.srt"),
+				filepath.Join("tmp", "subtitles.en-orig.srt"),
+			},
+			want: filepath.Join("tmp", "subtitles.en-orig.srt"),
+		},
+		{
+			name: "stable regional fallback",
+			matches: []string{
+				filepath.Join("tmp", "subtitles.en-US.srt"),
+				filepath.Join("tmp", "subtitles.en-GB.srt"),
+			},
+			want: filepath.Join("tmp", "subtitles.en-GB.srt"),
+		},
+		{
+			name: "rejects non-English tracks",
+			matches: []string{
+				filepath.Join("tmp", "subtitles.fr.srt"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := selectEnglishSubtitle(baseName, tt.matches); got != tt.want {
+				t.Fatalf("selectEnglishSubtitle() = %q, want %q", got, tt.want)
 			}
 		})
 	}

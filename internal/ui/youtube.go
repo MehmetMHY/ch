@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -13,6 +15,47 @@ func youtubeCommandError(err error, stderr string) error {
 		return err
 	}
 	return fmt.Errorf("%w: %s", err, detail)
+}
+
+// selectEnglishSubtitle prefers the exact English track, then YouTube's
+// original-English track, followed by other English variants. Sorting within
+// each priority keeps selection stable when yt-dlp returns multiple tracks.
+func selectEnglishSubtitle(baseName string, matches []string) string {
+	if len(matches) == 0 {
+		return ""
+	}
+
+	ordered := append([]string(nil), matches...)
+	priority := func(path string) int {
+		name := filepath.Base(path)
+		name = strings.TrimPrefix(name, filepath.Base(baseName)+".")
+		language := strings.TrimSuffix(name, filepath.Ext(name))
+		language = strings.ToLower(language)
+		switch {
+		case language == "en":
+			return 0
+		case language == "en-orig":
+			return 1
+		case strings.HasPrefix(language, "en-") || strings.HasPrefix(language, "en_"):
+			return 2
+		case strings.HasPrefix(language, "en"):
+			return 3
+		default:
+			return 4
+		}
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		left, right := priority(ordered[i]), priority(ordered[j])
+		if left != right {
+			return left < right
+		}
+		return ordered[i] < ordered[j]
+	})
+	if priority(ordered[0]) == 4 {
+		return ""
+	}
+
+	return ordered[0]
 }
 
 // compactSRT strips yt-dlp's SRT chrome to cut token usage without altering the

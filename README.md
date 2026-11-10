@@ -147,8 +147,8 @@ cd ch
 
 The installer automatically:
 
-- Checks for Go 1.26.5+ and dependencies (fzf, yt-dlp, tesseract).
-- Installs missing dependencies via system package managers (apt, brew, pkg, etc.).
+- Checks for Go 1.26.5+ and dependencies (fzf, plus optional yt-dlp, Node.js, and Tesseract OCR).
+- Attempts to install missing dependencies via system package managers (apt, brew, pkg, etc.). Node.js 22+ is needed for YouTube scraping; the installer warns if Node.js is missing or too old, or if yt-dlp lacks the runtime/EJS options Ch uses.
 - Builds and installs Ch to `~/.ch/bin/ch` with temporary files in `~/.ch/tmp/`.
 - Attempts to create a global symlink at `/usr/local/bin/ch` (or `$PREFIX/bin/ch` on Android/Termux).
 - If the symlink creation fails due to permissions, it will automatically install to `~/.ch/bin` and provide instructions to add it to your `PATH`.
@@ -577,11 +577,21 @@ The `-s` and `-w` flags in the terminal CLI are used for web content interaction
 
 ##### YouTube subtitle troubleshooting
 
-Ch asks `yt-dlp` for video metadata and English auto-generated subtitles in separate requests. YouTube may allow metadata but rate-limit the subtitle request with HTTP 429. Ch retains the metadata and reports `Subtitles unavailable`, but there is no transcript. Ch does not transcribe the video's audio as a fallback. Wait before retrying and avoid repeated requests. A 429 does not by itself indicate a malformed URL, and installing Deno does not bypass YouTube's rate limits.
+Ch asks `yt-dlp` for video metadata and English subtitles in separate requests. YouTube may allow metadata but rate-limit the subtitle request with HTTP 429. Ch retains the metadata and reports `Subtitles unavailable`, but there is no transcript. Ch does not transcribe the video's audio as a fallback. Wait before retrying and avoid repeated requests. A 429 does not by itself indicate a malformed URL, and installing a JavaScript runtime does not bypass YouTube's rate limits.
 
-YouTube (Google) regularly changes its site and restrictions on automated access, so `yt-dlp` must continually adapt and scraping may temporarily stop working or become unreliable. If you use Ch's video scraping feature, keeping `yt-dlp` and any required JavaScript runtime up to date is your responsibility.
+YouTube (Google) regularly changes its site and restrictions on automated access, so `yt-dlp` must continually adapt and scraping may temporarily stop working or become unreliable. Keep yt-dlp current as well as Node.js.
 
-Recent `yt-dlp` releases may require a JavaScript runtime for some YouTube extraction steps. [Deno](https://docs.deno.com/runtime/getting_started/installation/) is one supported option; make sure it is on `PATH` when starting Ch. `yt-dlp` may also report that its EJS challenge-solver components were skipped. That is a separate warning from HTTP 429; follow the current [`yt-dlp` EJS guidance](https://github.com/yt-dlp/yt-dlp/wiki/EJS) for its setup.
+Ch explicitly configures yt-dlp to use [Node.js](https://nodejs.org/) as its JavaScript runtime and enables the EJS challenge solver download from GitHub. Install Node.js 22 or newer and make sure the `node` executable is on `PATH` when starting Ch. The installer checks for Node.js and attempts to install it as an optional dependency, but a system package repository may only provide an older release. In that case, install a current version from [nodejs.org](https://nodejs.org/). Check with `node --version`. Use a recent yt-dlp release that supports `--js-runtimes` and `--remote-components`; the installer warns if those options are not listed by the installed yt-dlp. The standard installer does not upgrade already-installed tools, but `./install.sh -R` does.
+
+The EJS solver script is downloaded by yt-dlp from GitHub when needed, so GitHub access may be required. You can test the same setup directly with yt-dlp:
+
+```sh
+yt-dlp --js-runtimes node --remote-components ejs:github \
+  --write-subs --write-auto-subs --sub-langs 'en.*,en' --sub-format srt --skip-download \
+  'https://www.youtube.com/watch?v=VIDEO_ID'
+```
+
+Ch requests manual and auto-generated English tracks. If yt-dlp returns multiple English SRT files, Ch prefers the exact `en` track, then `en-orig`, then other English variants. If there are no English subtitles, Ch cannot provide a transcript. EJS/runtime warnings are separate from HTTP 429 errors. For more details, see the current [`yt-dlp` EJS guidance](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
 
 #### `-w` flag (Web Search)
 
@@ -657,6 +667,7 @@ Contributor and coding-agent guidance is available in [AGENTS.md](./AGENTS.md).
 - [Go 1.26.5 or higher](https://go.dev/dl/)
 - [fzf](https://github.com/junegunn/fzf) for interactive selections
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for [YouTube](https://www.youtube.com/) video scraping
+- [Node.js 22+](https://nodejs.org/) as yt-dlp's JavaScript runtime for YouTube scraping. The installer attempts to install it as an optional dependency and warns if the installed version is too old.
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) **(optional)** for image-to-text extraction from images. The installer will warn you if it's missing.
 - [gosec](https://github.com/securego/gosec) for local security scanning (`go install github.com/securego/gosec/v2/cmd/gosec@latest`)
 - [Gitleaks](https://github.com/gitleaks/gitleaks) for secret scanning (`brew install gitleaks` on macOS)
