@@ -11,7 +11,7 @@ require (
 	github.com/lu4p/cat v0.1.5
 	github.com/otiai10/gosseract/v2 v2.4.1
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
-	github.com/sashabaranov/go-openai v1.43.0
+	github.com/sashabaranov/go-openai v1.44.0
 	github.com/tealeg/xlsx/v3 v3.3.13
 	github.com/tiktoken-go/tokenizer v0.10.0
 	golang.org/x/net v0.63.0
