@@ -7,7 +7,7 @@ require (
 	github.com/ergochat/readline v0.1.3
 	github.com/google/uuid v1.6.0
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
-	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
+	github.com/ledongthuc/pdf v0.0.0-20261125152515-e8918f005efa
 	github.com/lu4p/cat v0.1.5
 	github.com/otiai10/gosseract/v2 v2.4.1
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
@@ -19,7 +19,7 @@ require (
 
 require (
 	github.com/EndFirstCorp/peekingReader v0.0.0-20171012052444-257fb6f1a1a6 // indirect
-	github.com/dlclark/regexp2/v2 v2.13.2 // indirect
+	github.com/dlclark/regexp2/v2 v2.13.3 // indirect
 	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.16 // indirect
 	github.com/google/btree v1.1.3 // indirect
